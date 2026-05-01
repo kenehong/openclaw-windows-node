@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenClawTray.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="24,24,24,24" Spacing="16" MaxWidth="800" HorizontalAlignment="Left">
+
+            <TextBlock Text="🦞 Home" Style="{StaticResource TitleTextBlockStyle}"/>
+
+            <!-- Gateway Status Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16"
+                    AutomationProperties.AutomationId="GatewayStatusCard">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Ellipse x:Name="StatusIndicator" Grid.Column="0"
+                             Width="12" Height="12" Fill="Red"
+                             VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock x:Name="StatusText" Text="Disconnected"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                        <TextBlock x:Name="GatewayUrlText" Text="ws://localhost:18789"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <Button x:Name="ReconnectButton" Grid.Column="2"
+                            Content="Reconnect" VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="ReconnectButton"/>
+                </Grid>
+            </Border>
+
+            <!-- Stats Row: 3 cards side by side -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <!-- Sessions Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16" MinWidth="150">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Sessions" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Name="SessionsCountText" Text="0" FontSize="28" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Usage Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16" MinWidth="150">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Usage" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Name="UsageCostText" Text="$0.00" FontSize="28" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Nodes Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16" MinWidth="150">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Nodes" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Name="NodesCountText" Text="0" FontSize="28" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Quick Actions Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16"
+                    AutomationProperties.AutomationId="QuickActionsCard">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Quick Actions" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="QuickSendButton" Content="Quick Send"
+                                AutomationProperties.AutomationId="QuickSendButton"/>
+                        <Button x:Name="HealthCheckButton" Content="Health Check"
+                                AutomationProperties.AutomationId="HealthCheckButton"/>
+                        <Button x:Name="OpenDashboardButton" Content="Open Dashboard"
+                                AutomationProperties.AutomationId="OpenDashboardButton"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Recent Activity Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Recent Activity" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock x:Name="RecentActivityText" Text="No recent activity" 
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- About Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16"
+                    AutomationProperties.AutomationId="AboutCard">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="🦞 OpenClaw Hub v0.1"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Windows companion for OpenClaw"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -110,11 +110,7 @@ public partial class App : Application
     private static readonly TimeSpan SessionSwitchDebounce = TimeSpan.FromSeconds(3);
 
     // Windows (created on demand)
-    private SettingsWindow? _settingsWindow;
-    private WebChatWindow? _webChatWindow;
-    private StatusDetailWindow? _statusDetailWindow;
-    private NotificationHistoryWindow? _notificationHistoryWindow;
-    private ActivityStreamWindow? _activityStreamWindow;
+    private HubWindow? _hubWindow;
     private TrayMenuWindow? _trayMenuWindow;
     private QuickSendDialog? _quickSendDialog;
     private string? _authFailureMessage;
@@ -509,6 +505,7 @@ public partial class App : Application
             case "status": ShowStatusDetail(); break;
             case "dashboard": OpenDashboard(); break;
             case "webchat": ShowWebChat(); break;
+            case "hub": ShowHub(); break;
             case "quicksend": ShowQuickSend(); break;
             case "history": ShowNotificationHistory(); break;
             case "activity": ShowActivityStream(); break;
@@ -737,242 +734,41 @@ public partial class App : Application
 
         // Status
         var statusIcon = MenuDisplayHelper.GetStatusIcon(_currentStatus);
-        menu.AddMenuItem(string.Format(LocalizationHelper.GetString("Menu_StatusFormat"), LocalizationHelper.GetConnectionStatusText(_currentStatus)), statusIcon, "status");
+        menu.AddMenuItem(string.Format(LocalizationHelper.GetString("Menu_StatusFormat"), LocalizationHelper.GetConnectionStatusText(_currentStatus)), statusIcon, "hub");
 
-        // Auth failure nudge
-        if (!string.IsNullOrEmpty(_authFailureMessage))
-        {
-            menu.AddMenuItem("⚠️ Auth failed — Run Setup", "🔧", "setup");
-        }
-
-        // Activity (if any)
-        if (_currentActivity != null && _currentActivity.Kind != OpenClaw.Shared.ActivityKind.Idle)
-        {
-            menu.AddMenuItem(_currentActivity.DisplayText, _currentActivity.Glyph, "", isEnabled: false);
-        }
-
-        // Usage
-        if (_lastUsage != null || _lastUsageStatus != null || _lastUsageCost != null)
-        {
-            var usageText = _lastUsage?.DisplayText;
-            if (string.IsNullOrWhiteSpace(usageText) || string.Equals(usageText, "No usage data", StringComparison.Ordinal) || string.Equals(usageText, LocalizationHelper.GetString("Menu_NoUsageData"), StringComparison.Ordinal))
-            {
-                usageText = _lastUsageStatus?.Providers.Count > 0
-                    ? MenuDisplayHelper.FormatProviderSummary(_lastUsageStatus.Providers.Count)
-                    : LocalizationHelper.GetString("Menu_NoUsageData");
-            }
-
-            menu.AddMenuItem(usageText ?? LocalizationHelper.GetString("Menu_NoUsageData"), "📊", "activity:usage");
-
-            if (!string.IsNullOrWhiteSpace(_lastUsage?.ProviderSummary))
-            {
-                menu.AddMenuItem(
-                    $"↳ {TruncateMenuText(_lastUsage.ProviderSummary!, 88)}",
-                    "",
-                    "",
-                    isEnabled: false,
-                    indent: true);
-            }
-
-            if (_lastUsageCost is { Days: > 0 } usageCost)
-            {
-                menu.AddMenuItem(
-                    $"↳ {usageCost.Days}d cost: ${usageCost.Totals.TotalCost:F2}",
-                    "",
-                    "",
-                    isEnabled: false,
-                    indent: true);
-                var recent = usageCost.Daily.TakeLast(3).ToArray();
-                if (recent.Length > 0)
-                {
-                    menu.AddMenuItem(
-                        $"↳ Last {recent.Length}d: ${recent.Sum(d => d.TotalCost):F2}",
-                        "",
-                        "",
-                        isEnabled: false,
-                        indent: true);
-                }
-            }
-        }
-        
-        // Node Mode status (if enabled)
-        if (_settings?.EnableNodeMode == true && _nodeService != null)
-        {
-            menu.AddSeparator();
-            menu.AddHeader("🔌 Node Mode");
-            
-            if (_nodeService.IsPendingApproval)
-            {
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_NodeWaitingApproval"), "", "", isEnabled: false, indent: true);
-                menu.AddMenuItem($"ID: {_nodeService.ShortDeviceId}...", "", "copydeviceid", indent: true);
-            }
-            else if (_nodeService.IsPaired && _nodeService.IsConnected)
-            {
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_NodePairedConnected"), "", "", isEnabled: false, indent: true);
-            }
-            else if (_nodeService.IsConnected)
-            {
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_NodeConnecting"), "", "", isEnabled: false, indent: true);
-            }
-            else
-            {
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_NodeDisconnected"), "", "", isEnabled: false, indent: true);
-            }
-        }
-
-        // Sessions (if any) - show meaningful info like the WinForms version
-        if (_lastSessions.Length > 0)
-        {
-            menu.AddSeparator();
-            menu.AddMenuItem(string.Format(LocalizationHelper.GetString("Menu_SessionsFormat"), _lastSessions.Length), "💬", "activity:sessions");
-
-            var visibleSessions = _lastSessions.Take(3).ToArray();
-            foreach (var session in visibleSessions)
-            {
-                var displayName = session.RichDisplayText;
-                if (!string.IsNullOrWhiteSpace(session.AgeText))
-                    displayName += $" · {session.AgeText}";
-                var icon = session.IsMain ? "⭐" : "•";
-                menu.AddMenuItem(displayName, icon, $"session:{session.Key}", indent: true);
-
-                SessionPreviewInfo? preview;
-                lock (_sessionPreviewsLock)
-                {
-                    _sessionPreviews.TryGetValue(session.Key, out preview);
-                }
-
-                if (preview != null)
-                {
-                    var previewText = preview.Items.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Text))?.Text;
-                    if (!string.IsNullOrWhiteSpace(previewText))
-                    {
-                        menu.AddMenuItem(
-                            $"↳ {TruncateMenuText(previewText)}",
-                            "",
-                            "",
-                            isEnabled: false,
-                            indent: true);
-                    }
-                }
-
-                var currentThinking = string.IsNullOrWhiteSpace(session.ThinkingLevel) ? "off" : session.ThinkingLevel;
-                var currentVerbose = string.IsNullOrWhiteSpace(session.VerboseLevel) ? "off" : session.VerboseLevel;
-                var nextVerbose = string.Equals(currentVerbose, "on", StringComparison.OrdinalIgnoreCase) ? "off" : "on";
-                menu.AddMenuItem(
-                    $"↳ Thinking: {currentThinking} → high",
-                    "🧠",
-                    $"session-thinking|high|{session.Key}",
-                    indent: true);
-                menu.AddMenuItem(
-                    $"↳ Verbose: {currentVerbose} → {nextVerbose}",
-                    "📝",
-                    $"session-verbose|{nextVerbose}|{session.Key}",
-                    indent: true);
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_ResetSession"), "♻️", $"session-reset|{session.Key}", indent: true);
-                menu.AddMenuItem(LocalizationHelper.GetString("Menu_CompactLog"), "🗜️", $"session-compact|{session.Key}", indent: true);
-                if (!session.IsMain && !string.Equals(session.Key, "global", StringComparison.OrdinalIgnoreCase))
-                    menu.AddMenuItem(LocalizationHelper.GetString("Menu_DeleteSession"), "🗑️", $"session-delete|{session.Key}", indent: true);
-            }
-            if (_lastSessions.Length > visibleSessions.Length)
-                menu.AddMenuItem($"+{_lastSessions.Length - visibleSessions.Length} more...", "", "", isEnabled: false, indent: true);
-        }
-
-        // Channels (if any)
-        if (_lastChannels.Length > 0)
-        {
-            menu.AddSeparator();
-            menu.AddHeader("📡 Channels");
-
-            foreach (var channel in _lastChannels)
-            {
-                var channelIcon = MenuDisplayHelper.GetChannelStatusIcon(channel.Status);
-                
-                var channelName = char.ToUpper(channel.Name[0]) + channel.Name[1..];
-                menu.AddMenuItem(channelName, channelIcon, $"channel:{channel.Name}", indent: true);
-            }
-        }
-
-        if (_lastNodes.Length > 0)
-        {
-            menu.AddSeparator();
-            menu.AddMenuItem(string.Format(LocalizationHelper.GetString("Menu_NodesFormat"), _lastNodes.Length), "🖥️", "activity:nodes");
-
-            var visibleNodes = _lastNodes.Take(3).ToArray();
-            foreach (var node in visibleNodes)
-            {
-                var icon = node.IsOnline ? "🟢" : "⚪";
-                menu.AddMenuItem(TruncateMenuText(node.DisplayText, 92), icon, "", isEnabled: false, indent: true);
-                menu.AddMenuItem($"↳ {TruncateMenuText(node.DetailText, 92)}", "", "", isEnabled: false, indent: true);
-            }
-
-            if (_lastNodes.Length > visibleNodes.Length)
-                menu.AddMenuItem($"+{_lastNodes.Length - visibleNodes.Length} more...", "", "", isEnabled: false, indent: true);
-
-            menu.AddMenuItem(LocalizationHelper.GetString("Menu_CopyNodeSummary"), "📋", "copynodesummary", indent: true);
-        }
-
-        var recentActivity = GetRecentActivity(maxItems: 4);
-        if (recentActivity.Count > 0)
-        {
-            menu.AddSeparator();
-            var totalActivity = ActivityStreamService.GetItems().Count;
-            var recentActivityFlyoutItems = recentActivity
-                .Select(line => new TrayMenuFlyoutItem(TruncateMenuText(line, 94), "", "activity"))
-                .Append(new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_ActivityStream"), "⚡", "activity"))
-                .ToArray();
-            menu.AddFlyoutMenuItem(
-                string.Format(LocalizationHelper.GetString("Menu_RecentActivityFormat"), totalActivity),
-                "⚡",
-                recentActivityFlyoutItems);
-        }
-
+        // Quick toggles
         menu.AddSeparator();
+        menu.AddHeader("Controls");
 
-        // Actions
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_OpenDashboard"), "🌐", "dashboard");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_OpenWebChat"), "💬", "webchat");
+        menu.AddToggleItem("Node Mode", "🔌", _settings?.EnableNodeMode ?? false, (on) =>
+        {
+            if (_settings != null) { _settings.EnableNodeMode = on; _settings.Save(); OnSettingsSaved(this, EventArgs.Empty); }
+        });
+
+        menu.AddToggleItem("Notifications", "🔔", _settings?.ShowNotifications ?? true, (on) =>
+        {
+            if (_settings != null) { _settings.ShowNotifications = on; _settings.Save(); }
+        });
+
+        menu.AddToggleItem("Quick Send Hotkey", "⌨️", _settings?.GlobalHotkeyEnabled ?? true, (on) =>
+        {
+            if (_settings != null)
+            {
+                _settings.GlobalHotkeyEnabled = on;
+                _settings.Save();
+                if (on) { _globalHotkey ??= new GlobalHotkeyService(); _globalHotkey.HotkeyPressed -= OnGlobalHotkeyPressed; _globalHotkey.HotkeyPressed += OnGlobalHotkeyPressed; _globalHotkey.Register(); }
+                else { _globalHotkey?.Unregister(); }
+            }
+        });
+
+        // Primary actions
+        menu.AddSeparator();
+        menu.AddMenuItem("Open Hub", "🦞", "hub");
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_QuickSend"), "📤", "quicksend");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_ActivityStream"), "⚡", "activity");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_NotificationHistory"), "📋", "history");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_RunHealthCheck"), "🔄", "healthcheck");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_CheckForUpdates"), "⬇️", "checkupdates");
 
+        // Settings & Exit
         menu.AddSeparator();
-
-        // Settings & Setup
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_Settings"), "⚙️", "settings");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_SetupGuide"), "🧭", "setup");
-        var autoStartText = (_settings?.AutoStart ?? false)
-            ? LocalizationHelper.GetString("Menu_AutoStartEnabled")
-            : LocalizationHelper.GetString("Menu_AutoStart");
-        menu.AddMenuItem(autoStartText, "🚀", "autostart");
-
-        menu.AddSeparator();
-
-        menu.AddHeader(LocalizationHelper.GetString("Menu_SupportDebugHeader"));
-        menu.AddFlyoutMenuItem(LocalizationHelper.GetString("Menu_OpenSupportFiles"), "📁", new[]
-        {
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_OpenLogFile"), "📄", "log"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_LogsFolder"), "📁", "logfolder"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_ConfigFolder"), "🗂️", "configfolder"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_DiagnosticsFolder"), "🧪", "diagnosticsfolder")
-        }, indent: true);
-        menu.AddFlyoutMenuItem(LocalizationHelper.GetString("Menu_CopyDiagnostics"), "📋", new[]
-        {
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_SupportContext"), "📋", "supportcontext"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_DebugBundle"), "🧰", "debugbundle"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_BrowserSetup"), "🌐", "browsersetup"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_PortDiagnostics"), "🔌", "portdiagnostics"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_CapabilityDiagnostics"), "🛡️", "capabilitydiagnostics"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_NodeInventory"), "🖥️", "nodeinventory"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_ChannelSummary"), "📡", "channelsummary"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_ActivitySummary"), "⚡", "activitysummary"),
-            new TrayMenuFlyoutItem(LocalizationHelper.GetString("Menu_ExtensibilitySummary"), "🧩", "extensibilitysummary")
-        }, indent: true);
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_RestartSshTunnel"), "🔁", "restartsshtunnel", indent: true);
-
-        menu.AddSeparator();
-
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_Exit"), "❌", "exit");
     }
 
@@ -1116,6 +912,7 @@ public partial class App : Application
         if (_settings?.EnableNodeMode == true)
         {
             _currentStatus = status;
+            _hubWindow?.UpdateStatus(_currentStatus);
             UpdateTrayIcon();
             _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
         }
@@ -1240,6 +1037,7 @@ public partial class App : Application
             status = status.ToString(),
             nodeMode = _settings?.EnableNodeMode == true
         });
+        _hubWindow?.UpdateStatus(_currentStatus);
         if (status == ConnectionStatus.Connected)
             _authFailureMessage = null;
         UpdateTrayIcon();
@@ -1329,6 +1127,7 @@ public partial class App : Application
         _dispatcherQueue?.TryEnqueue(() =>
         {
             UpdateStatusDetailWindow();
+            _hubWindow?.UpdateStatus(_currentStatus);
         });
     }
 
@@ -1541,7 +1340,7 @@ public partial class App : Application
         // Suppress chat notifications when a chat window is already showing them
         if (notification.IsChat)
         {
-            if (_webChatWindow != null && !_webChatWindow.IsClosed)
+            if (_hubWindow != null && !_hubWindow.IsClosed)
                 return false;
             if (_onboardingWindow != null)
                 return false; // Onboarding window has chat overlay
@@ -1708,23 +1507,39 @@ public partial class App : Application
 
     #region Window Management
 
+    private void ShowHub(string? navigateTo = null)
+    {
+        if (_hubWindow == null || _hubWindow.IsClosed)
+        {
+            _hubWindow = new HubWindow();
+            _hubWindow.Settings = _settings;
+            _hubWindow.GatewayClient = _gatewayClient;
+            _hubWindow.CurrentStatus = _currentStatus;
+            _hubWindow.OpenDashboardAction = OpenDashboard;
+            _hubWindow.SettingsSaved += OnSettingsSaved;
+            _hubWindow.Closed += (s, e) =>
+            {
+                _hubWindow.SettingsSaved -= OnSettingsSaved;
+                _hubWindow = null;
+            };
+            // Navigate to default page now that properties are set
+            _hubWindow.NavigateToDefault();
+        }
+        // Always update live state
+        _hubWindow.Settings = _settings;
+        _hubWindow.GatewayClient = _gatewayClient;
+        _hubWindow.CurrentStatus = _currentStatus;
+
+        if (navigateTo != null)
+        {
+            _hubWindow.NavigateTo(navigateTo);
+        }
+        _hubWindow.Activate();
+    }
+
     private void ShowSettings()
     {
-        if (_settingsWindow == null || _settingsWindow.IsClosed)
-        {
-            // Pass a delegate so the settings window sees the current NodeService
-            // even after OnSettingsSaved disposes/recreates it (M31).
-            _settingsWindow = new SettingsWindow(_settings!, () => _nodeService);
-            _settingsWindow.Closed += (s, e) => 
-            {
-                _settingsWindow.SettingsSaved -= OnSettingsSaved;
-                _settingsWindow.CommandCenterRequested -= OnSettingsCommandCenterRequested;
-                _settingsWindow = null;
-            };
-            _settingsWindow.SettingsSaved += OnSettingsSaved;
-            _settingsWindow.CommandCenterRequested += OnSettingsCommandCenterRequested;
-        }
-        _settingsWindow.Activate();
+        ShowHub("settings");
     }
 
     private void OnSettingsCommandCenterRequested(object? sender, EventArgs e)
@@ -1750,6 +1565,7 @@ public partial class App : Application
 
         // Reset status so the tray doesn't show a stale "Connected" from the previous mode
         _currentStatus = ConnectionStatus.Disconnected;
+        _hubWindow?.UpdateStatus(_currentStatus);
         UpdateTrayIcon();
         
         if (_settings?.EnableNodeMode == true || _settings?.EnableMcpServer == true)
@@ -1761,14 +1577,8 @@ public partial class App : Application
             InitializeGatewayClient();
         }
 
-        // Refresh the open settings window's MCP status — the new node service
-        // is now wired and the window should show "Listening" / startup error
-        // for the new instance, not stale text from the disposed one (M31).
-        if (_settingsWindow != null && !_settingsWindow.IsClosed)
-        {
-            try { _settingsWindow.RefreshMcpStatus(); }
-            catch (Exception ex) { Logger.Warn($"Settings refresh error: {ex.Message}"); }
-        }
+        // Refresh the Hub window if it's open
+        _hubWindow?.UpdateStatus(_currentStatus);
 
         // Update global hotkey
         if (_settings!.GlobalHotkeyEnabled)
@@ -1789,15 +1599,7 @@ public partial class App : Application
 
     private void ShowWebChat()
     {
-        if (_settings == null) return;
-        if (!EnsureSshTunnelConfigured()) return;
-
-        if (_webChatWindow == null || _webChatWindow.IsClosed)
-        {
-            _webChatWindow = new WebChatWindow(_settings.GetEffectiveGatewayUrl(), _settings.Token);
-            _webChatWindow.Closed += (s, e) => _webChatWindow = null;
-        }
-        _webChatWindow.Activate();
+        ShowHub("chat");
     }
 
     private void ShowQuickSend(string? prefillMessage = null)
@@ -1848,22 +1650,7 @@ public partial class App : Application
 
     private void ShowStatusDetail()
     {
-        if (_statusDetailWindow == null || _statusDetailWindow.IsClosed)
-        {
-            _statusDetailWindow = new StatusDetailWindow(BuildCommandCenterState());
-            _statusDetailWindow.RefreshRequested += async (s, e) => await RefreshCommandCenterAsync();
-            _statusDetailWindow.ActivityStreamRequested += (s, e) => ShowActivityStream();
-            _statusDetailWindow.ChannelToggleRequested += (s, channelName) => ToggleChannel(channelName);
-            _statusDetailWindow.DashboardPathRequested += (s, dashboardPath) => OpenDashboard(dashboardPath);
-            _statusDetailWindow.RestartSshTunnelRequested += (s, e) => RestartSshTunnel();
-            _statusDetailWindow.CheckUpdatesRequested += async (s, e) => await CheckForUpdatesUserInitiatedAsync();
-            _statusDetailWindow.Closed += (s, e) => _statusDetailWindow = null;
-        }
-        else
-        {
-            _statusDetailWindow.UpdateStatus(BuildCommandCenterState());
-        }
-        _statusDetailWindow.Activate();
+        ShowHub("home");
     }
 
     private void RestartSshTunnel()
@@ -1936,10 +1723,7 @@ public partial class App : Application
 
     private void UpdateStatusDetailWindow()
     {
-        if (_statusDetailWindow != null && !_statusDetailWindow.IsClosed)
-        {
-            _statusDetailWindow.UpdateStatus(BuildCommandCenterState());
-        }
+        _hubWindow?.UpdateStatus(_currentStatus);
     }
 
     private GatewayCommandCenterState BuildCommandCenterState()
@@ -2354,24 +2138,12 @@ public partial class App : Application
 
     private void ShowNotificationHistory()
     {
-        if (_notificationHistoryWindow == null || _notificationHistoryWindow.IsClosed)
-        {
-            _notificationHistoryWindow = new NotificationHistoryWindow();
-            _notificationHistoryWindow.Closed += (s, e) => _notificationHistoryWindow = null;
-        }
-        _notificationHistoryWindow.Activate();
+        ShowHub("activity");
     }
 
     private void ShowActivityStream(string? filter = null)
     {
-        if (_activityStreamWindow == null || _activityStreamWindow.IsClosed)
-        {
-            _activityStreamWindow = new ActivityStreamWindow(OpenDashboard);
-            _activityStreamWindow.Closed += (s, e) => _activityStreamWindow = null;
-        }
-
-        _activityStreamWindow.SetFilter(filter);
-        _activityStreamWindow.Activate();
+        ShowHub("activity");
     }
 
     private OnboardingWindow? _onboardingWindow;
@@ -2407,6 +2179,7 @@ public partial class App : Application
             try { oldNodeService?.Dispose(); } catch (Exception ex) { Logger.Warn($"Node dispose error: {ex.Message}"); }
 
             _currentStatus = ConnectionStatus.Disconnected;
+            _hubWindow?.UpdateStatus(_currentStatus);
             UpdateTrayIcon();
 
             if (_settings.EnableNodeMode || _settings.EnableMcpServer)
@@ -2944,6 +2717,7 @@ public partial class App : Application
             OpenNotificationHistory = ShowNotificationHistory,
             OpenDashboard = OpenDashboard,
             OpenQuickSend = ShowQuickSend,
+            OpenHub = (page) => ShowHub(page),
             SendMessage = async (msg) =>
             {
                 if (_gatewayClient != null)
@@ -3083,16 +2857,6 @@ public partial class App : Application
         });
 
         // Close windows explicitly for deterministic shutdown tracing.
-        SafeShutdownStep("settings window", () => CloseWindow(_settingsWindow));
-        _settingsWindow = null;
-        SafeShutdownStep("web chat window", () => CloseWindow(_webChatWindow));
-        _webChatWindow = null;
-        SafeShutdownStep("status detail window", () => CloseWindow(_statusDetailWindow));
-        _statusDetailWindow = null;
-        SafeShutdownStep("notification history window", () => CloseWindow(_notificationHistoryWindow));
-        _notificationHistoryWindow = null;
-        SafeShutdownStep("activity stream window", () => CloseWindow(_activityStreamWindow));
-        _activityStreamWindow = null;
         SafeShutdownStep("tray menu window", () => CloseWindow(_trayMenuWindow));
         _trayMenuWindow = null;
         SafeShutdownStep("quick send dialog", () => CloseWindow(_quickSendDialog));
@@ -3167,6 +2931,7 @@ public partial class App : Application
             {
                 Logger.Warn("SSH tunnel is enabled but settings are incomplete");
                 _currentStatus = ConnectionStatus.Error;
+                _hubWindow?.UpdateStatus(_currentStatus);
                 UpdateTrayIcon();
                 return false;
             }
@@ -3187,6 +2952,7 @@ public partial class App : Application
             {
                 Logger.Error($"Failed to start SSH tunnel: {ex.Message}");
                 _currentStatus = ConnectionStatus.Error;
+                _hubWindow?.UpdateStatus(_currentStatus);
                 UpdateTrayIcon();
                 return false;
             }

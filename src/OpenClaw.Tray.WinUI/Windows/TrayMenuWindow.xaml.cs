@@ -102,6 +102,7 @@ public sealed partial class TrayMenuWindow : WindowEx
 
     private int _menuHeight = 400;
     private int _itemCount = 0;
+    private int _toggleCount = 0;
     private int _separatorCount = 0;
     private int _headerCount = 0;
     private bool _styleApplied = false;
@@ -127,6 +128,9 @@ public sealed partial class TrayMenuWindow : WindowEx
         this.IsMinimizable = false;
         this.IsResizable = false;
         this.IsAlwaysOnTop = true;
+        
+        // Apply acrylic backdrop for system-consistent transparency
+        BackdropHelper.TrySetAcrylicBackdrop(this);
         
         // NOTE: Do NOT set IsTitleBarVisible = false!
         // Bug 57667927: causes fail-fast in WndProc during dictionary enumeration.
@@ -165,9 +169,6 @@ public sealed partial class TrayMenuWindow : WindowEx
             GetMonitorInfo(hMonitor, ref monitorInfo);
             var workArea = monitorInfo.rcWork;
 
-            // Prefer using the AppWindow's actual pixel size. This is more reliable than
-            // estimating based on DPI and item counts, especially on Windows 10 when the
-            // cursor can be in the taskbar region (outside rcWork).
             int menuWidthPx;
             int menuHeightPx;
             try
@@ -181,13 +182,12 @@ public sealed partial class TrayMenuWindow : WindowEx
                 menuHeightPx = 0;
             }
 
-            // Fallback to a conservative estimate if AppWindow size isn't available yet.
             if (menuWidthPx <= 0 || menuHeightPx <= 0)
             {
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
                 uint dpi = GetEffectiveMonitorDpi(hMonitor, hwnd);
                 double scale = dpi / 96.0;
-                menuWidthPx = (int)(280 * scale);
+                menuWidthPx = (int)(320 * scale);
                 menuHeightPx = (int)(_menuHeight * scale);
             }
 
@@ -359,6 +359,55 @@ public sealed partial class TrayMenuWindow : WindowEx
         _itemCount++;
     }
 
+    public void AddToggleItem(string text, string? icon, bool isOn, Action<bool> onToggled)
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Padding = new Thickness(12, 6, 12, 6)
+        };
+
+        if (!string.IsNullOrEmpty(icon))
+        {
+            panel.Children.Add(new TextBlock { Text = icon, VerticalAlignment = VerticalAlignment.Center });
+        }
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var toggle = new ToggleSwitch
+        {
+            IsOn = isOn,
+            MinWidth = 0,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0)
+        };
+
+        toggle.Toggled += (s, e) => onToggled(toggle.IsOn);
+
+        var container = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
+        container.Children.Add(panel);
+        container.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Children = { toggle }
+        });
+
+        // Hover effect on the row
+        container.PointerEntered += (s, e) =>
+            container.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+        container.PointerExited += (s, e) =>
+            container.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+
+        MenuPanel.Children.Add(container);
+        _toggleCount++;
+    }
+
     public void AddSeparator()
     {
         MenuPanel.Children.Add(new Border
@@ -414,6 +463,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         HideActiveFlyout();
         MenuPanel.Children.Clear();
         _itemCount = 0;
+        _toggleCount = 0;
         _separatorCount = 0;
         _headerCount = 0;
     }
@@ -430,23 +480,21 @@ public sealed partial class TrayMenuWindow : WindowEx
     /// </summary>
     public void SizeToContent()
     {
-        // Calculate height based on item counts
-        // Menu items: ~36px each (button with padding)
-        // Separators: ~13px each  
-        // Headers: ~30px each
-        // Plus padding: ~16px
-        var contentHeight = (_itemCount * 36) + (_separatorCount * 13) + (_headerCount * 30) + 16;
-        _menuHeight = Math.Max(contentHeight, 100); // minimum
+        // Measure the actual content size instead of estimating
+        MenuPanel.Measure(new global::Windows.Foundation.Size(320, double.PositiveInfinity));
+        var desiredHeight = MenuPanel.DesiredSize.Height;
+        
+        // Add border padding (top+bottom from StackPanel Padding=6,8 + Border chrome)
+        var contentHeight = (int)Math.Ceiling(desiredHeight) + 24;
+        _menuHeight = Math.Max(contentHeight, 100);
 
         if (TryGetCurrentMonitorMetrics(out var workAreaHeightPx, out var dpi))
         {
-            // Constrain the popup to the visible work area so the ScrollViewer gets
-            // a viewport and the menu stays reachable near the tray/taskbar.
             var workAreaHeight = MenuSizingHelper.ConvertPixelsToViewUnits(workAreaHeightPx, dpi);
-            _menuHeight = MenuSizingHelper.CalculateWindowHeight(contentHeight, workAreaHeight);
+            _menuHeight = MenuSizingHelper.CalculateWindowHeight(_menuHeight, workAreaHeight);
         }
 
-        this.SetWindowSize(280, _menuHeight);
+        this.SetWindowSize(320, _menuHeight);
         ApplyRoundedWindowRegion();
     }
 
