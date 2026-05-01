@@ -87,10 +87,21 @@ public sealed partial class ChatPage : Page
                 LoadingRing.IsActive = false;
                 LoadingRing.Visibility = Visibility.Collapsed;
 
-                if (!e.IsSuccess && (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
+                if (e.IsSuccess)
+                {
+                    // Hide the web Control UI sidebar since Hub NavigationView handles nav
+                    _ = WebView.CoreWebView2.ExecuteScriptAsync(@"
+                        (function() {
+                            var style = document.createElement('style');
+                            style.textContent = 'nav, [data-sidebar], .sidebar, aside { display: none !important; } main, [data-main], .main-content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }';
+                            document.head.appendChild(style);
+                        })();
+                    ");
+                }
+                else if (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
                                       e.WebErrorStatus == CoreWebView2WebErrorStatus.CannotConnect ||
                                       e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionReset ||
-                                      e.WebErrorStatus == CoreWebView2WebErrorStatus.ServerUnreachable))
+                                      e.WebErrorStatus == CoreWebView2WebErrorStatus.ServerUnreachable)
                 {
                     WebView.Visibility = Visibility.Collapsed;
                     ErrorPanel.Visibility = Visibility.Visible;

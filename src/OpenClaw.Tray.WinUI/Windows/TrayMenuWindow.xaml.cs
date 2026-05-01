@@ -383,6 +383,8 @@ public sealed partial class TrayMenuWindow : WindowEx
         {
             IsOn = isOn,
             MinWidth = 0,
+            OnContent = "",
+            OffContent = "",
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0)
         };
