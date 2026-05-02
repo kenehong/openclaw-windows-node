@@ -145,6 +145,12 @@ public class OpenClawGatewayClient : WebSocketClientBase
     public event EventHandler<SessionsPreviewPayloadInfo>? SessionPreviewUpdated;
     public event EventHandler<SessionCommandResult>? SessionCommandCompleted;
     public event EventHandler<GatewaySelfInfo>? GatewaySelfUpdated;
+    public event EventHandler<JsonElement>? CronListUpdated;
+    public event EventHandler<JsonElement>? CronStatusUpdated;
+    public event EventHandler<JsonElement>? CronRunsUpdated;
+    public event EventHandler<JsonElement>? SkillsStatusUpdated;
+    public event EventHandler<JsonElement>? ConfigUpdated;
+    public event EventHandler<JsonElement>? ConfigSchemaUpdated;
 
     public string? OperatorDeviceId => _operatorDeviceId;
     public IReadOnlyList<string> GrantedOperatorScopes => _grantedOperatorScopes;
@@ -386,6 +392,82 @@ public class OpenClawGatewayClient : WebSocketClientBase
         if (string.IsNullOrWhiteSpace(key)) return Task.FromResult(false);
         if (maxLines <= 0) maxLines = 400;
         return TrySendTrackedRequestAsync("sessions.compact", new { key, maxLines });
+    }
+
+    // Cron job management
+
+    public async Task RequestCronListAsync()
+    {
+        await SendTrackedRequestAsync("cron.list");
+    }
+
+    public async Task RequestCronStatusAsync()
+    {
+        await SendTrackedRequestAsync("cron.status");
+    }
+
+    public async Task RequestCronRunsAsync(string jobId, int limit = 200)
+    {
+        await SendTrackedRequestAsync("cron.runs", new { jobId, limit });
+    }
+
+    public Task<bool> RunCronJobAsync(string jobId, bool force = true)
+    {
+        return TrySendTrackedRequestAsync("cron.run", new { jobId, force });
+    }
+
+    public Task<bool> RemoveCronJobAsync(string jobId)
+    {
+        return TrySendTrackedRequestAsync("cron.remove", new { id = jobId });
+    }
+
+    public Task<bool> UpdateCronJobAsync(string jobId, object updates)
+    {
+        return TrySendTrackedRequestAsync("cron.update", new { id = jobId, updates });
+    }
+
+    public Task<bool> AddCronJobAsync(string name, string schedule, string command)
+    {
+        return TrySendTrackedRequestAsync("cron.add", new { name, schedule, command });
+    }
+
+    // Skills/plugin management
+
+    public async Task RequestSkillsStatusAsync()
+    {
+        await SendTrackedRequestAsync("skills.status");
+    }
+
+    public Task<bool> InstallSkillAsync(string skillId)
+    {
+        return TrySendTrackedRequestAsync("skills.install", new { id = skillId });
+    }
+
+    public Task<bool> UpdateSkillAsync(string skillId)
+    {
+        return TrySendTrackedRequestAsync("skills.update", new { id = skillId });
+    }
+
+    // Gateway config management
+
+    public async Task RequestConfigAsync()
+    {
+        await SendTrackedRequestAsync("config.get");
+    }
+
+    public async Task RequestConfigSchemaAsync()
+    {
+        await SendTrackedRequestAsync("config.schema");
+    }
+
+    public Task<bool> SetConfigAsync(string path, object value)
+    {
+        return TrySendTrackedRequestAsync("config.set", new { path, value });
+    }
+
+    public Task<bool> PatchConfigAsync(object patch)
+    {
+        return TrySendTrackedRequestAsync("config.patch", new { patch });
     }
 
     /// <summary>Start a channel (telegram, whatsapp, etc).</summary>
@@ -875,6 +957,35 @@ public class OpenClawGatewayClient : WebSocketClientBase
             case "sessions.delete":
             case "sessions.compact":
                 ParseSessionCommandResult(method, payload);
+                return true;
+            case "cron.list":
+                CronListUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "cron.status":
+                CronStatusUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "cron.runs":
+                CronRunsUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "cron.run":
+            case "cron.remove":
+            case "cron.update":
+            case "cron.add":
+                return true;
+            case "skills.status":
+                SkillsStatusUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "skills.install":
+            case "skills.update":
+                return true;
+            case "config.get":
+                ConfigUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "config.schema":
+                ConfigSchemaUpdated?.Invoke(this, payload.Clone());
+                return true;
+            case "config.set":
+            case "config.patch":
                 return true;
             default:
                 return false;
@@ -1674,8 +1785,16 @@ public class OpenClawGatewayClient : WebSocketClientBase
 
         if (item.TryGetProperty("startedAt", out var started))
         {
-            if (DateTime.TryParse(started.GetString(), out var dt))
-                session.StartedAt = dt;
+            if (started.ValueKind == JsonValueKind.String)
+            {
+                if (DateTime.TryParse(started.GetString(), out var dt))
+                    session.StartedAt = dt;
+            }
+            else if (started.ValueKind == JsonValueKind.Number)
+            {
+                var ms = started.GetInt64();
+                session.StartedAt = DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime;
+            }
         }
     }
 

@@ -227,11 +227,11 @@ public class DeepLinkParserTests
     #region DeepLinkHandler
 
     [Theory]
-    [InlineData("openclaw://settings", nameof(DeepLinkActions.OpenSettings))]
+    [InlineData("openclaw://settings", nameof(DeepLinkActions.OpenHub))]
     [InlineData("openclaw://setup", nameof(DeepLinkActions.OpenSetup))]
-    [InlineData("openclaw://chat", nameof(DeepLinkActions.OpenChat))]
-    [InlineData("openclaw://commandcenter", nameof(DeepLinkActions.OpenCommandCenter))]
-    [InlineData("openclaw://history", nameof(DeepLinkActions.OpenNotificationHistory))]
+    [InlineData("openclaw://chat", nameof(DeepLinkActions.OpenHub))]
+    [InlineData("openclaw://commandcenter", nameof(DeepLinkActions.OpenHub))]
+    [InlineData("openclaw://history", nameof(DeepLinkActions.OpenHub))]
     [InlineData("openclaw://logs", nameof(DeepLinkActions.OpenLogFile))]
     [InlineData("openclaw://log-folder", nameof(DeepLinkActions.OpenLogFolder))]
     [InlineData("openclaw://config", nameof(DeepLinkActions.OpenConfigFolder))]
@@ -252,11 +252,8 @@ public class DeepLinkParserTests
         var invoked = "";
         var actions = new DeepLinkActions
         {
-            OpenSettings = () => invoked = nameof(DeepLinkActions.OpenSettings),
+            OpenHub = _ => invoked = nameof(DeepLinkActions.OpenHub),
             OpenSetup = () => invoked = nameof(DeepLinkActions.OpenSetup),
-            OpenChat = () => invoked = nameof(DeepLinkActions.OpenChat),
-            OpenCommandCenter = () => invoked = nameof(DeepLinkActions.OpenCommandCenter),
-            OpenNotificationHistory = () => invoked = nameof(DeepLinkActions.OpenNotificationHistory),
             OpenLogFile = () => invoked = nameof(DeepLinkActions.OpenLogFile),
             OpenLogFolder = () => invoked = nameof(DeepLinkActions.OpenLogFolder),
             OpenConfigFolder = () => invoked = nameof(DeepLinkActions.OpenConfigFolder),
@@ -300,15 +297,15 @@ public class DeepLinkParserTests
     [Fact]
     public void Handle_Activity_PassesFilter()
     {
-        string? filter = null;
+        string? hubPage = null;
         var actions = new DeepLinkActions
         {
-            OpenActivityStream = value => filter = value
+            OpenHub = value => hubPage = value
         };
 
         DeepLinkHandler.Handle("openclaw://activity?filter=nodes", actions);
 
-        Assert.Equal("nodes", filter);
+        Assert.Equal("activity", hubPage);
     }
 
     [Fact]

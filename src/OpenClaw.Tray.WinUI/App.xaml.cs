@@ -351,17 +351,12 @@ public partial class App : Application
         InitializeTrayIcon();
         ShowSurfaceImprovementsTipIfNeeded();
 
-        // Initialize connections - only use operator if neither node mode nor
-        // MCP server is enabled (dual connections cause gateway conflicts).
-        if (_settings?.EnableNodeMode == true || _settings?.EnableMcpServer == true)
+        // Initialize connections — always create operator client for UI data,
+        // additionally create node service if node mode is enabled
+        InitializeGatewayClient();
+        if (_settings?.EnableNodeMode == true)
         {
-            // Node and/or MCP-only path
             InitializeNodeService();
-        }
-        else
-        {
-            // Operator mode: use operator connection
-            InitializeGatewayClient();
         }
 
         // Start health check timer
@@ -817,6 +812,9 @@ public partial class App : Application
         _gatewayClient.SessionPreviewUpdated += OnSessionPreviewUpdated;
         _gatewayClient.SessionCommandCompleted += OnSessionCommandCompleted;
         _gatewayClient.GatewaySelfUpdated += OnGatewaySelfUpdated;
+        _gatewayClient.CronListUpdated += OnCronListUpdated;
+        _gatewayClient.ConfigUpdated += OnConfigUpdated;
+        _gatewayClient.SkillsStatusUpdated += OnSkillsStatusUpdated;
         _ = _gatewayClient.ConnectAsync();
     }
 
@@ -837,6 +835,9 @@ public partial class App : Application
             _gatewayClient.SessionPreviewUpdated -= OnSessionPreviewUpdated;
             _gatewayClient.SessionCommandCompleted -= OnSessionCommandCompleted;
             _gatewayClient.GatewaySelfUpdated -= OnGatewaySelfUpdated;
+            _gatewayClient.CronListUpdated -= OnCronListUpdated;
+            _gatewayClient.ConfigUpdated -= OnConfigUpdated;
+            _gatewayClient.SkillsStatusUpdated -= OnSkillsStatusUpdated;
         }
     }
     
@@ -1126,7 +1127,7 @@ public partial class App : Application
 
         _dispatcherQueue?.TryEnqueue(() =>
         {
-            UpdateStatusDetailWindow();
+            _hubWindow?.UpdateChannelHealth(channels);
             _hubWindow?.UpdateStatus(_currentStatus);
         });
     }
@@ -1135,6 +1136,11 @@ public partial class App : Application
     {
         _lastSessions = sessions;
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            _hubWindow?.UpdateSessions(sessions);
+        });
 
         var activeKeys = new HashSet<string>(sessions.Select(s => s.Key), StringComparer.Ordinal);
         lock (_sessionPreviewsLock)
@@ -1157,19 +1163,30 @@ public partial class App : Application
     private void OnUsageUpdated(object? sender, GatewayUsageInfo usage)
     {
         _lastUsage = usage;
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            _hubWindow?.UpdateUsage(usage);
+        });
     }
 
     private void OnUsageStatusUpdated(object? sender, GatewayUsageStatusInfo usageStatus)
     {
         _lastUsageStatus = usageStatus;
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            _hubWindow?.UpdateUsageStatus(usageStatus);
+        });
     }
 
     private void OnUsageCostUpdated(object? sender, GatewayCostUsageInfo usageCost)
     {
         _lastUsageCost = usageCost;
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            _hubWindow?.UpdateUsageCost(usageCost);
+        });
 
         if (DateTime.UtcNow - _lastUsageActivityLogUtc > TimeSpan.FromMinutes(1))
         {
@@ -1205,6 +1222,11 @@ public partial class App : Application
         var online = nodes.Count(n => n.IsOnline);
         _lastNodes = nodes;
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+
+        _dispatcherQueue?.TryEnqueue(() =>
+        {
+            _hubWindow?.UpdateNodes(nodes);
+        });
 
         if (nodes.Length != previousCount || online != previousOnline)
         {
@@ -1269,6 +1291,21 @@ public partial class App : Application
         {
             _ = _gatewayClient?.RequestSessionsAsync();
         }
+    }
+
+    private void OnCronListUpdated(object? sender, System.Text.Json.JsonElement data)
+    {
+        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateCronList(data));
+    }
+
+    private void OnSkillsStatusUpdated(object? sender, System.Text.Json.JsonElement data)
+    {
+        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateSkillsStatus(data));
+    }
+
+    private void OnConfigUpdated(object? sender, System.Text.Json.JsonElement data)
+    {
+        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfig(data));
     }
 
     private void OnNotificationReceived(object? sender, OpenClawNotification notification)
@@ -1568,13 +1605,13 @@ public partial class App : Application
         _hubWindow?.UpdateStatus(_currentStatus);
         UpdateTrayIcon();
         
-        if (_settings?.EnableNodeMode == true || _settings?.EnableMcpServer == true)
+        // Always reconnect operator client for UI data
+        InitializeGatewayClient();
+        
+        // Additionally reconnect node service if enabled
+        if (_settings?.EnableNodeMode == true)
         {
             InitializeNodeService();
-        }
-        else
-        {
-            InitializeGatewayClient();
         }
 
         // Refresh the Hub window if it's open
@@ -1595,6 +1632,14 @@ public partial class App : Application
 
         // Update auto-start
         AutoStartManager.SetAutoStart(_settings.AutoStart);
+
+        // Keep hub window in sync with new client
+        if (_hubWindow != null && !_hubWindow.IsClosed)
+        {
+            _hubWindow.Settings = _settings;
+            _hubWindow.GatewayClient = _gatewayClient;
+            _hubWindow.CurrentStatus = _currentStatus;
+        }
     }
 
     private void ShowWebChat()
@@ -1970,7 +2015,7 @@ public partial class App : Application
                     Title = "Browser proxy host not detected",
                     Detail = "browser.proxy needs a compatible browser-control host listening on the gateway port + 2.",
                     RepairAction = "Copy browser setup guidance",
-                    CopyText = StatusDetailWindow.BuildBrowserSetupGuidance(port.Port, topology, tunnel)
+                    CopyText = CommandCenterTextHelper.BuildBrowserSetupGuidance(port.Port, topology, tunnel)
                 };
             }
         }
@@ -2182,10 +2227,18 @@ public partial class App : Application
             _hubWindow?.UpdateStatus(_currentStatus);
             UpdateTrayIcon();
 
-            if (_settings.EnableNodeMode || _settings.EnableMcpServer)
+            // Always reconnect operator client for UI data
+            InitializeGatewayClient();
+            if (_settings.EnableNodeMode)
                 InitializeNodeService();
-            else
-                InitializeGatewayClient();
+
+            // Keep hub window in sync with new client
+            if (_hubWindow != null && !_hubWindow.IsClosed)
+            {
+                _hubWindow.Settings = _settings;
+                _hubWindow.GatewayClient = _gatewayClient;
+                _hubWindow.CurrentStatus = _currentStatus;
+            }
         };
         _onboardingWindow.Closed += (s, e) => _onboardingWindow = null;
         _onboardingWindow.Activate();
@@ -2352,7 +2405,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildSupportContext(BuildCommandCenterState()));
+            package.SetText(CommandCenterTextHelper.BuildSupportContext(BuildCommandCenterState()));
             Clipboard.SetContent(package);
             Logger.Info("Copied support context from deep link");
         }
@@ -2367,7 +2420,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildDebugBundle(BuildCommandCenterState()));
+            package.SetText(CommandCenterTextHelper.BuildDebugBundle(BuildCommandCenterState()));
             Clipboard.SetContent(package);
             Logger.Info("Copied debug bundle from deep link");
         }
@@ -2382,7 +2435,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildBrowserSetupGuidance(BuildCommandCenterState()));
+            package.SetText(CommandCenterTextHelper.BuildBrowserSetupGuidance(BuildCommandCenterState()));
             Clipboard.SetContent(package);
             Logger.Info("Copied browser setup guidance from deep link");
         }
@@ -2397,7 +2450,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildPortDiagnosticsSummary(BuildCommandCenterState().PortDiagnostics));
+            package.SetText(CommandCenterTextHelper.BuildPortDiagnosticsSummary(BuildCommandCenterState().PortDiagnostics));
             Clipboard.SetContent(package);
             Logger.Info("Copied port diagnostics from deep link");
         }
@@ -2412,7 +2465,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildCapabilityDiagnosticsSummary(BuildCommandCenterState()));
+            package.SetText(CommandCenterTextHelper.BuildCapabilityDiagnosticsSummary(BuildCommandCenterState()));
             Clipboard.SetContent(package);
             Logger.Info("Copied capability diagnostics from deep link");
         }
@@ -2427,7 +2480,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildNodeInventorySummary(BuildCommandCenterState().Nodes));
+            package.SetText(CommandCenterTextHelper.BuildNodeInventorySummary(BuildCommandCenterState().Nodes));
             Clipboard.SetContent(package);
             Logger.Info("Copied node inventory from deep link");
         }
@@ -2442,7 +2495,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildChannelSummaryText(BuildCommandCenterState().Channels));
+            package.SetText(CommandCenterTextHelper.BuildChannelSummaryText(BuildCommandCenterState().Channels));
             Clipboard.SetContent(package);
             Logger.Info("Copied channel summary from deep link");
         }
@@ -2457,7 +2510,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildActivitySummary(BuildCommandCenterState().RecentActivity));
+            package.SetText(CommandCenterTextHelper.BuildActivitySummary(BuildCommandCenterState().RecentActivity));
             Clipboard.SetContent(package);
             Logger.Info("Copied activity summary from deep link");
         }
@@ -2472,7 +2525,7 @@ public partial class App : Application
         try
         {
             var package = new DataPackage();
-            package.SetText(StatusDetailWindow.BuildExtensibilitySummary(BuildCommandCenterState().Channels));
+            package.SetText(CommandCenterTextHelper.BuildExtensibilitySummary(BuildCommandCenterState().Channels));
             Clipboard.SetContent(package);
             Logger.Info("Copied extensibility summary from deep link");
         }

@@ -75,4 +75,12 @@ public sealed partial class HomePage : Page
         // Nodes: check if node mode is enabled
         NodesCountText.Text = (_hub?.Settings?.EnableNodeMode == true) ? "1" : "0";
     }
+
+    public void UpdateSessionCount(int count)
+    {
+        DispatcherQueue?.TryEnqueue(() =>
+        {
+            SessionsCountText.Text = count.ToString();
+        });
+    }
 }
