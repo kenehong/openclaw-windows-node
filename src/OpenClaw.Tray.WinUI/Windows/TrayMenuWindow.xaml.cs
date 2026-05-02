@@ -266,6 +266,8 @@ public sealed partial class TrayMenuWindow : WindowEx
         var content = new TextBlock
         {
             Text = string.IsNullOrEmpty(icon) ? text : $"{icon}  {text}",
+            FontSize = 14,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
             TextTrimming = TextTrimming.CharacterEllipsis,
             IsTextSelectionEnabled = false
         };
@@ -274,15 +276,10 @@ public sealed partial class TrayMenuWindow : WindowEx
         var button = new Button
         {
             Content = content,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Padding = new Thickness(leftPadding, 8, 12, 8),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            BorderThickness = new Thickness(0),
             IsEnabled = isEnabled,
-            Tag = action,
-            CornerRadius = new CornerRadius(4)
+            Tag = action
         };
+        ApplyTrayMenuButtonVisual(button, leftPadding);
         AutomationProperties.SetAutomationId(button, BuildMenuItemAutomationId(action, text));
 
         if (!isEnabled)
@@ -321,11 +318,24 @@ public sealed partial class TrayMenuWindow : WindowEx
             : "TrayMenuItem" + new string(chars);
     }
 
+    private static void ApplyTrayMenuButtonVisual(Button button, int leftPadding)
+    {
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        button.HorizontalContentAlignment = HorizontalAlignment.Left;
+        button.MinHeight = 36;
+        button.Padding = new Thickness(leftPadding, 8, 12, 8);
+        button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        button.BorderThickness = new Thickness(0);
+        button.CornerRadius = new CornerRadius(6);
+    }
+
     public void AddFlyoutMenuItem(string text, string? icon, IEnumerable<TrayMenuFlyoutItem> items, bool indent = false)
     {
         var content = new TextBlock
         {
             Text = string.IsNullOrEmpty(icon) ? $"{text}  ›" : $"{icon}  {text}  ›",
+            FontSize = 14,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
             TextTrimming = TextTrimming.CharacterEllipsis,
             IsTextSelectionEnabled = false
         };
@@ -335,14 +345,9 @@ public sealed partial class TrayMenuWindow : WindowEx
         var leftPadding = indent ? 28 : 12;
         var button = new Button
         {
-            Content = content,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Padding = new Thickness(leftPadding, 8, 12, 8),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(4)
+            Content = content
         };
+        ApplyTrayMenuButtonVisual(button, leftPadding);
 
         button.PointerEntered += (s, e) =>
         {
@@ -382,14 +387,16 @@ public sealed partial class TrayMenuWindow : WindowEx
         panel.Children.Add(new TextBlock
         {
             Text = emoji,
-            FontSize = 28
+            FontSize = 24,
+            VerticalAlignment = VerticalAlignment.Center
         });
 
         panel.Children.Add(new TextBlock
         {
             Text = text,
-            FontSize = 18,
+            FontSize = 16,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
             VerticalAlignment = VerticalAlignment.Center
         });
 
@@ -403,8 +410,9 @@ public sealed partial class TrayMenuWindow : WindowEx
         {
             Text = text,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 12,
             Padding = new Thickness(12, 10, 12, 4),
-            Opacity = 0.7
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
         });
         _headerCount++;
     }
