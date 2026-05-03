@@ -1524,6 +1524,59 @@ public class AgentEventInfo
 
     public string StreamUpper => Stream.ToUpperInvariant();
 
+    /// <summary>Color hex for stream badge (used by UI to create brush).</summary>
+    public string BadgeColorHex => Stream.ToLowerInvariant() switch
+    {
+        "tool" => "#FFDC781E",       // Orange
+        "assistant" => "#FF28A050",   // Green
+        "error" => "#FFC83232",       // Red
+        "lifecycle" => "#FF3C78C8",   // Blue
+        "plan" => "#FF8C50C8",        // Purple
+        "approval" => "#FFC8A01E",    // Amber
+        "thinking" => "#FF648CB4",    // Steel
+        "patch" => "#FF50A0A0",       // Teal
+        _ => "#FF646464"              // Gray
+    };
+
+    /// <summary>Human-readable summary extracted from event data.</summary>
+    public string SummaryLine
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(Summary)) return Summary;
+            try
+            {
+                var s = Stream.ToLowerInvariant();
+                if (s == "tool" && Data.ValueKind == JsonValueKind.Object)
+                {
+                    var name = Data.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    var phase = Data.TryGetProperty("phase", out var p) ? p.GetString() : null;
+                    if (name != null) return phase != null ? $"🔧 {name} ({phase})" : $"🔧 {name}";
+                }
+                if (s == "assistant" && Data.ValueKind == JsonValueKind.Object)
+                {
+                    var text = Data.TryGetProperty("text", out var t) ? t.GetString() : null;
+                    if (text != null) return text.Length > 120 ? text[..120] + "…" : text;
+                }
+                if (s == "error" && Data.ValueKind == JsonValueKind.Object)
+                {
+                    var msg = Data.TryGetProperty("message", out var m) ? m.GetString()
+                        : Data.TryGetProperty("error", out var e) ? e.GetString() : null;
+                    if (msg != null) return $"❌ {msg}";
+                }
+                if (s == "lifecycle" && Data.ValueKind == JsonValueKind.Object)
+                {
+                    var state = Data.TryGetProperty("state", out var st) ? st.GetString() : null;
+                    if (state != null) return $"⚡ {state}";
+                }
+            }
+            catch { }
+            return "";
+        }
+    }
+
+    public bool HasSummary => !string.IsNullOrEmpty(SummaryLine);
+
     public string DataJson
     {
         get

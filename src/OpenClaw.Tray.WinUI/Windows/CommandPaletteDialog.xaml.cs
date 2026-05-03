@@ -1,4 +1,6 @@
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +8,8 @@ using System.Linq;
 namespace OpenClawTray.Windows;
 
 /// <summary>
-/// A command palette overlay (Ctrl+K) for quick navigation and actions.
+/// A command palette overlay (Ctrl+K / Ctrl+F) for quick navigation and actions.
+/// Light-dismiss: clicking outside or pressing Escape closes it.
 /// </summary>
 public sealed partial class CommandPaletteDialog : ContentDialog
 {
@@ -19,6 +22,30 @@ public sealed partial class CommandPaletteDialog : ContentDialog
         _allCommands = commands;
         _onExecute = onExecute;
         ResultsList.ItemsSource = commands.Take(10).ToList();
+    }
+
+    private void OnOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+    {
+        // Light dismiss: find the smoke layer (background overlay) and close on click
+        var parent = VisualTreeHelper.GetParent(this);
+        while (parent != null)
+        {
+            if (parent is Microsoft.UI.Xaml.Controls.Primitives.Popup popup)
+            {
+                popup.IsLightDismissEnabled = true;
+                break;
+            }
+            // The ContentDialog smoke layer is a Border or Grid — attach Tapped handler
+            if (parent is FrameworkElement fe && fe.GetType().Name == "ContentDialogSmokeLayer")
+            {
+                fe.Tapped += (s, e) => Hide();
+                break;
+            }
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+
+        // Focus the search box
+        SearchBox.Focus(FocusState.Programmatic);
     }
 
     private void OnSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)

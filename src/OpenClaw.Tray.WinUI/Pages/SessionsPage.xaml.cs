@@ -38,7 +38,7 @@ public sealed partial class SessionsPage : Page
                 UpdateSessions(hub.LastSessions);
             else
                 SessionListView.ItemsSource = null;
-            _ = hub.GatewayClient.RequestSessionsAsync();
+            _ = hub.GatewayClient.RequestSessionsAsync(hub.CurrentAgentId);
         }
         else
         {
@@ -105,7 +105,7 @@ public sealed partial class SessionsPage : Page
         var client = _hub?.GatewayClient;
         if (client != null)
         {
-            _ = client.RequestSessionsAsync();
+            _ = client.RequestSessionsAsync(_hub?.CurrentAgentId);
         }
         RefreshButton.Content = "Refreshing...";
         var timer = DispatcherQueue.CreateTimer();

@@ -11,9 +11,10 @@ namespace OpenClawTray.Pages;
 public sealed partial class WorkspacePage : Page
 {
     private HubWindow? _hub;
-    private string _selectedAgentId = "main";
     private readonly Dictionary<string, TabViewItem> _fileTabs = new(StringComparer.OrdinalIgnoreCase);
     private bool _tabsPopulated;
+
+    private string AgentId => _hub?.CurrentAgentId ?? "main";
 
     public WorkspacePage()
     {
@@ -27,48 +28,13 @@ public sealed partial class WorkspacePage : Page
         {
             FallbackInfoBar.IsOpen = false;
             LoadingRing.IsActive = true;
-            _ = hub.GatewayClient.RequestAgentsListAsync();
-            _ = hub.GatewayClient.RequestAgentFilesListAsync(_selectedAgentId);
+            ClearTabs();
+            _ = hub.GatewayClient.RequestAgentFilesListAsync(AgentId);
         }
         else
         {
             FallbackInfoBar.IsOpen = true;
             FallbackInfoBar.Message = "Connect to gateway to view workspace files.";
-        }
-    }
-
-    public void UpdateAgentsList(JsonElement data)
-    {
-        if (!data.TryGetProperty("agents", out var agentsEl) || agentsEl.ValueKind != JsonValueKind.Array)
-            return;
-
-        var currentSelection = _selectedAgentId;
-        AgentSelector.Items.Clear();
-        foreach (var agent in agentsEl.EnumerateArray())
-        {
-            var id = agent.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
-            if (string.IsNullOrEmpty(id)) continue;
-            var name = agent.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-            var item = new ComboBoxItem { Content = name ?? id, Tag = id };
-            AgentSelector.Items.Add(item);
-            if (id == currentSelection) AgentSelector.SelectedItem = item;
-        }
-        if (AgentSelector.SelectedItem == null && AgentSelector.Items.Count > 0)
-            AgentSelector.SelectedIndex = 0;
-    }
-
-    private void AgentSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (AgentSelector.SelectedItem is ComboBoxItem item && item.Tag is string agentId)
-        {
-            if (agentId == _selectedAgentId && _tabsPopulated) return;
-            _selectedAgentId = agentId;
-            if (_hub?.GatewayClient != null)
-            {
-                LoadingRing.IsActive = true;
-                ClearTabs();
-                _ = _hub.GatewayClient.RequestAgentFilesListAsync(agentId);
-            }
         }
     }
 
@@ -98,7 +64,7 @@ public sealed partial class WorkspacePage : Page
                     AddFileTab(name, size);
                     // Fetch all contents upfront
                     if (_hub?.GatewayClient != null)
-                        _ = _hub.GatewayClient.RequestAgentFileGetAsync(_selectedAgentId, name);
+                        _ = _hub.GatewayClient.RequestAgentFileGetAsync(AgentId, name);
                 }
             }
         }
@@ -190,7 +156,7 @@ public sealed partial class WorkspacePage : Page
         if (FileTabs.SelectedItem is TabViewItem tab && tab.Tag is string fileName &&
             tab.Content is StackPanel && _hub?.GatewayClient != null)
         {
-            _ = _hub.GatewayClient.RequestAgentFileGetAsync(_selectedAgentId, fileName);
+            _ = _hub.GatewayClient.RequestAgentFileGetAsync(AgentId, fileName);
         }
     }
 
@@ -201,7 +167,7 @@ public sealed partial class WorkspacePage : Page
             LoadingRing.IsActive = true;
             FallbackInfoBar.IsOpen = false;
             ClearTabs();
-            _ = _hub.GatewayClient.RequestAgentFilesListAsync(_selectedAgentId);
+            _ = _hub.GatewayClient.RequestAgentFilesListAsync(AgentId);
         }
     }
 

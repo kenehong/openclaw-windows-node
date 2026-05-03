@@ -14,6 +14,7 @@
     <Grid>
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="K" Modifiers="Control" Invoked="OnCommandPalette"/>
+            <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="OnCommandPalette"/>
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="32"/>
@@ -57,12 +58,15 @@
             <NavigationViewItem Tag="home" Content="Home">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE80F;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem Tag="conversations" Content="Conversations">
+            <NavigationViewItem Tag="chat" Content="Chat">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItemSeparator/>
 
             <NavigationViewItemHeader Content="Gateway"/>
+            <NavigationViewItem Tag="connection" Content="Connection">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE839;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
             <!-- Agents parent — children built dynamically -->
             <NavigationViewItem x:Name="AgentsNavItem" Content="Agents" SelectsOnInvoked="False" IsExpanded="True">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE99A;"/></NavigationViewItem.Icon>
@@ -79,9 +83,6 @@
                             <NavigationViewItem Tag="agent:main:skills" Content="Skills">
                                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE945;"/></NavigationViewItem.Icon>
                             </NavigationViewItem>
-                            <NavigationViewItem Tag="agent:main:cron" Content="Cron">
-                                <NavigationViewItem.Icon><FontIcon Glyph="&#xE787;"/></NavigationViewItem.Icon>
-                            </NavigationViewItem>
                             <NavigationViewItem Tag="agent:main:workspace" Content="Workspace">
                                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;"/></NavigationViewItem.Icon>
                             </NavigationViewItem>
@@ -92,11 +93,16 @@
             <NavigationViewItem Tag="channels" Content="Channels">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xEC05;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem Tag="nodes" Content="Nodes">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE977;"/></NavigationViewItem.Icon>
+            <NavigationViewItem Tag="bindings" Content="Bindings">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8AD;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem Tag="instances" Content="Instances">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE968;"/></NavigationViewItem.Icon>
+                <NavigationViewItem.MenuItems>
+                    <NavigationViewItem Tag="nodes" Content="Nodes">
+                        <NavigationViewItem.Icon><FontIcon Glyph="&#xE977;"/></NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </NavigationViewItem.MenuItems>
             </NavigationViewItem>
             <NavigationViewItem Tag="config" Content="Config">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE90F;"/></NavigationViewItem.Icon>
@@ -104,14 +110,17 @@
             <NavigationViewItem Tag="usage" Content="Usage">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D9;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem Tag="bindings" Content="Bindings">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8AD;"/></NavigationViewItem.Icon>
+            <NavigationViewItem Tag="cron" Content="Cron">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE787;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItemSeparator/>
 
             <NavigationViewItemHeader Content="This Computer"/>
             <NavigationViewItem Tag="capabilities" Content="Capabilities">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE964;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Tag="settings" Content="Settings">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem Tag="permissions" Content="Permissions">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8D7;"/></NavigationViewItem.Icon>
@@ -122,9 +131,6 @@
         </NavigationView.MenuItems>
 
         <NavigationView.FooterMenuItems>
-            <NavigationViewItem Tag="settings" Content="Settings">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
             <NavigationViewItem Tag="debug" Content="Debug">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xEBE8;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
@@ -141,6 +147,44 @@
             </Frame.ContentTransitions>
         </Frame>
     </NavigationView>
+
+    <!-- Command Palette overlay (Ctrl+K / Ctrl+F) -->
+    <Grid x:Name="PaletteOverlay" Grid.Row="1" Visibility="Collapsed"
+          KeyDown="OnPaletteOverlayKeyDown">
+        <!-- Smoke layer — click to dismiss -->
+        <Border Background="#80000000" Tapped="OnPaletteDismiss"/>
+        <!-- Palette panel -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,80,0,0"
+                Width="520" CornerRadius="8"
+                Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="1">
+            <StackPanel Padding="12" Spacing="8">
+                <TextBox x:Name="PaletteSearchBox"
+                         PlaceholderText="Type a command…"
+                         TextChanged="OnPaletteSearchTextChanged"
+                         KeyDown="OnPaletteKeyDown"/>
+                <ListView x:Name="PaletteResults"
+                          MaxHeight="400"
+                          SelectionMode="Single"
+                          IsItemClickEnabled="True"
+                          ItemClick="OnPaletteResultClick">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="12" Padding="8,6">
+                                <TextBlock Text="{Binding Icon}" FontSize="16" VerticalAlignment="Center"/>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </StackPanel>
+        </Border>
+    </Grid>
 
     </Grid>
 </winex:WindowEx>

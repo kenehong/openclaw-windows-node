@@ -24,7 +24,7 @@ public sealed partial class SkillsPage : Page
         if (hub.GatewayClient != null)
         {
             NotWiredInfoBar.IsOpen = false;
-            _ = hub.GatewayClient.RequestSkillsStatusAsync();
+            _ = hub.GatewayClient.RequestSkillsStatusAsync(hub.CurrentAgentId);
         }
         LoadSampleSkills();
     }

@@ -543,6 +543,7 @@ public partial class App : Application
         {
             case "status": ShowStatusDetail(); break;
             case "dashboard": OpenDashboard(); break;
+            case "canvas": _nodeService?.ShowCanvasWindow(); break;
             case "openchat": ShowChatWindow(); break;
             case "webchat": ShowWebChat(); break;
             case "hub": ShowHub(); break;
@@ -980,6 +981,7 @@ public partial class App : Application
         menu.AddSeparator();
         menu.AddMenuItem("Open Dashboard", "🌐", "dashboard");
         menu.AddMenuItem("Open Chat", "💬", "openchat");
+        menu.AddMenuItem("Open Canvas", "🎨", "canvas");
         menu.AddMenuItem("Windows Companion", "🦞", "companion");
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_QuickSend"), "📤", "quicksend");
 
@@ -1556,8 +1558,11 @@ public partial class App : Application
         _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfig(data));
     }
 
+    private System.Text.Json.JsonElement? _lastAgentsList;
+
     private void OnAgentsListUpdated(object? sender, System.Text.Json.JsonElement data)
     {
+        _lastAgentsList = data.Clone();
         _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateAgentsList(data));
     }
 
@@ -1854,6 +1859,7 @@ public partial class App : Application
         if (_lastModelsList != null) _hubWindow.UpdateModelsList(_lastModelsList);
         if (_lastPresence != null) _hubWindow.UpdatePresence(_lastPresence);
         if (_lastGatewaySelf != null) _hubWindow.UpdateGatewaySelf(_lastGatewaySelf);
+        if (_lastAgentsList.HasValue) _hubWindow.UpdateAgentsList(_lastAgentsList.Value);
 
         if (navigateTo != null)
         {

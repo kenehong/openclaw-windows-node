@@ -318,10 +318,13 @@ public class OpenClawGatewayClient : WebSocketClientBase
     }
 
     /// <summary>Request session list from gateway.</summary>
-    public async Task RequestSessionsAsync()
+    public async Task RequestSessionsAsync(string? agentId = null)
     {
         if (_operatorReadScopeUnavailable) return;
-        await SendTrackedRequestAsync("sessions.list");
+        if (!string.IsNullOrEmpty(agentId))
+            await SendTrackedRequestAsync("sessions.list", new { agentId });
+        else
+            await SendTrackedRequestAsync("sessions.list");
     }
 
     /// <summary>Request usage/context info from gateway (may not be supported on all gateways).</summary>
@@ -456,9 +459,12 @@ public class OpenClawGatewayClient : WebSocketClientBase
 
     // Skills/plugin management
 
-    public async Task RequestSkillsStatusAsync()
+    public async Task RequestSkillsStatusAsync(string? agentId = null)
     {
-        await SendTrackedRequestAsync("skills.status");
+        if (!string.IsNullOrEmpty(agentId))
+            await SendTrackedRequestAsync("skills.status", new { agentId });
+        else
+            await SendTrackedRequestAsync("skills.status");
     }
 
     public Task<bool> InstallSkillAsync(string skillId)

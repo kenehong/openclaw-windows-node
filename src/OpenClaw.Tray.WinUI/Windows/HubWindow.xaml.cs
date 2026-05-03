@@ -78,7 +78,7 @@ public sealed partial class HubWindow : WindowEx
     {
         // Map legacy tags
         if (tag == "general") tag = "home";
-        if (tag == "chat") tag = "conversations";
+        // "chat" tag opens the ChatPage (WebView2) directly
         if (tag == "about") tag = "info";
         // Map legacy flat agent tags to current agent scope
         if (tag == "sessions") tag = $"agent:{_currentAgentId}:sessions";
@@ -284,7 +284,6 @@ public sealed partial class HubWindow : WindowEx
                 // Rebuild nav sidebar agent items
                 RebuildAgentNavItems(data);
                 if (ContentFrame?.Content is HomePage home) home.UpdateAgentsList(data);
-                if (ContentFrame?.Content is WorkspacePage wp) wp.UpdateAgentsList(data);
             });
         }
         catch { }
@@ -314,7 +313,6 @@ public sealed partial class HubWindow : WindowEx
             agentItem.MenuItems.Add(CreateAgentSubItem(id, "sessions", "Sessions", "\uE8F2"));
             agentItem.MenuItems.Add(CreateAgentSubItem(id, "agentevents", "Agent Events", "\uE943"));
             agentItem.MenuItems.Add(CreateAgentSubItem(id, "skills", "Skills", "\uE945"));
-            agentItem.MenuItems.Add(CreateAgentSubItem(id, "cron", "Cron", "\uE787"));
             agentItem.MenuItems.Add(CreateAgentSubItem(id, "workspace", "Workspace", "\uE8B7"));
 
             AgentsNavItem.MenuItems.Add(agentItem);
@@ -475,6 +473,7 @@ public sealed partial class HubWindow : WindowEx
                 sessions.Initialize(this);
                 if (LastModelsList != null) sessions.UpdateModelsList(LastModelsList);
                 break;
+            case ConnectionPage connection: connection.Initialize(this); break;
             case ChannelsPage channels: channels.Initialize(this); break;
             case UsagePage usage: usage.Initialize(this); break;
             case NodesPage nodes:
@@ -498,6 +497,7 @@ public sealed partial class HubWindow : WindowEx
             case ActivityPage activity: activity.Initialize(this); break;
             case AgentEventsPage agentEvents:
                 agentEvents.ClearCentralCache = ClearAgentEvents;
+                agentEvents.SetAgentFilter(_currentAgentId);
                 if (agentEvents.EventCount == 0)
                 {
                     for (int i = LastAgentEvents.Count - 1; i >= 0; i--)
@@ -518,7 +518,8 @@ public sealed partial class HubWindow : WindowEx
     private static Type? TagToPageType(string? tag) => tag switch
     {
         "home" => typeof(HomePage),
-        "conversations" => typeof(SessionsPage),
+        "chat" => typeof(ChatPage),
+        "connection" => typeof(ConnectionPage),
         "channels" => typeof(ChannelsPage),
         "nodes" => typeof(NodesPage),
         "instances" => typeof(InstancesPage),
@@ -538,7 +539,6 @@ public sealed partial class HubWindow : WindowEx
         "skills" => typeof(SkillsPage),
         "cron" => typeof(CronPage),
         "workspace" => typeof(WorkspacePage),
-        "chat" => typeof(ChatPage),
         "about" => typeof(AboutPage),
         // Agent-scoped pages
         _ when tag?.StartsWith("agent:") == true => ResolveAgentPageType(tag),
@@ -567,26 +567,86 @@ public sealed partial class HubWindow : WindowEx
         return parts.Length >= 2 ? parts[1] : "main";
     }
 
-    // ── Command Palette (Ctrl+K) ───────────────────────────────────────
+    // ── Command Palette (Ctrl+K / Ctrl+F) — inline overlay ──────────
 
-    private bool _isPaletteOpen;
+    private List<CommandItem>? _paletteCommands;
 
-    private async void OnCommandPalette(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private void OnCommandPalette(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        if (_isPaletteOpen) return;
-        _isPaletteOpen = true;
-        try
+        if (PaletteOverlay.Visibility == Visibility.Visible)
         {
-            var commands = BuildCommandList();
-            var dialog = new CommandPaletteDialog(commands, ExecuteCommand);
-            dialog.XamlRoot = Content.XamlRoot;
-            await dialog.ShowAsync();
+            DismissPalette();
+            return;
         }
-        catch { }
-        finally
+        ShowPalette();
+    }
+
+    private void ShowPalette()
+    {
+        _paletteCommands = BuildCommandList();
+        PaletteResults.ItemsSource = _paletteCommands.Take(10).ToList();
+        PaletteSearchBox.Text = "";
+        PaletteOverlay.Visibility = Visibility.Visible;
+        PaletteSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+    }
+
+    private void DismissPalette()
+    {
+        PaletteOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnPaletteDismiss(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        DismissPalette();
+    }
+
+    private void OnPaletteOverlayKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Escape)
         {
-            _isPaletteOpen = false;
+            e.Handled = true;
+            DismissPalette();
+        }
+    }
+
+    private void OnPaletteKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Escape)
+        {
+            e.Handled = true;
+            DismissPalette();
+        }
+        else if (e.Key == global::Windows.System.VirtualKey.Enter)
+        {
+            e.Handled = true;
+            if (PaletteResults.ItemsSource is List<CommandItem> items && items.Count > 0)
+            {
+                DismissPalette();
+                ExecuteCommand(items[0]);
+            }
+        }
+    }
+
+    private void OnPaletteSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_paletteCommands == null) return;
+        var query = PaletteSearchBox.Text?.Trim() ?? "";
+        var filtered = string.IsNullOrEmpty(query)
+            ? _paletteCommands.Take(10).ToList()
+            : _paletteCommands
+                .Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Take(10)
+                .ToList();
+        PaletteResults.ItemsSource = filtered;
+    }
+
+    private void OnPaletteResultClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is CommandItem item)
+        {
+            DismissPalette();
+            ExecuteCommand(item);
         }
     }
 
@@ -597,7 +657,7 @@ public sealed partial class HubWindow : WindowEx
         {
             // Navigation
             new() { Icon = "🏠", Title = "Go to Home", Subtitle = "Home page", Tag = "home" },
-            new() { Icon = "💬", Title = "Go to Conversations", Subtitle = "Default agent sessions", Tag = "conversations" },
+            new() { Icon = "💬", Title = "Go to Chat", Subtitle = "Open chat", Tag = "chat" },
             new() { Icon = "🧠", Title = $"Go to Sessions ({agentId})", Subtitle = "Agent sessions", Tag = $"agent:{agentId}:sessions" },
             new() { Icon = "🧠", Title = $"Go to Agent Events ({agentId})", Subtitle = "Agent event log", Tag = $"agent:{agentId}:agentevents" },
             new() { Icon = "🧠", Title = $"Go to Skills ({agentId})", Subtitle = "Registered skills", Tag = $"agent:{agentId}:skills" },

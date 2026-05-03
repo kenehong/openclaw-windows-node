@@ -14,55 +14,12 @@
             <StackPanel Spacing="12" HorizontalAlignment="Stretch">
 
                 <TextBlock Text="⚙️ Settings" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,8"/>
-
-                <!-- Connection -->
-                <Expander x:Name="ConnectionExpander" IsExpanded="True"
-                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutomationProperties.AutomationId="ConnectionExpander">
-                    <Expander.Header>
-                        <TextBlock Text="Connection" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                    </Expander.Header>
-                    <StackPanel Spacing="12" Padding="4">
-                        <ToggleSwitch x:Name="UseSshTunnelToggle" Header="Connect through SSH tunnel"
-                                      Toggled="OnSshTunnelToggled"
-                                      AutomationProperties.AutomationId="SettingsPageSshToggle"/>
-                        <StackPanel x:Name="SshTunnelDetailsPanel" Spacing="8" Visibility="Collapsed">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="SshTunnelUserTextBox" Grid.Column="0" Header="SSH User" PlaceholderText="user"/>
-                            <TextBox x:Name="SshTunnelHostTextBox" Grid.Column="1" Header="SSH Host" PlaceholderText="machine-name or IP"/>
-                        </Grid>
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="SshTunnelRemotePortTextBox" Grid.Column="0" Header="Remote Gateway Port" PlaceholderText="18789"/>
-                            <TextBox x:Name="SshTunnelLocalPortTextBox" Grid.Column="1" Header="Local Forward Port" PlaceholderText="18789"/>
-                        </Grid>
-                    </StackPanel>
-                    <TextBox x:Name="GatewayUrlTextBox" Header="Gateway URL"
-                                 PlaceholderText="ws://localhost:18789 or https://host.tailnet.ts.net"
-                                 AutomationProperties.AutomationId="SettingsPageGatewayUrl"/>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox x:Name="TokenTextBox" Header="Token"
-                                     PlaceholderText="Your API token" Width="300"
-                                     AutomationProperties.AutomationId="SettingsPageToken"/>
-                            <Button x:Name="TestConnectionButton" Content="Test" VerticalAlignment="Bottom"
-                                    Click="OnTestConnection"
-                                    AutomationProperties.AutomationId="SettingsPageTestButton"/>
-                        </StackPanel>
-                        <TextBlock x:Name="ConnectionStatusLabel"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    </StackPanel>
-                </Expander>
+                <TextBlock Text="Local app preferences for this computer."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,8"/>
 
                 <!-- Startup -->
-                <Expander x:Name="StartupExpander"
+                <Expander x:Name="StartupExpander" IsExpanded="True"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutomationProperties.AutomationId="StartupExpander">
                     <Expander.Header>
@@ -115,20 +72,6 @@
                         <Button x:Name="TestNotificationButton" Content="Send Test Notification" Click="OnTestNotification"/>
                     </StackPanel>
                 </Expander>
-
-                <!-- Advanced -->
-                <Expander x:Name="AdvancedExpander"
-                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          AutomationProperties.AutomationId="AdvancedExpander">
-                    <Expander.Header>
-                        <TextBlock Text="Advanced" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                    </Expander.Header>
-                    <StackPanel Spacing="8" Padding="4">
-                        <!-- Node Mode moved to Capabilities page -->
-                    </StackPanel>
-                </Expander>
-
-
 
             </StackPanel>
         </ScrollViewer>

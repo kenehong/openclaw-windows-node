@@ -134,6 +134,12 @@ public sealed class NodeService : IDisposable
     public string? ShortDeviceId => _nodeClient?.ShortDeviceId;
     public string? FullDeviceId => _nodeClient?.FullDeviceId;
     public string? GatewayUrl => _nodeClient?.GatewayUrl;
+
+    /// <summary>Show the canvas window (creates it if needed).</summary>
+    public void ShowCanvasWindow()
+    {
+        _dispatcherQueue.TryEnqueue(EnsureCanvasWindow);
+    }
     
     public NodeService(
         IOpenClawLogger logger,

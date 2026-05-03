@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid Padding="24,24">
+    <Grid Padding="24,16,24,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <!-- Title -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
             <TextBlock Text="Agent Events" Style="{StaticResource TitleTextBlockStyle}"/>
             <TextBlock x:Name="CountText" Text="(0)" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"
@@ -21,49 +21,60 @@
         </StackPanel>
 
         <!-- Filter bar -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="0,0,0,16">
-            <ToggleButton x:Name="FilterAllButton" Content="All" Tag="all" IsChecked="True"
-                          Click="OnFilterClick"/>
-            <ToggleButton Content="Lifecycle" Tag="lifecycle" Click="OnFilterClick"/>
-            <ToggleButton Content="Tool" Tag="tool" Click="OnFilterClick"/>
-            <ToggleButton Content="Assistant" Tag="assistant" Click="OnFilterClick"/>
-            <ToggleButton Content="Error" Tag="error" Click="OnFilterClick"/>
-            <ToggleButton Content="Plan" Tag="plan" Click="OnFilterClick"/>
-            <ToggleButton Content="Approval" Tag="approval" Click="OnFilterClick"/>
-        </StackPanel>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                      Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <ToggleButton x:Name="FilterAllButton" Content="All" Tag="all" IsChecked="True"
+                              Click="OnFilterClick"/>
+                <ToggleButton Content="Tool" Tag="tool" Click="OnFilterClick"/>
+                <ToggleButton Content="Assistant" Tag="assistant" Click="OnFilterClick"/>
+                <ToggleButton Content="Error" Tag="error" Click="OnFilterClick"/>
+                <ToggleButton Content="Lifecycle" Tag="lifecycle" Click="OnFilterClick"/>
+                <ToggleButton Content="Plan" Tag="plan" Click="OnFilterClick"/>
+                <ToggleButton Content="Approval" Tag="approval" Click="OnFilterClick"/>
+                <ToggleButton Content="Thinking" Tag="thinking" Click="OnFilterClick"/>
+                <ToggleButton Content="Patch" Tag="patch" Click="OnFilterClick"/>
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- Events list -->
         <ListView x:Name="EventsList" Grid.Row="2"
                   SelectionMode="None"
-                  Visibility="Collapsed">
+                  Visibility="Collapsed"
+                  ContainerContentChanging="EventsList_ContainerContentChanging">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="12" Margin="0,2" CornerRadius="4"
+                    <Grid Padding="12,8" Margin="0,1" CornerRadius="4"
                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Header: stream badge + runId + timestamp -->
+                        <!-- Row 0: stream badge + timestamp + session -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                            <Border x:Name="StreamBadge" CornerRadius="4" Padding="6,2"
-                                    Background="{ThemeResource SystemFillColorNeutralBrush}">
+                            <Border CornerRadius="4" Padding="6,2">
                                 <TextBlock Text="{Binding StreamUpper}" FontSize="11" FontWeight="SemiBold"
-                                           Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
+                                           Foreground="White"/>
                             </Border>
+                            <TextBlock Text="{Binding FormattedTime}" VerticalAlignment="Center"
+                                       FontSize="11" FontFamily="Consolas"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                             <TextBlock Text="{Binding RunId}" VerticalAlignment="Center"
                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       MaxWidth="180" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding FormattedTime}" VerticalAlignment="Center"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                       MaxWidth="120" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <!-- Data JSON -->
-                        <TextBlock Grid.Row="1" Text="{Binding DataJson}" TextWrapping="Wrap"
-                                   MaxLines="8" FontFamily="Consolas" FontSize="11"
+                        <!-- Row 1: Summary line -->
+                        <TextBlock Grid.Row="1" Text="{Binding SummaryLine}" 
+                                   FontWeight="SemiBold" FontSize="12"
+                                   Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+
+                        <!-- Row 2: Data JSON (collapsed by default, expandable) -->
+                        <TextBlock Grid.Row="2" Text="{Binding DataJson}" TextWrapping="Wrap"
+                                   MaxLines="6" FontFamily="Consolas" FontSize="11"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Margin="0,4,0,0" IsTextSelectionEnabled="True"/>
                     </Grid>
@@ -85,7 +96,7 @@
         </StackPanel>
 
         <!-- Footer -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
             <TextBlock x:Name="StatusText" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
