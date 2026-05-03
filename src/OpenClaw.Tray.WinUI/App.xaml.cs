@@ -848,102 +848,25 @@ public partial class App : Application
         headerCard.Children.Add(toggle);
         menu.AddCustomElement(headerCard);
 
-        // ── Context Summary ──
+        // ── Sessions ──
         if (_lastSessions.Length > 0 && _currentStatus == ConnectionStatus.Connected)
         {
             menu.AddSeparator();
-            var contextPanel = new Microsoft.UI.Xaml.Controls.StackPanel { Padding = new Thickness(12, 4, 12, 4), Spacing = 4 };
+
+            // Section header: "Sessions  3 active · 45K tokens"
             var sessionCount = _lastSessions.Length;
-            var activeModel = _lastSessions.FirstOrDefault(s => !string.IsNullOrEmpty(s.Model))?.Model ?? "";
-            var headerText = $"{sessionCount} session{(sessionCount != 1 ? "s" : "")}";
-            if (!string.IsNullOrEmpty(activeModel)) headerText += $" · {activeModel}";
-            contextPanel.Children.Add(new TextBlock
+            var activeCount = _lastSessions.Count(s => string.Equals(s.Status, "active", StringComparison.OrdinalIgnoreCase));
+            var totalTokensAll = _lastSessions.Sum(s => s.InputTokens + s.OutputTokens);
+            var sessionSummaryRight = $"{activeCount} active · {FormatTokenCount(totalTokensAll)} tokens";
+            menu.AddCustomElement(BuildSectionHeader("Sessions", sessionSummaryRight));
+
+            // Individual session cards
+            foreach (var session in _lastSessions.Take(5))
             {
-                Text = headerText,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
-            });
-
-            var secondaryBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
-
-            // Show token usage bars for active sessions
-            foreach (var session in _lastSessions.Take(3))
-            {
-                var usedTokens = session.InputTokens + session.OutputTokens;
-                var contextTokens = session.ContextTokens > 0 ? session.ContextTokens : 200000;
-
-                var sessionLabel = session.DisplayName ?? session.Key;
-                string usageText;
-                TextBlock label;
-                if (usedTokens > 0)
-                {
-                    var fraction = Math.Min(1.0, (double)usedTokens / contextTokens);
-                    var pct = (int)(fraction * 100);
-                    var barColor = pct < 60 ? Microsoft.UI.Colors.Green
-                        : pct < 80 ? Microsoft.UI.Colors.Orange
-                        : Microsoft.UI.Colors.Red;
-
-                    usageText = $"{sessionLabel}: {FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} ({pct}%)";
-
-                    var barRow = new Grid { Height = 6, CornerRadius = new CornerRadius(3), Margin = new Thickness(0, 2, 0, 0) };
-                    barRow.Children.Add(new Microsoft.UI.Xaml.Shapes.Rectangle
-                    {
-                        Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
-                        Opacity = 0.2,
-                        RadiusX = 3, RadiusY = 3
-                    });
-                    barRow.Children.Add(new Microsoft.UI.Xaml.Shapes.Rectangle
-                    {
-                        Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(barColor),
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        Width = Math.Max(4, fraction * 200),
-                        RadiusX = 3, RadiusY = 3
-                    });
-
-                    label = new TextBlock
-                    {
-                        Text = usageText,
-                        Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                        FontSize = 10,
-                        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                    };
-                    contextPanel.Children.Add(label);
-                    contextPanel.Children.Add(barRow);
-                }
-                else
-                {
-                    usageText = $"{sessionLabel}: {session.Status}";
-                    label = new TextBlock
-                    {
-                        Text = usageText,
-                        Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                        FontSize = 10,
-                        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                    };
-                    contextPanel.Children.Add(label);
-                }
-
-                // Rich tooltip with session details
-                var sessionTip = new StackPanel { Padding = new Thickness(8), Spacing = 4, MaxWidth = 300 };
-                sessionTip.Children.Add(new TextBlock { Text = session.Key, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                if (!string.IsNullOrEmpty(session.Model))
-                    sessionTip.Children.Add(new TextBlock { Text = $"Model: {session.Model}", FontSize = 11 });
-                if (!string.IsNullOrEmpty(session.Provider))
-                    sessionTip.Children.Add(new TextBlock { Text = $"Provider: {session.Provider}", FontSize = 11 });
-                if (!string.IsNullOrEmpty(session.Channel))
-                    sessionTip.Children.Add(new TextBlock { Text = $"Channel: {session.Channel}", FontSize = 11 });
-                if (!string.IsNullOrEmpty(session.ThinkingLevel))
-                    sessionTip.Children.Add(new TextBlock { Text = $"Thinking: {session.ThinkingLevel}", FontSize = 11 });
-                if (session.TotalTokens > 0)
-                    sessionTip.Children.Add(new TextBlock { Text = $"Tokens: {FormatTokenCount(session.InputTokens)} in / {FormatTokenCount(session.OutputTokens)} out / {FormatTokenCount(session.TotalTokens)} total", FontSize = 11 });
-                if (session.ContextTokens > 0)
-                    sessionTip.Children.Add(new TextBlock { Text = $"Context: {FormatTokenCount(session.ContextTokens)} window", FontSize = 11 });
-                sessionTip.Children.Add(new TextBlock { Text = $"Status: {session.Status}", FontSize = 11 });
-                sessionTip.Children.Add(new TextBlock { Text = session.AgeText, FontSize = 10, Foreground = secondaryBrush });
-                ToolTipService.SetToolTip(label, sessionTip);
+                var card = BuildSessionCard(session);
+                var flyoutItems = BuildSessionFlyoutItems(session);
+                menu.AddFlyoutCustomItem(card, flyoutItems, action: "agent:main:sessions");
             }
-            menu.AddCustomElement(contextPanel);
         }
 
         // ── Pairing Pending ──
@@ -959,60 +882,18 @@ public partial class App : Application
         if (_lastNodes.Length > 0)
         {
             menu.AddSeparator();
-            menu.AddHeader("Devices");
+
+            // Section header: "Devices  2 online · 8 caps"
+            var onlineCount = _lastNodes.Count(n => n.IsOnline);
+            var totalCaps = _lastNodes.Sum(n => n.CapabilityCount);
+            var deviceSummaryRight = $"{onlineCount} online · {totalCaps} caps";
+            menu.AddCustomElement(BuildSectionHeader("Devices", deviceSummaryRight));
 
             foreach (var node in _lastNodes.Take(5))
             {
-                var devicePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Padding = new Thickness(12, 4, 12, 4) };
-
-                var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
-                {
-                    Width = 8, Height = 8,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                        node.IsOnline ? Microsoft.UI.Colors.LimeGreen : Microsoft.UI.Colors.Gray)
-                };
-                devicePanel.Children.Add(dot);
-
-                var nameBlock = new TextBlock
-                {
-                    Text = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                devicePanel.Children.Add(nameBlock);
-
-                if (!string.IsNullOrEmpty(node.Platform))
-                {
-                    var badge = new Border
-                    {
-                        CornerRadius = new CornerRadius(4),
-                        Padding = new Thickness(4, 1, 4, 1),
-                        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                            Microsoft.UI.ColorHelper.FromArgb(255, 60, 60, 80)),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Child = new TextBlock
-                        {
-                            Text = node.Platform,
-                            FontSize = 10,
-                            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White)
-                        }
-                    };
-                    devicePanel.Children.Add(badge);
-                }
-
-                // Rich tooltip with device details
-                var tipPanel = new StackPanel { Padding = new Thickness(8), Spacing = 4, MaxWidth = 280 };
-                var tipName = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId;
-                tipPanel.Children.Add(new TextBlock { Text = tipName, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                tipPanel.Children.Add(new TextBlock { Text = $"Platform: {node.Platform ?? "unknown"}", FontSize = 11 });
-                tipPanel.Children.Add(new TextBlock { Text = $"Status: {(node.IsOnline ? "Online" : "Offline")}", FontSize = 11 });
-                if (!string.IsNullOrEmpty(node.NodeId))
-                    tipPanel.Children.Add(new TextBlock { Text = $"ID: {node.ShortId}", FontSize = 10, FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas") });
-                if (node.CapabilityCount > 0)
-                    tipPanel.Children.Add(new TextBlock { Text = $"Capabilities: {node.CapabilityCount}", FontSize = 11 });
-                ToolTipService.SetToolTip(devicePanel, tipPanel);
-
-                menu.AddCustomElement(devicePanel);
+                var card = BuildDeviceCard(node);
+                var flyoutItems = BuildDeviceFlyoutItems(node);
+                menu.AddFlyoutCustomItem(card, flyoutItems, action: "nodes");
             }
         }
 
@@ -1065,6 +946,418 @@ public partial class App : Application
         return n.ToString();
     }
 
+    // ── Rich card builder helpers for tray menu ──
+
+    private static readonly FrozenDictionary<string, string> CapabilityIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["screen"] = "🖥",
+        ["camera"] = "📷",
+        ["browser"] = "🌐",
+        ["clipboard"] = "📋",
+        ["tts"] = "🔊",
+        ["location"] = "📍",
+        ["canvas"] = "🎨",
+        ["system"] = "⚙",
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    private static Grid BuildSectionHeader(string title, string summary)
+    {
+        var grid = new Grid
+        {
+            Padding = new Thickness(12, 8, 12, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        grid.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Opacity = 0.7,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        grid.Children.Add(new TextBlock
+        {
+            Text = summary,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        return grid;
+    }
+
+    private static UIElement BuildSessionCard(SessionInfo session)
+    {
+        var usedTokens = session.InputTokens + session.OutputTokens;
+        var contextTokens = session.ContextTokens > 0 ? session.ContextTokens : 200_000;
+        var pct = usedTokens > 0 ? (int)(Math.Min(1.0, (double)usedTokens / contextTokens) * 100) : 0;
+        var isActive = string.Equals(session.Status, "active", StringComparison.OrdinalIgnoreCase);
+        var isIdle = string.Equals(session.Status, "idle", StringComparison.OrdinalIgnoreCase);
+
+        var grid = new Grid
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            RowSpacing = 2,
+            ColumnSpacing = 6
+        };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // status dot
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // model badge
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
+
+        // Row 0: status dot
+        var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
+        {
+            Width = 8, Height = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                isActive ? Microsoft.UI.Colors.LimeGreen
+                : isIdle ? Microsoft.UI.Colors.Orange
+                : Microsoft.UI.Colors.Gray)
+        };
+        Grid.SetRow(dot, 0);
+        Grid.SetColumn(dot, 0);
+        grid.Children.Add(dot);
+
+        // Row 0: session name
+        var nameBlock = new TextBlock
+        {
+            Text = session.DisplayName ?? session.Key,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 12,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetRow(nameBlock, 0);
+        Grid.SetColumn(nameBlock, 1);
+        grid.Children.Add(nameBlock);
+
+        // Row 0: model badge
+        if (!string.IsNullOrEmpty(session.Model))
+        {
+            var modelBadge = BuildBadge(session.Model);
+            Grid.SetRow(modelBadge, 0);
+            Grid.SetColumn(modelBadge, 2);
+            grid.Children.Add(modelBadge);
+        }
+
+        // Row 0: chevron
+        var chevron = new TextBlock
+        {
+            Text = "›",
+            FontSize = 14,
+            Opacity = 0.5,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetRow(chevron, 0);
+        Grid.SetColumn(chevron, 3);
+        grid.Children.Add(chevron);
+
+        // Row 1: token info + channel badge + status
+        var row1 = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var tokenText = usedTokens > 0
+            ? $"{FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} ({pct}%)"
+            : "";
+        if (!string.IsNullOrEmpty(tokenText))
+        {
+            row1.Children.Add(new TextBlock
+            {
+                Text = tokenText,
+                FontSize = 11,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                VerticalAlignment = VerticalAlignment.Center,
+                IsTextSelectionEnabled = false
+            });
+        }
+        if (!string.IsNullOrEmpty(session.Channel))
+        {
+            var channelAbbrev = session.Channel!.Length <= 2
+                ? session.Channel.ToUpperInvariant()
+                : session.Channel[..2].ToUpperInvariant();
+            row1.Children.Add(BuildBadge(channelAbbrev));
+        }
+        var statusText = char.ToUpperInvariant(session.Status[0]) + session.Status[1..];
+        row1.Children.Add(new TextBlock
+        {
+            Text = statusText,
+            FontSize = 11,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        });
+        Grid.SetRow(row1, 1);
+        Grid.SetColumn(row1, 1);
+        Grid.SetColumnSpan(row1, 3);
+        grid.Children.Add(row1);
+
+        // Row 2: thin progress bar
+        if (usedTokens > 0)
+        {
+            var bar = new ProgressBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Value = pct,
+                Height = 3,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                CornerRadius = new CornerRadius(1.5),
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                    pct > 80 ? Microsoft.UI.Colors.Red
+                    : pct > 50 ? Microsoft.UI.Colors.Orange
+                    : Microsoft.UI.Colors.LimeGreen)
+            };
+            Grid.SetRow(bar, 2);
+            Grid.SetColumn(bar, 0);
+            Grid.SetColumnSpan(bar, 4);
+            grid.Children.Add(bar);
+        }
+
+        return grid;
+    }
+
+    private static List<TrayMenuFlyoutItem> BuildSessionFlyoutItems(SessionInfo session)
+    {
+        var usedTokens = session.InputTokens + session.OutputTokens;
+        var contextTokens = session.ContextTokens > 0 ? session.ContextTokens : 200_000;
+        var pct = usedTokens > 0 ? (int)(Math.Min(1.0, (double)usedTokens / contextTokens) * 100) : 0;
+        var isActive = string.Equals(session.Status, "active", StringComparison.OrdinalIgnoreCase);
+
+        var items = new List<TrayMenuFlyoutItem>
+        {
+            new() { Text = session.DisplayName ?? session.Key, IsHeader = true },
+        };
+
+        if (!string.IsNullOrEmpty(session.Model))
+            items.Add(new() { Text = session.Model });
+        // Provider and channel badges
+        var badges = new List<string>();
+        if (!string.IsNullOrEmpty(session.Provider)) badges.Add(session.Provider);
+        if (!string.IsNullOrEmpty(session.Channel)) badges.Add(session.Channel);
+        if (badges.Count > 0) items.Add(new() { Text = string.Join("  ·  ", badges) });
+
+        var statusLine = $"● {(isActive ? "Active" : session.Status)} · Updated {session.AgeText}";
+        items.Add(new() { Text = statusLine });
+
+        // Token usage section
+        if (usedTokens > 0)
+        {
+            items.Add(new() { Text = "Token Usage", IsHeader = true });
+            items.Add(new() { Text = $"▓ {pct}% used" });
+            items.Add(new() { Text = $"Input    {FormatTokenCount(session.InputTokens)}" });
+            items.Add(new() { Text = $"Output   {FormatTokenCount(session.OutputTokens)}" });
+            items.Add(new() { Text = $"Total    {FormatTokenCount(usedTokens)} / {FormatTokenCount(contextTokens)}" });
+        }
+
+        // Settings section
+        var settingsLines = new List<string>();
+        if (!string.IsNullOrEmpty(session.ThinkingLevel)) settingsLines.Add($"🧠 Thinking: {session.ThinkingLevel}");
+        if (!string.IsNullOrEmpty(session.VerboseLevel)) settingsLines.Add($"📝 Verbose: {session.VerboseLevel}");
+        if (settingsLines.Count > 0)
+        {
+            foreach (var line in settingsLines)
+                items.Add(new() { Text = line });
+        }
+
+        // Session key at bottom
+        items.Add(new() { Text = session.Key });
+
+        return items;
+    }
+
+    private static UIElement BuildDeviceCard(GatewayNodeInfo node)
+    {
+        var nodeName = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId;
+
+        var grid = new Grid
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            RowSpacing = 2,
+            ColumnSpacing = 6
+        };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // dot
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // platform badge
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
+
+        // Row 0: status dot
+        var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
+        {
+            Width = 8, Height = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                node.IsOnline ? Microsoft.UI.Colors.LimeGreen : Microsoft.UI.Colors.Gray)
+        };
+        Grid.SetRow(dot, 0);
+        Grid.SetColumn(dot, 0);
+        grid.Children.Add(dot);
+
+        // Row 0: device name
+        var nameBlock = new TextBlock
+        {
+            Text = nodeName,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 12,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetRow(nameBlock, 0);
+        Grid.SetColumn(nameBlock, 1);
+        grid.Children.Add(nameBlock);
+
+        // Row 0: platform badge
+        if (!string.IsNullOrEmpty(node.Platform))
+        {
+            var badge = BuildBadge(node.Platform);
+            Grid.SetRow(badge, 0);
+            Grid.SetColumn(badge, 2);
+            grid.Children.Add(badge);
+        }
+
+        // Row 0: chevron
+        var chevron = new TextBlock
+        {
+            Text = "›",
+            FontSize = 14,
+            Opacity = 0.5,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetRow(chevron, 0);
+        Grid.SetColumn(chevron, 3);
+        grid.Children.Add(chevron);
+
+        // Row 1: capability icons + count + online/offline
+        var row1 = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        // Capability emoji icons
+        var capIcons = new System.Text.StringBuilder();
+        if (node.Capabilities.Count > 0)
+        {
+            foreach (var cap in node.Capabilities)
+            {
+                if (CapabilityIcons.TryGetValue(cap, out var icon))
+                    capIcons.Append(icon);
+            }
+        }
+        var capText = capIcons.Length > 0
+            ? $"{capIcons} {node.CapabilityCount} caps"
+            : node.CapabilityCount > 0 ? $"{node.CapabilityCount} caps" : "";
+        var statusLabel = node.IsOnline ? "online" : "offline";
+        var row1Text = !string.IsNullOrEmpty(capText) ? $"{capText}  ·  {statusLabel}" : statusLabel;
+
+        row1.Children.Add(new TextBlock
+        {
+            Text = row1Text,
+            FontSize = 11,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        });
+        Grid.SetRow(row1, 1);
+        Grid.SetColumn(row1, 1);
+        Grid.SetColumnSpan(row1, 3);
+        grid.Children.Add(row1);
+
+        return grid;
+    }
+
+    private static List<TrayMenuFlyoutItem> BuildDeviceFlyoutItems(GatewayNodeInfo node)
+    {
+        var nodeName = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId;
+
+        var items = new List<TrayMenuFlyoutItem>
+        {
+            new() { Text = nodeName, IsHeader = true },
+        };
+
+        // Platform + mode badges
+        var badges = new List<string>();
+        if (!string.IsNullOrEmpty(node.Platform)) badges.Add(node.Platform);
+        if (!string.IsNullOrEmpty(node.Mode)) badges.Add(node.Mode);
+        if (badges.Count > 0) items.Add(new() { Text = string.Join("  ·  ", badges) });
+
+        var statusLine = node.IsOnline ? "● Online" : "● Offline";
+        if (node.LastSeen.HasValue)
+        {
+            var age = DateTime.UtcNow - node.LastSeen.Value;
+            var seenText = age.TotalMinutes < 1 ? "just now"
+                : age.TotalHours < 1 ? $"{(int)age.TotalMinutes}m ago"
+                : age.TotalDays < 1 ? $"{(int)age.TotalHours}h ago"
+                : $"{(int)age.TotalDays}d ago";
+            statusLine += $" · Last seen {seenText}";
+        }
+        items.Add(new() { Text = statusLine });
+
+        // Capabilities section
+        if (node.CapabilityCount > 0)
+        {
+            items.Add(new() { Text = "Capabilities", IsHeader = true });
+            if (node.Capabilities.Count > 0)
+            {
+                // Show icons with labels in rows
+                var capLine = new System.Text.StringBuilder();
+                foreach (var cap in node.Capabilities)
+                {
+                    var icon = CapabilityIcons.TryGetValue(cap, out var emoji) ? emoji : "▪";
+                    if (capLine.Length > 0) capLine.Append("  ");
+                    capLine.Append($"{icon} {cap}");
+                }
+                items.Add(new() { Text = capLine.ToString() });
+            }
+        }
+
+        // Counts summary
+        var countParts = new List<string>();
+        if (node.CommandCount > 0) countParts.Add($"{node.CommandCount} commands");
+        if (node.CapabilityCount > 0) countParts.Add($"{node.CapabilityCount} capabilities");
+        if (countParts.Count > 0)
+            items.Add(new() { Text = string.Join(" · ", countParts) });
+
+        // ID at bottom
+        if (!string.IsNullOrEmpty(node.NodeId))
+            items.Add(new() { Text = $"ID: {node.ShortId}" });
+
+        return items;
+    }
+
+    private static Border BuildBadge(string text)
+    {
+        return new Border
+        {
+            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"],
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(5, 1, 5, 1),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = text,
+                FontSize = 10,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                IsTextSelectionEnabled = false
+            }
+        };
+    }
+
     #region Gateway Client
 
     private void InitializeGatewayClient(bool useBootstrapHandoffAuth = false)
@@ -1112,6 +1405,7 @@ public partial class App : Application
         _gatewayClient.GatewaySelfUpdated += OnGatewaySelfUpdated;
         _gatewayClient.CronListUpdated += OnCronListUpdated;
         _gatewayClient.ConfigUpdated += OnConfigUpdated;
+        _gatewayClient.ConfigSchemaUpdated += OnConfigSchemaUpdated;
         _gatewayClient.SkillsStatusUpdated += OnSkillsStatusUpdated;
         _gatewayClient.AgentEventReceived += OnAgentEventReceived;
         _gatewayClient.NodePairListUpdated += OnNodePairListUpdated;
@@ -1143,6 +1437,7 @@ public partial class App : Application
             _gatewayClient.GatewaySelfUpdated -= OnGatewaySelfUpdated;
             _gatewayClient.CronListUpdated -= OnCronListUpdated;
             _gatewayClient.ConfigUpdated -= OnConfigUpdated;
+            _gatewayClient.ConfigSchemaUpdated -= OnConfigSchemaUpdated;
             _gatewayClient.SkillsStatusUpdated -= OnSkillsStatusUpdated;
             _gatewayClient.AgentEventReceived -= OnAgentEventReceived;
             _gatewayClient.NodePairListUpdated -= OnNodePairListUpdated;
@@ -1624,6 +1919,11 @@ public partial class App : Application
     private void OnConfigUpdated(object? sender, System.Text.Json.JsonElement data)
     {
         _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfig(data));
+    }
+
+    private void OnConfigSchemaUpdated(object? sender, System.Text.Json.JsonElement data)
+    {
+        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfigSchema(data));
     }
 
     private System.Text.Json.JsonElement? _lastAgentsList;

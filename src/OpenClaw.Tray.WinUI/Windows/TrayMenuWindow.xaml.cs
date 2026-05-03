@@ -297,6 +297,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         // Hover effect
         button.PointerEntered += (s, e) =>
         {
+            HideActiveFlyout();
             if (button.IsEnabled)
                 button.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
         };
@@ -321,7 +322,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             : "TrayMenuItem" + new string(chars);
     }
 
-    public void AddFlyoutMenuItem(string text, string? icon, IEnumerable<TrayMenuFlyoutItem> items, bool indent = false)
+    public void AddFlyoutMenuItem(string text, string? icon, IEnumerable<TrayMenuFlyoutItem> items, bool indent = false, string? action = null)
     {
         var content = new TextBlock
         {
@@ -353,7 +354,18 @@ public sealed partial class TrayMenuWindow : WindowEx
         {
             button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
         };
-        button.Click += (s, e) => ShowCascadingFlyout(button, flyoutItems);
+        button.Click += (s, e) =>
+        {
+            if (!string.IsNullOrEmpty(action))
+            {
+                HideActiveFlyout();
+                MenuItemClicked?.Invoke(this, action);
+            }
+            else
+            {
+                ShowCascadingFlyout(button, flyoutItems);
+            }
+        };
 
         MenuPanel.Children.Add(button);
         _itemCount++;
@@ -463,6 +475,52 @@ public sealed partial class TrayMenuWindow : WindowEx
     public void AddCustomElement(UIElement element)
     {
         MenuPanel.Children.Add(element);
+    }
+
+    /// <summary>
+    /// Adds a custom UIElement as a flyout-enabled menu item with hover/click behavior.
+    /// Same behavior as AddFlyoutMenuItem but accepts any UIElement instead of text.
+    /// </summary>
+    public void AddFlyoutCustomItem(UIElement content, IEnumerable<TrayMenuFlyoutItem> items, string? action = null)
+    {
+        var flyoutItems = items.ToArray();
+
+        var button = new Button
+        {
+            Content = content,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(0),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(6)
+        };
+
+        button.PointerEntered += (s, e) =>
+        {
+            button.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+            ShowCascadingFlyout(button, flyoutItems);
+        };
+        button.PointerExited += (s, e) =>
+        {
+            button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        };
+        button.Click += (s, e) =>
+        {
+            if (!string.IsNullOrEmpty(action))
+            {
+                HideActiveFlyout();
+                MenuItemClicked?.Invoke(this, action);
+                HideCascade();
+            }
+            else
+            {
+                ShowCascadingFlyout(button, flyoutItems);
+            }
+        };
+
+        MenuPanel.Children.Add(button);
+        _itemCount++;
     }
 
     public void ClearItems()
@@ -627,7 +685,26 @@ public sealed partial class TrayMenuWindow : WindowEx
             flyoutWindow.ClearItems();
             foreach (var item in items)
             {
-                flyoutWindow.AddMenuItem(item.Text, item.Icon, item.Action);
+                if (item.IsHeader)
+                {
+                    flyoutWindow.AddHeader(item.Text);
+                }
+                else if (string.IsNullOrEmpty(item.Action))
+                {
+                    // Non-interactive detail line
+                    flyoutWindow.AddCustomElement(new TextBlock
+                    {
+                        Text = item.Text,
+                        Padding = new Thickness(12, 3, 12, 3),
+                        Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+                else
+                {
+                    flyoutWindow.AddMenuItem(item.Text, item.Icon, item.Action);
+                }
             }
 
             flyoutWindow.SizeToContent();
@@ -724,14 +801,17 @@ public sealed partial class TrayMenuWindow : WindowEx
 
 public sealed class TrayMenuFlyoutItem
 {
-    public TrayMenuFlyoutItem(string text, string? icon, string action)
+    public TrayMenuFlyoutItem() { }
+
+    public TrayMenuFlyoutItem(string text, string? icon = null, string? action = null)
     {
         Text = text;
         Icon = icon;
-        Action = action;
+        Action = action ?? "";
     }
 
-    public string Text { get; }
-    public string? Icon { get; }
-    public string Action { get; }
+    public string Text { get; set; } = "";
+    public string? Icon { get; set; }
+    public string Action { get; set; } = "";
+    public bool IsHeader { get; set; }
 }
