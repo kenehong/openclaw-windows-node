@@ -1726,6 +1726,22 @@ public partial class App : Application
         }
     }
 
+    private bool? ProbeLoopbackIsWsl(string? gatewayUrl)
+    {
+        if (string.IsNullOrWhiteSpace(gatewayUrl)) return null;
+        if (!Uri.TryCreate(gatewayUrl, UriKind.Absolute, out var uri)) return null;
+        if (uri.Port <= 0) return null;
+        try
+        {
+            return WslLoopbackProbe.IsLoopbackPortOwnedByWslRelay(uri.Port);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"WSL loopback probe failed: {ex.Message}");
+            return null;
+        }
+    }
+
     private string BuildTrayTooltip()
     {
         var topology = GatewayTopologyClassifier.Classify(
@@ -1733,7 +1749,8 @@ public partial class App : Application
             _settings?.UseSshTunnel == true,
             _settings?.SshTunnelHost,
             _settings?.SshTunnelLocalPort ?? 0,
-            _settings?.SshTunnelRemotePort ?? 0);
+            _settings?.SshTunnelRemotePort ?? 0,
+            loopbackIsWsl: ProbeLoopbackIsWsl(_settings?.GatewayUrl));
         var channelReady = _lastChannels.Count(c => ChannelHealth.IsHealthyStatus(c.Status));
         var nodeOnline = _lastNodes.Count(n => n.IsOnline);
         var nodeTotal = _lastNodes.Length;
@@ -2018,7 +2035,8 @@ public partial class App : Application
             _settings?.UseSshTunnel == true,
             _settings?.SshTunnelHost,
             _settings?.SshTunnelLocalPort ?? 0,
-            _settings?.SshTunnelRemotePort ?? 0);
+            _settings?.SshTunnelRemotePort ?? 0,
+            loopbackIsWsl: ProbeLoopbackIsWsl(_settings?.GatewayUrl));
         var tunnel = BuildTunnelInfo();
         var portDiagnostics = PortDiagnosticsService.BuildDiagnostics(topology, tunnel);
         ApplyDetectedSshForwardTopology(topology, portDiagnostics);

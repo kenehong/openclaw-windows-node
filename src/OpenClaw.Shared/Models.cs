@@ -1316,7 +1316,8 @@ public static class GatewayTopologyClassifier
         bool useSshTunnel,
         string? sshHost = null,
         int sshLocalPort = 0,
-        int sshRemotePort = 0)
+        int sshRemotePort = 0,
+        bool? loopbackIsWsl = null)
     {
         var normalized = GatewayUrlHelper.NormalizeForWebSocket(gatewayUrl);
         Uri.TryCreate(normalized, UriKind.Absolute, out var uri);
@@ -1361,7 +1362,7 @@ public static class GatewayTopologyClassifier
             };
         }
 
-        var kind = ClassifyHost(host, isLoopback);
+        var kind = ClassifyHost(host, isLoopback, loopbackIsWsl);
         return new GatewayTopologyInfo
         {
             DetectedKind = kind,
@@ -1369,17 +1370,21 @@ public static class GatewayTopologyClassifier
             GatewayUrl = GatewayUrlHelper.SanitizeForDisplay(normalized),
             Host = host,
             Transport = GetTransport(kind, uri.Scheme),
-            Detail = BuildDetail(kind, host, uri.Scheme),
+            Detail = BuildDetail(kind, host, uri.Scheme, isLoopback),
             UsesSshTunnel = false,
             IsLoopback = isLoopback,
             IsPlaintextWebSocket = isPlaintext
         };
     }
 
-    private static GatewayKind ClassifyHost(string host, bool isLoopback)
+    private static GatewayKind ClassifyHost(string host, bool isLoopback, bool? loopbackIsWsl = null)
     {
         if (isLoopback)
-            return GatewayKind.WindowsNative;
+        {
+            // Caller can probe for wslrelay-style loopback forwarding and pass loopbackIsWsl=true
+            // when the loopback port is actually owned by WSL's relay.
+            return loopbackIsWsl == true ? GatewayKind.Wsl : GatewayKind.WindowsNative;
+        }
 
         if (IsWslHost(host))
             return GatewayKind.Wsl;
@@ -1464,9 +1469,10 @@ public static class GatewayTopologyClassifier
         _ => scheme
     };
 
-    private static string BuildDetail(GatewayKind kind, string host, string scheme) => kind switch
+    private static string BuildDetail(GatewayKind kind, string host, string scheme, bool isLoopback = false) => kind switch
     {
-        GatewayKind.WindowsNative => $"Loopback gateway at {host} using {scheme}. WSL detection will refine this later if needed.",
+        GatewayKind.WindowsNative => $"Loopback gateway at {host} using {scheme}.",
+        GatewayKind.Wsl when isLoopback => $"WSL gateway reached via loopback at {host} using {scheme} (forwarded by wslrelay).",
         GatewayKind.Wsl => $"WSL gateway at {host} using {scheme}.",
         GatewayKind.Tailscale => $"Tailnet gateway at {host}.",
         GatewayKind.RemoteLan => $"LAN/private gateway at {host}.",
