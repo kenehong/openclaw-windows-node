@@ -469,34 +469,8 @@ public partial class App : Application
                 return;
             }
 
-            // Pre-fetch latest data before showing menu
-            if (_gatewayClient != null && _currentStatus == ConnectionStatus.Connected)
-            {
-                try
-                {
-                    // Request fresh data
-                    _ = _gatewayClient.CheckHealthAsync();
-                    _ = _gatewayClient.RequestSessionsAsync();
-                    _ = _gatewayClient.RequestUsageAsync();
-                    
-                    // Only wait if we have NO cached session data
-                    // Otherwise show instantly with cached data (feels snappier)
-                    if (_lastSessions.Length == 0)
-                    {
-                        await Task.Delay(200); // Wait for first-time data
-                    }
-                    else
-                    {
-                        await Task.Delay(50); // Brief yield to let fresh data arrive if ready
-                    }
-                    
-                    Logger.Info($"Menu data: {_lastSessions.Length} sessions, {_lastChannels.Length} channels");
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Data fetch error: {ex.Message}");
-                }
-            }
+            // Menu uses purely cached data — no gateway requests on open
+            // Data stays fresh via WebSocket event stream (session/health broadcasts)
 
             // Reuse pre-created window - never create new ones after startup
             if (_trayMenuWindow == null)
@@ -763,59 +737,82 @@ public partial class App : Application
 
     private void BuildTrayMenuPopup(TrayMenuWindow menu)
     {
-        // ── Rich Status Header with integrated toggle ──
         var isConnected = _currentStatus == ConnectionStatus.Connected;
         var statusText = LocalizationHelper.GetConnectionStatusText(_currentStatus);
 
-        var headerCard = new Grid
+        // ── Brand Header (non-interactive) ──
+        menu.AddCustomElement(new StackPanel
         {
-            Padding = new Thickness(14, 10, 14, 10),
-            HorizontalAlignment = HorizontalAlignment.Stretch
+            Padding = new Thickness(14, 10, 14, 6),
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = "🦞 OpenClaw",
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    FontSize = 14
+                }
+            }
+        });
+
+        // ── Gateway Section ──
+        var gwGrid = new Grid
+        {
+            Padding = new Thickness(14, 4, 14, 8),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
+            }
         };
 
-        var leftStack = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var gwInfo = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
 
-        // Title row with status dot
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var statusDot = new Microsoft.UI.Xaml.Shapes.Ellipse
+        // Gateway status line
+        var gwStatusRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        gwStatusRow.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse
         {
-            Width = 10, Height = 10,
+            Width = 8, Height = 8,
             VerticalAlignment = VerticalAlignment.Center,
             Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
                 isConnected ? Microsoft.UI.Colors.LimeGreen
                 : _currentStatus == ConnectionStatus.Connecting ? Microsoft.UI.Colors.Orange
                 : Microsoft.UI.Colors.Gray)
-        };
-        titleRow.Children.Add(statusDot);
-        titleRow.Children.Add(new TextBlock
+        });
+        gwStatusRow.Children.Add(new TextBlock
         {
-            Text = "OpenClaw",
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 14,
+            Text = $"Gateway · {statusText}",
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center
         });
-        leftStack.Children.Add(titleRow);
+        gwInfo.Children.Add(gwStatusRow);
 
-        // Subtitle line 1: connection details
-        var subtitleParts = new List<string> { statusText };
-        if (isConnected && _lastGatewaySelf != null)
+        // Gateway details
+        if (isConnected)
         {
-            var ver = _lastGatewaySelf.ServerVersion;
-            if (!string.IsNullOrEmpty(ver)) subtitleParts.Add($"v{ver}");
-            if (!string.IsNullOrEmpty(_lastGatewaySelf.AuthMode))
-                subtitleParts.Add(_lastGatewaySelf.AuthMode);
+            var detailParts = new List<string>();
+            if (_lastGatewaySelf != null && !string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
+                detailParts.Add($"v{_lastGatewaySelf.ServerVersion}");
+            var url = _settings?.GetEffectiveGatewayUrl();
+            if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                detailParts.Add($"{uri.Host}:{uri.Port}");
+            if (_lastPresence != null && _lastPresence.Length > 0)
+                detailParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
+            if (detailParts.Count > 0)
+            {
+                gwInfo.Children.Add(new TextBlock
+                {
+                    Text = string.Join(" · ", detailParts),
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                    FontSize = 11
+                });
+            }
         }
-        if (_lastPresence != null && _lastPresence.Length > 0)
-            subtitleParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
-        leftStack.Children.Add(new TextBlock
-        {
-            Text = string.Join(" · ", subtitleParts),
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            FontSize = 11
-        });
 
-        // Subtitle line 2: node status (only if relevant)
+        // Node pairing status
         if (_settings?.EnableNodeMode == true && _nodeService != null)
         {
             var nodeText = _nodeService.IsPaired ? "Node paired"
@@ -824,7 +821,7 @@ public partial class App : Application
                 : null;
             if (nodeText != null)
             {
-                leftStack.Children.Add(new TextBlock
+                gwInfo.Children.Add(new TextBlock
                 {
                     Text = nodeText,
                     Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
@@ -834,36 +831,42 @@ public partial class App : Application
             }
         }
 
-        // Auth failure message
+        // Auth failure
         if (!string.IsNullOrEmpty(_authFailureMessage))
         {
-            leftStack.Children.Add(new TextBlock
+            gwInfo.Children.Add(new TextBlock
             {
                 Text = $"⚠️ {_authFailureMessage}",
                 Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                 Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.OrangeRed),
                 FontSize = 11,
                 TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 260
+                MaxWidth = 240
             });
         }
 
-        headerCard.Children.Add(leftStack);
+        Grid.SetColumn(gwInfo, 0);
+        gwGrid.Children.Add(gwInfo);
 
-        // Toggle on the right
-        var toggle = new ToggleSwitch
+        // Gateway connect/disconnect button
+        var connectBtn = new ToggleButton
         {
-            IsOn = isConnected,
-            MinWidth = 0,
-            OnContent = "",
-            OffContent = "",
+            IsChecked = isConnected,
+            Content = isConnected ? "Connected" : "Disconnected",
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0)
+            Padding = new Thickness(10, 4, 10, 4),
+            MinHeight = 0,
+            MinWidth = 0,
+            FontSize = 11
         };
-        toggle.Toggled += (s, e) =>
+        ToolTipService.SetToolTip(connectBtn, isConnected ? "Click to disconnect from gateway" : "Click to connect to gateway");
+        connectBtn.Click += (s, ev) =>
         {
-            if (toggle.IsOn)
+            var on = connectBtn.IsChecked == true;
+            connectBtn.Content = on ? "Connected" : "Disconnected";
+            ToolTipService.SetToolTip(connectBtn, on ? "Click to disconnect from gateway" : "Click to connect to gateway");
+            if (on)
             {
                 InitializeGatewayClient();
                 if (_settings?.EnableNodeMode == true) InitializeNodeService();
@@ -884,12 +887,21 @@ public partial class App : Application
                 UpdateTrayIcon();
                 _hubWindow?.UpdateStatus(_currentStatus);
             }
+            // Dismiss menu after toggle — header will rebuild with correct state on next open
+            _trayMenuWindow?.HideCascade();
         };
-        headerCard.Children.Add(toggle);
-        menu.AddCustomElement(headerCard);
+        Grid.SetColumn(connectBtn, 1);
+        gwGrid.Children.Add(connectBtn);
+
+        // Make gateway info area clickable → opens Connection page
+        gwInfo.Tapped += (s, ev) =>
+        {
+            ShowHub("connection");
+        };
+        menu.AddCustomElement(gwGrid);
 
         // ── Sessions ──
-        if (_lastSessions.Length > 0 && _currentStatus == ConnectionStatus.Connected)
+        if (_lastSessions.Length > 0)
         {
             menu.AddSeparator();
 
@@ -905,7 +917,7 @@ public partial class App : Application
             {
                 var card = BuildSessionCard(session);
                 var flyoutItems = BuildSessionFlyoutItems(session);
-                menu.AddFlyoutCustomItem(card, flyoutItems, action: "agent:main:sessions");
+                menu.AddFlyoutCustomItem(card, flyoutItems, action: "sessions");
             }
         }
 
@@ -1011,14 +1023,6 @@ public partial class App : Application
                 }
             }
         }
-
-        // ── Quick Connection Actions ──
-        menu.AddSeparator();
-        if (isConnected || _currentStatus == ConnectionStatus.Error)
-        {
-            menu.AddMenuItem("Reconnect", "🔄", "reconnect");
-        }
-        menu.AddMenuItem("Connection", "🔗", "connection");
 
         // ── Actions ──
         menu.AddSeparator();

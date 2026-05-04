@@ -147,13 +147,34 @@ public sealed partial class TrayMenuWindow : WindowEx
 
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
-            if (_activeFlyoutWindow == null)
+            // Always use delayed check — immediate dismiss races with flyout transitions
+            var timer = DispatcherQueue.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(150);
+            timer.IsRepeating = false;
+            timer.Tick += (_, _) =>
             {
-                this.Hide();
-                return;
-            }
+                timer.Stop();
+                if (!_isShown) return; // already hidden
 
-            HideCascadeIfFocusLeavesMenu();
+                var foreground = GetForegroundWindow();
+                var thisHwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+                var flyoutHwnd = _activeFlyoutWindow != null
+                    ? WinRT.Interop.WindowNative.GetWindowHandle(_activeFlyoutWindow)
+                    : IntPtr.Zero;
+                var ownerHwnd = _ownerMenu != null
+                    ? WinRT.Interop.WindowNative.GetWindowHandle(_ownerMenu)
+                    : IntPtr.Zero;
+
+                // Stay open if focus is on this window, its flyout, or its parent
+                if (foreground == thisHwnd || foreground == flyoutHwnd ||
+                    (ownerHwnd != IntPtr.Zero && foreground == ownerHwnd))
+                    return;
+
+                // Focus went elsewhere — dismiss everything
+                HideCascade();
+                _ownerMenu?.HideCascade();
+            };
+            timer.Start();
         }
     }
 
@@ -203,6 +224,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         }
 
         ApplyRoundedWindowRegion();
+        _isShown = true;
         Activate();
         SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
         _ = VisualTestCapture.CaptureAsync(RootGrid, "TrayMenu");
