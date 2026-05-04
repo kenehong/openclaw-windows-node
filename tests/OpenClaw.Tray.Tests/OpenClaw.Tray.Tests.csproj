@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenClaw.Shared\OpenClaw.Shared.csproj" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
   </ItemGroup>
 
@@ -38,6 +39,7 @@
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\GatewayHealthCheck.cs" Link="Imported\GatewayHealthCheck.cs" />
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\InputValidator.cs" Link="Imported\InputValidator.cs" />
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\WizardStepParser.cs" Link="Imported\WizardStepParser.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Helpers\IconHelper.cs" Link="Imported\IconHelper.cs" />
   </ItemGroup>
 
 </Project>

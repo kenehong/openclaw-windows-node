@@ -117,6 +117,7 @@ public partial class App : Application
     private ActivityStreamWindow? _activityStreamWindow;
     private TrayMenuWindow? _trayMenuWindow;
     private QuickSendDialog? _quickSendDialog;
+    private ComponentLibraryWindow? _componentLibraryWindow;
     private string? _authFailureMessage;
     
     // Node service (optional, enabled in settings)
@@ -153,6 +154,7 @@ public partial class App : Application
         }
 
         InitializeComponent();
+        HighContrastAdjustment = ApplicationHighContrastAdjustment.None;
         
         CheckPreviousRun();
         MarkRunStarted();
@@ -273,10 +275,27 @@ public partial class App : Application
         return null;
     }
 
+    private static bool IsComponentLibraryMode(string[] args) =>
+        args.Any(arg =>
+            string.Equals(arg, "--component-library", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "--component-preview", StringComparison.OrdinalIgnoreCase));
+
+    private void ShowComponentLibrary()
+    {
+        _componentLibraryWindow = new ComponentLibraryWindow();
+        _componentLibraryWindow.Closed += (_, _) =>
+        {
+            _componentLibraryWindow = null;
+            Exit();
+        };
+        _componentLibraryWindow.Activate();
+    }
+
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         _startupArgs = Environment.GetCommandLineArgs();
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        var componentLibraryMode = IsComponentLibraryMode(_startupArgs);
 
         // Check for protocol activation (MSIX packaged apps receive deep links this way)
         string? protocolUri = GetProtocolActivationUri();
@@ -295,6 +314,11 @@ public partial class App : Application
                 System.Text.Encoding.UTF8.GetBytes(DataDirOverride));
             mutexName = $"OpenClawTray-{Convert.ToHexString(hash, 0, 4)}";
         }
+        else if (componentLibraryMode)
+        {
+            mutexName = "OpenClawTray-ComponentLibrary";
+        }
+
         _mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -312,6 +336,12 @@ public partial class App : Application
 
         // Store protocol URI for processing after setup
         _pendingProtocolUri = protocolUri;
+
+        if (componentLibraryMode)
+        {
+            ShowComponentLibrary();
+            return;
+        }
 
         // Initialize settings before update check so skip selections can be remembered.
         _settings = new SettingsManager();
@@ -414,7 +444,7 @@ public partial class App : Application
         // Pre-create tray menu window at startup to avoid creation crashes later
         InitializeTrayMenuWindow();
         
-        var iconPath = IconHelper.GetStatusIconPath(ConnectionStatus.Disconnected);
+        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "openclaw.ico");
         _trayIcon = new TrayIcon(1, iconPath, "OpenClaw Tray — Disconnected");
         _trayIcon.IsVisible = true;
         _trayIcon.Selected += OnTrayIconSelected;
@@ -1649,7 +1679,7 @@ public partial class App : Application
             status = ConnectionStatus.Connecting; // Use connecting icon for activity
         }
 
-        var iconPath = IconHelper.GetStatusIconPath(status);
+        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "openclaw.ico");
         var tooltip = BuildTrayTooltip();
 
         try

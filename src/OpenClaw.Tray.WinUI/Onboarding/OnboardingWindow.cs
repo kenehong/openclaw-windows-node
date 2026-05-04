@@ -388,7 +388,7 @@ public sealed class OnboardingWindow : WindowEx
                 if (Uri.TryCreate(url, UriKind.Absolute, out var chatUri))
                     _allowedOrigin = $"{chatUri.Scheme}://{chatUri.Authority}";
 
-                var safeUrl = url.Split('?')[0];
+                var safeUrl = url.Split('?', '#')[0];
                 Logger.Info($"[OnboardingChat] Navigating to {safeUrl} (session=onboarding)");
                 _chatWebView.CoreWebView2.Navigate(url);
             }

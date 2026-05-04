@@ -1,8 +1,11 @@
 using OpenClaw.Shared;
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace OpenClawTray.Helpers;
 
@@ -10,10 +13,17 @@ namespace OpenClawTray.Helpers;
 /// Provides icon resources for the tray application.
 /// Creates dynamic status icons with lobster pixel art.
 /// </summary>
+[SupportedOSPlatform("windows")]
 public static class IconHelper
 {
     private static readonly string AssetsPath = Path.Combine(AppContext.BaseDirectory, "Assets");
-    private static readonly string IconsPath = Path.Combine(AssetsPath, "Icons");
+    private static readonly string GeneratedIconsPath =
+        Environment.GetEnvironmentVariable("OPENCLAW_TRAY_ICON_CACHE_DIR") is { Length: > 0 } cacheDir
+            ? cacheDir
+            : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "OpenClawTray",
+                "StatusIcons");
 
     // Icon cache
     private static Icon? _connectedIcon;
@@ -24,23 +34,70 @@ public static class IconHelper
 
     public static string GetStatusIconPath(ConnectionStatus status)
     {
-        var iconName = status switch
+        if (status == ConnectionStatus.Connected)
         {
-            ConnectionStatus.Connected => "StatusConnected.ico",
-            ConnectionStatus.Connecting => "StatusConnecting.ico",
-            ConnectionStatus.Error => "StatusError.ico",
-            _ => "StatusDisconnected.ico"
-        };
-
-        var path = Path.Combine(IconsPath, iconName);
-        
-        // If specific icon doesn't exist, fall back to main icon
-        if (!File.Exists(path))
-        {
-            path = Path.Combine(AssetsPath, "openclaw.ico");
+            return GetBaseIconPath();
         }
 
-        return path;
+        return EnsureStatusAssets(NormalizeStatus(status)).IconPath;
+    }
+
+    public static string GetStatusPreviewImagePath(ConnectionStatus status) =>
+        EnsureStatusAssets(NormalizeStatus(status)).PngPath;
+
+    public static string GetStatusDisplayName(ConnectionStatus status) => NormalizeStatus(status) switch
+    {
+        ConnectionStatus.Connected => "Online",
+        ConnectionStatus.Connecting => "Activity / connecting",
+        ConnectionStatus.Error => "Error",
+        _ => "Offline"
+    };
+
+    public static string GetStatusDescription(ConnectionStatus status) => NormalizeStatus(status) switch
+    {
+        ConnectionStatus.Connected => "Current OpenClaw icon with no badge.",
+        ConnectionStatus.Connecting => "White badge with a blue progress arc for connecting or active agent work.",
+        ConnectionStatus.Error => "Red critical badge with a bold white cross for auth or connection errors.",
+        _ => "Greyed-out claw for the disconnected / offline state."
+    };
+
+    /// <summary>
+    /// Returns a multi-line dummy tooltip mirroring the production
+    /// <c>BuildTrayTooltip</c> format for each connection state.
+    /// Used by the component library preview to show what users see on hover.
+    /// </summary>
+    public static string GetStatusHoverTooltip(ConnectionStatus status)
+    {
+        var normalized = NormalizeStatus(status);
+        var checkedAt = DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        return normalized switch
+        {
+            ConnectionStatus.Connected =>
+                $"OpenClaw Tray — Connected\n" +
+                $"Topology: Direct (localhost)\n" +
+                $"Channels: 3/3 ready · Nodes: 1/1 online\n" +
+                $"Warnings: 0 · Last check: {checkedAt}",
+
+            ConnectionStatus.Connecting =>
+                $"OpenClaw Tray — Connecting\n" +
+                $"Activity: Reconnecting to gateway…\n" +
+                $"Topology: SSH tunnel (host.example.com)\n" +
+                $"Channels: 1/3 ready · Nodes: 0/1 online\n" +
+                $"Warnings: 1 · Last check: {checkedAt}",
+
+            ConnectionStatus.Error =>
+                $"OpenClaw Tray — Error\n" +
+                $"Topology: Remote gateway\n" +
+                $"Channels: 0/3 ready · Nodes: 0/1 online\n" +
+                $"Warnings: 2 · Last check: {checkedAt}",
+
+            _ =>
+                $"OpenClaw Tray — Disconnected\n" +
+                $"Topology: Not configured\n" +
+                $"Channels: 0/0 ready · Nodes: 0/0 online\n" +
+                $"Warnings: 1 · Last check: {checkedAt}",
+        };
     }
 
     public static Icon GetStatusIcon(ConnectionStatus status)
@@ -96,6 +153,137 @@ public static class IconHelper
         return cached;
     }
 
+    private static ConnectionStatus NormalizeStatus(ConnectionStatus status) => status switch
+    {
+        ConnectionStatus.Connected => ConnectionStatus.Connected,
+        ConnectionStatus.Connecting => ConnectionStatus.Connecting,
+        ConnectionStatus.Error => ConnectionStatus.Error,
+        _ => ConnectionStatus.Disconnected
+    };
+
+    private static string GetBaseIconPath() => Path.Combine(AssetsPath, "openclaw.ico");
+    private static string GetOfflineImagePath() => Path.Combine(AssetsPath, "offline.png");
+
+    private static StatusIconAssets EnsureStatusAssets(ConnectionStatus status)
+    {
+        Directory.CreateDirectory(GeneratedIconsPath);
+
+        var assetName = NormalizeStatus(status).ToString();
+        var iconPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{assetName}.ico");
+        var pngPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{assetName}.png");
+
+        if (File.Exists(iconPath) && File.Exists(pngPath))
+        {
+            return new StatusIconAssets(iconPath, pngPath);
+        }
+
+        using var bitmap = CreateStatusBitmap(status);
+        bitmap.Save(pngPath, ImageFormat.Png);
+
+        using var icon = CreateIconFromBitmap(bitmap);
+        using var stream = File.Create(iconPath);
+        icon.Save(stream);
+
+        return new StatusIconAssets(iconPath, pngPath);
+    }
+
+    private static Bitmap CreateStatusBitmap(ConnectionStatus status)
+    {
+        const int size = 16;
+        var normalized = NormalizeStatus(status);
+
+        // Disconnected uses the dedicated offline artwork as its base and shows no badge.
+        if (normalized == ConnectionStatus.Disconnected)
+        {
+            var offlinePath = GetOfflineImagePath();
+            if (File.Exists(offlinePath))
+            {
+                using var src = (Bitmap)Image.FromFile(offlinePath);
+                var bmp = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+                using var g0 = Graphics.FromImage(bmp);
+                g0.SmoothingMode = SmoothingMode.AntiAlias;
+                g0.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g0.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g0.Clear(Color.Transparent);
+                var scale = Math.Min((float)size / src.Width, (float)size / src.Height);
+                var w = src.Width * scale;
+                var h = src.Height * scale;
+                var x = (size - w) / 2f;
+                var y = (size - h) / 2f;
+                g0.DrawImage(src, x, y, w, h);
+                return bmp;
+            }
+        }
+
+        var baseIconPath = GetBaseIconPath();
+        using var sourceIcon = File.Exists(baseIconPath)
+            ? new Icon(baseIconPath, size, size)
+            : CreateLobsterIcon(Color.FromArgb(255, 99, 71));
+        var bitmap = sourceIcon.ToBitmap();
+
+        using var g = Graphics.FromImage(bitmap);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        DrawStateBadge(g, status);
+        return bitmap;
+    }
+
+    private static void DrawStateBadge(Graphics g, ConnectionStatus status)
+    {
+        var normalized = NormalizeStatus(status);
+        if (normalized is ConnectionStatus.Connected or ConnectionStatus.Disconnected)
+        {
+            // Connected has no badge; Disconnected is rendered from the offline asset.
+            return;
+        }
+
+        // Badge geometry: 10x10 anchored to the lower-right of the 16x16 canvas with a
+        // 1px white halo so it stays legible on dark and light Windows themes.
+        var badgeRect = new RectangleF(5.5f, 5.5f, 10f, 10f);
+        var haloRect = new RectangleF(4.5f, 4.5f, 12f, 12f);
+
+        using var halo = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
+        g.FillEllipse(halo, haloRect);
+
+        switch (normalized)
+        {
+            case ConnectionStatus.Connecting:
+                {
+                    using var bg = new SolidBrush(Color.White);
+                    g.FillEllipse(bg, badgeRect);
+                    using var arc = new Pen(Color.FromArgb(0, 120, 212), 1.8f) // Fluent blue
+                    {
+                        StartCap = LineCap.Round,
+                        EndCap = LineCap.Round
+                    };
+                    // Three-quarter arc opening toward bottom-right.
+                    g.DrawArc(arc, 7.0f, 7.0f, 7.0f, 7.0f, 225f, 270f);
+                    break;
+                }
+            case ConnectionStatus.Error:
+                {
+                    using var bg = new SolidBrush(Color.FromArgb(220, 53, 69));
+                    g.FillEllipse(bg, badgeRect);
+                    using var glyph = new Pen(Color.White, 1.8f)
+                    {
+                        StartCap = LineCap.Round,
+                        EndCap = LineCap.Round
+                    };
+                    g.DrawLine(glyph, 8f, 8f, 13f, 13f);
+                    g.DrawLine(glyph, 13f, 8f, 8f, 13f);
+                    break;
+                }
+        }
+    }
+
+    private static Icon CreateIconFromBitmap(Bitmap bitmap)
+    {
+        var hIcon = bitmap.GetHicon();
+        var icon = Icon.FromHandle(hIcon);
+        var result = (Icon)icon.Clone();
+        DestroyIcon(hIcon);
+        return result;
+    }
+
     /// <summary>
     /// Creates a simple colored lobster icon programmatically.
     /// Uses pixel art style matching the original WinForms version.
@@ -142,4 +330,6 @@ public static class IconHelper
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern bool DestroyIcon(IntPtr handle);
+
+    private sealed record StatusIconAssets(string IconPath, string PngPath);
 }

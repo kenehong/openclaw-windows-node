@@ -37,7 +37,7 @@ public class GatewayChatHelperTests
             "ws://localhost:18789", "a b&c=d", out var url, out _);
 
         Assert.True(ok);
-        Assert.Contains("token=a%20b%26c%3Dd", url);
+        Assert.Contains("#token=a%20b%26c%3Dd", url);
     }
 
     #endregion

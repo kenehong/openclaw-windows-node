@@ -43,7 +43,7 @@ public sealed partial class StatusDetailWindow : WindowEx
         // Window configuration
         this.SetWindowSize(560, 720);
         this.CenterOnScreen();
-        this.SetIcon(IconHelper.GetStatusIconPath(state.ConnectionStatus));
+        this.SetIcon(IconHelper.GetStatusIconPath(ConnectionStatus.Connected));
         
         Closed += (s, e) => IsClosed = true;
         

@@ -10,7 +10,7 @@ public static class GatewayChatUrlBuilder
 {
     /// <summary>
     /// Build the HTTP(S) chat URL from a WebSocket gateway URL.
-    /// Converts ws:// → http://, wss:// → https://, appends token and optional session key.
+    /// Converts ws:// -> http://, wss:// -> https://, appends token and optional session key.
     /// </summary>
     public static bool TryBuildChatUrl(
         string gatewayUrl,
@@ -45,11 +45,13 @@ public static class GatewayChatUrlBuilder
             Port = gatewayUri.Port
         };
 
-        var baseUrl = builder.Uri.GetLeftPart(UriPartial.Authority);
-        url = $"{baseUrl}?token={Uri.EscapeDataString(token)}";
+        var hashParams = new List<string> { $"token={Uri.EscapeDataString(token)}" };
 
         if (!string.IsNullOrEmpty(sessionKey))
-            url += $"&session={Uri.EscapeDataString(sessionKey)}";
+            hashParams.Add($"session={Uri.EscapeDataString(sessionKey)}");
+
+        var baseUrl = builder.Uri.GetLeftPart(UriPartial.Authority);
+        url = $"{baseUrl}/#{string.Join("&", hashParams)}";
 
         return true;
     }

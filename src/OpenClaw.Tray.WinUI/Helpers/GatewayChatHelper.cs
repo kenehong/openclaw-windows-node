@@ -18,13 +18,11 @@ public static class GatewayChatHelper
 
     /// <summary>
     /// Build the HTTP(S) chat URL from a WebSocket gateway URL.
-    /// Converts ws:// → http://, wss:// → https://, appends token and optional session key.
+    /// Converts ws:// -> http://, wss:// -> https://, appends token and optional session key.
     /// </summary>
     /// <remarks>
-    /// SECURITY NOTE: Token is passed as a URL query parameter (?token=...). This follows the
-    /// existing WebChatWindow pattern in the repo. Tokens in URLs can leak to server access logs,
-    /// WebView2 navigation logs, and Referrer headers. The NavigationStarting handler in
-    /// OnboardingWindow.cs strips query params before logging to mitigate log exposure.
+    /// SECURITY NOTE: Token is passed as a URL fragment (#token=...). Fragments avoid server
+    /// request logs and match the dashboard URL emitted by the gateway CLI.
     /// Future improvement: inject token via Authorization header using CoreWebView2.AddWebResourceRequestedFilter.
     /// </remarks>
     public static bool TryBuildChatUrl(
