@@ -7,6 +7,7 @@ using OpenClaw.Shared;
 using OpenClawTray.Helpers;
 using System;
 using System.IO;
+using System.Linq;
 using Windows.UI;
 using WinUIEx;
 
@@ -126,6 +127,27 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         if (StatusComboBox.SelectedItem is ComboBoxItem { Tag: PreviewIconState state })
         {
             UpdateSelectedState(state);
+        }
+    }
+
+    private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is not NavigationViewItem item)
+        {
+            return;
+        }
+
+        var tag = item.Tag as string ?? string.Empty;
+        if (tag == "tray-status")
+        {
+            TrayStatusPage.Visibility = Visibility.Visible;
+            ComingSoonPage.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            TrayStatusPage.Visibility = Visibility.Collapsed;
+            ComingSoonPage.Visibility = Visibility.Visible;
+            ComingSoonTitle.Text = item.Content as string ?? tag;
         }
     }
 

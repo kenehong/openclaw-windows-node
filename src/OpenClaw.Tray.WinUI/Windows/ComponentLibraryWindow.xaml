@@ -13,8 +13,31 @@
     </Window.SystemBackdrop>
 
     <Grid Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
-        <ScrollViewer Padding="24">
-            <StackPanel Spacing="24">
+        <NavigationView x:Name="ComponentNav"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="260"
+                        IsPaneToggleButtonVisible="True"
+                        SelectionChanged="OnNavSelectionChanged">
+            <NavigationView.PaneHeader>
+                <StackPanel Spacing="2" Margin="4,8,4,12">
+                    <TextBlock Text="Component Library" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="OpenClaw Tray"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </NavigationView.PaneHeader>
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavTrayStatus" Tag="tray-status" Content="Status &amp; tooltip" IsSelected="True"/>
+                <NavigationViewItem Tag="lorem-1" Content="Lorem ipsum" IsEnabled="False"/>
+                <NavigationViewItem Tag="lorem-2" Content="Consectetur" IsEnabled="False"/>
+            </NavigationView.MenuItems>
+
+            <Grid>
+                <ScrollViewer x:Name="TrayStatusPage" Padding="24">
+                    <StackPanel Spacing="24">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Component Library" Style="{StaticResource TitleTextBlockStyle}"/>
                     <TextBlock Text="Preview tray icon states in a system-tray-like interaction before applying them to the production tray."
@@ -351,5 +374,20 @@
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+
+                <Grid x:Name="ComingSoonPage" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" MaxWidth="420">
+                        <TextBlock x:Name="ComingSoonTitle"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="This component preview is on the roadmap. Add a new page to the NavigationView to start building it."
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </NavigationView>
     </Grid>
 </winex:WindowEx>
