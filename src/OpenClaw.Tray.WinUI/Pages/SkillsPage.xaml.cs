@@ -21,12 +21,41 @@ public sealed partial class SkillsPage : Page
     public void Initialize(HubWindow hub)
     {
         _hub = hub;
+        PopulateAgentFilter(hub);
         if (hub.GatewayClient != null)
         {
             NotWiredInfoBar.IsOpen = false;
-            _ = hub.GatewayClient.RequestSkillsStatusAsync(hub.CurrentAgentId);
+            _ = hub.GatewayClient.RequestSkillsStatusAsync(GetSelectedAgentId());
         }
         LoadSampleSkills();
+    }
+
+    private void PopulateAgentFilter(HubWindow hub)
+    {
+        AgentFilterCombo.SelectionChanged -= OnAgentFilterChanged;
+        AgentFilterCombo.Items.Clear();
+        AgentFilterCombo.Items.Add(new ComboBoxItem { Content = "All Agents", Tag = "" });
+        foreach (var id in hub.GetAgentIds())
+            AgentFilterCombo.Items.Add(new ComboBoxItem { Content = id, Tag = id });
+        AgentFilterCombo.SelectedIndex = 0;
+        AgentFilterCombo.SelectionChanged += OnAgentFilterChanged;
+    }
+
+    private string? GetSelectedAgentId()
+    {
+        if (AgentFilterCombo.SelectedItem is ComboBoxItem item)
+        {
+            var tag = item.Tag as string;
+            return string.IsNullOrEmpty(tag) ? null : tag;
+        }
+        return null;
+    }
+
+    private void OnAgentFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var client = _hub?.GatewayClient;
+        if (client != null)
+            _ = client.RequestSkillsStatusAsync(GetSelectedAgentId());
     }
 
     private void LoadSampleSkills()

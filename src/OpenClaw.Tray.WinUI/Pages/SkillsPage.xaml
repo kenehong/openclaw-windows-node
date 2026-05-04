@@ -9,6 +9,12 @@
 
             <TextBlock Text="🧩 Skills" Style="{StaticResource TitleTextBlockStyle}"/>
 
+            <!-- Agent Filter -->
+            <ComboBox x:Name="AgentFilterCombo" Header="Agent" MinWidth="200"
+                      SelectionChanged="OnAgentFilterChanged">
+                <ComboBoxItem Content="All Agents" Tag="" IsSelected="True"/>
+            </ComboBox>
+
             <!-- Not-wired InfoBar -->
             <InfoBar x:Name="NotWiredInfoBar"
                      IsOpen="True" IsClosable="False"

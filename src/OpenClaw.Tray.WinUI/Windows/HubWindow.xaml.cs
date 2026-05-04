@@ -89,10 +89,7 @@ public sealed partial class HubWindow : WindowEx
         if (tag == "general") tag = "home";
         // "chat" tag opens the ChatPage (WebView2) directly
         if (tag == "about") tag = "info";
-        // Map legacy flat agent tags to current agent scope
-        if (tag == "sessions") tag = $"agent:{_currentAgentId}:sessions";
-        if (tag == "agentevents") tag = $"agent:{_currentAgentId}:agentevents";
-        if (tag == "skills") tag = $"agent:{_currentAgentId}:skills";
+        // Map legacy agent-scoped workspace/cron tags
         if (tag == "cron") tag = $"agent:{_currentAgentId}:cron";
         if (tag == "workspace") tag = $"agent:{_currentAgentId}:workspace";
 
@@ -126,6 +123,7 @@ public sealed partial class HubWindow : WindowEx
     public void UpdateStatus(ConnectionStatus status)
     {
         CurrentStatus = status;
+        _cachedCommands = null; // invalidate search cache
         if (status == ConnectionStatus.Disconnected)
             _lastGatewaySelf = null;
         try
@@ -305,6 +303,7 @@ public sealed partial class HubWindow : WindowEx
 
     public void UpdateAgentsList(System.Text.Json.JsonElement data)
     {
+        LastAgentsData = data;
         try
         {
             DispatcherQueue?.TryEnqueue(() =>
@@ -335,14 +334,8 @@ public sealed partial class HubWindow : WindowEx
             {
                 Content = name ?? id,
                 Tag = $"agent:{id}",
-                IsExpanded = true,
                 Icon = new FontIcon { Glyph = "\uE99A" }
             };
-
-            agentItem.MenuItems.Add(CreateAgentSubItem(id, "sessions", "Sessions", "\uE8F2"));
-            agentItem.MenuItems.Add(CreateAgentSubItem(id, "agentevents", "Agent Events", "\uE943"));
-            agentItem.MenuItems.Add(CreateAgentSubItem(id, "skills", "Skills", "\uE945"));
-            agentItem.MenuItems.Add(CreateAgentSubItem(id, "workspace", "Workspace", "\uE8B7"));
 
             AgentsNavItem.MenuItems.Add(agentItem);
         }
@@ -356,6 +349,24 @@ public sealed partial class HubWindow : WindowEx
             Tag = $"agent:{agentId}:{page}",
             Icon = new FontIcon { Glyph = glyph }
         };
+    }
+
+    /// <summary>Extract agent IDs from cached agents data.</summary>
+    public List<string> GetAgentIds()
+    {
+        var ids = new List<string>();
+        if (LastAgentsData.HasValue &&
+            LastAgentsData.Value.TryGetProperty("agents", out var agentsEl) &&
+            agentsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var agent in agentsEl.EnumerateArray())
+            {
+                var id = agent.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+                if (!string.IsNullOrEmpty(id)) ids.Add(id);
+            }
+        }
+        if (ids.Count == 0) ids.Add("main");
+        return ids;
     }
 
     public void UpdateAgentFilesList(System.Text.Json.JsonElement data)
@@ -461,6 +472,7 @@ public sealed partial class HubWindow : WindowEx
     }
 
     public PresenceEntry[]? LastPresence { get; private set; }
+    public System.Text.Json.JsonElement? LastAgentsData { get; private set; }
 
     public void UpdatePresence(PresenceEntry[] data)
     {
@@ -471,6 +483,7 @@ public sealed partial class HubWindow : WindowEx
             {
                 if (IsClosed) return;
                 if (ContentFrame?.Content is InstancesPage ip) ip.UpdatePresenceData(data);
+                if (ContentFrame?.Content is NodesPage np) np.UpdatePresence(data);
             });
         }
         catch { }
@@ -509,6 +522,7 @@ public sealed partial class HubWindow : WindowEx
                 nodes.Initialize(this);
                 if (LastNodePairList != null) nodes.UpdatePairingRequests(LastNodePairList);
                 if (LastDevicePairList != null) nodes.UpdateDevicePairingRequests(LastDevicePairList);
+                if (LastPresence != null) nodes.UpdatePresence(LastPresence);
                 break;
             case CronPage cron: cron.Initialize(this); break;
             case SkillsPage skills: skills.Initialize(this); break;
@@ -527,8 +541,12 @@ public sealed partial class HubWindow : WindowEx
             case ActivityPage activity: activity.Initialize(this); break;
             case AgentEventsPage agentEvents:
                 agentEvents.ClearCentralCache = ClearAgentEvents;
-                agentEvents.SetAgentFilter(_currentAgentId);
-                if (agentEvents.EventCount == 0)
+                agentEvents.PopulateAgentFilter(this);
+                // When navigated via top-level nav (tag "agentevents"), show all agents
+                var agentEventsTag = (NavView?.SelectedItem as NavigationViewItem)?.Tag as string;
+                var eventsAgentFilter = agentEventsTag?.StartsWith("agent:") == true ? _currentAgentId : null;
+                agentEvents.SetAgentFilter(eventsAgentFilter);
+                if (agentEvents.EventCount == 0 && LastAgentEvents != null)
                 {
                     for (int i = LastAgentEvents.Count - 1; i >= 0; i--)
                         agentEvents.AddEvent(LastAgentEvents[i]);
@@ -578,7 +596,9 @@ public sealed partial class HubWindow : WindowEx
     private static Type? ResolveAgentPageType(string tag)
     {
         var parts = tag.Split(':');
-        if (parts.Length < 3) return null;
+        // "agent:main" (2 parts) → workspace page for that agent
+        if (parts.Length == 2) return typeof(WorkspacePage);
+        // "agent:main:workspace" etc (3 parts)
         return parts[2] switch
         {
             "sessions" => typeof(SessionsPage),
@@ -597,14 +617,16 @@ public sealed partial class HubWindow : WindowEx
         return parts.Length >= 2 ? parts[1] : "main";
     }
 
-    // ── Command Search (Ctrl+K / Ctrl+F) — title bar AutoSuggestBox ──
+    // ── Command Search (Ctrl+E / Ctrl+K / Ctrl+F) — title bar AutoSuggestBox ──
 
     private void OnRootPreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             global::Windows.System.VirtualKey.Control).HasFlag(
             global::Windows.UI.Core.CoreVirtualKeyStates.Down);
-        if (ctrl && (e.Key == global::Windows.System.VirtualKey.K || e.Key == global::Windows.System.VirtualKey.F))
+        if (ctrl && (e.Key == global::Windows.System.VirtualKey.E ||
+                     e.Key == global::Windows.System.VirtualKey.K ||
+                     e.Key == global::Windows.System.VirtualKey.F))
         {
             e.Handled = true;
             TitleSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
@@ -612,14 +634,16 @@ public sealed partial class HubWindow : WindowEx
         }
     }
 
+    private List<CommandItem>? _cachedCommands;
+
     private void OnSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
-        var commands = BuildCommandList();
+        _cachedCommands ??= BuildCommandList();
         var query = sender.Text?.Trim() ?? "";
         var filtered = string.IsNullOrEmpty(query)
-            ? commands.Take(8).ToList()
-            : commands.Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+            ? _cachedCommands.Take(8).ToList()
+            : _cachedCommands.Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (c.Subtitle?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
                 .Take(10).ToList();
         sender.ItemsSource = filtered;
@@ -631,6 +655,7 @@ public sealed partial class HubWindow : WindowEx
         {
             sender.Text = "";
             sender.ItemsSource = null;
+            _cachedCommands = null;
             ExecuteCommand(cmd);
         }
     }
@@ -641,7 +666,17 @@ public sealed partial class HubWindow : WindowEx
         {
             sender.Text = "";
             sender.ItemsSource = null;
+            _cachedCommands = null;
             ExecuteCommand(cmd);
+        }
+        else if (sender.ItemsSource is List<CommandItem> items && items.Count > 0)
+        {
+            // Enter pressed without selecting — execute first match
+            var first = items[0];
+            sender.Text = "";
+            sender.ItemsSource = null;
+            _cachedCommands = null;
+            ExecuteCommand(first);
         }
     }
 
@@ -653,11 +688,11 @@ public sealed partial class HubWindow : WindowEx
             // Navigation
             new() { Icon = "🏠", Title = "Go to Home", Subtitle = "Home page", Tag = "home" },
             new() { Icon = "💬", Title = "Go to Chat", Subtitle = "Open chat", Tag = "chat" },
-            new() { Icon = "🧠", Title = $"Go to Sessions ({agentId})", Subtitle = "Agent sessions", Tag = $"agent:{agentId}:sessions" },
-            new() { Icon = "🧠", Title = $"Go to Agent Events ({agentId})", Subtitle = "Agent event log", Tag = $"agent:{agentId}:agentevents" },
-            new() { Icon = "🧠", Title = $"Go to Skills ({agentId})", Subtitle = "Registered skills", Tag = $"agent:{agentId}:skills" },
+            new() { Icon = "🧠", Title = "Go to Sessions", Subtitle = "All sessions", Tag = "sessions" },
+            new() { Icon = "🧠", Title = "Go to Agent Events", Subtitle = "Agent event log", Tag = "agentevents" },
+            new() { Icon = "🧠", Title = "Go to Skills", Subtitle = "Registered skills", Tag = "skills" },
             new() { Icon = "🧠", Title = $"Go to Cron ({agentId})", Subtitle = "Scheduled tasks", Tag = $"agent:{agentId}:cron" },
-            new() { Icon = "🧠", Title = $"Go to Workspace ({agentId})", Subtitle = "Workspace files", Tag = $"agent:{agentId}:workspace" },
+            new() { Icon = "🧠", Title = $"Go to Workspace ({agentId})", Subtitle = "Workspace files", Tag = $"agent:{agentId}" },
             new() { Icon = "📡", Title = "Go to Channels", Subtitle = "Gateway channels", Tag = "channels" },
             new() { Icon = "📡", Title = "Go to Nodes", Subtitle = "Connected nodes", Tag = "nodes" },
             new() { Icon = "📡", Title = "Go to Instances", Subtitle = "Gateway instances", Tag = "instances" },

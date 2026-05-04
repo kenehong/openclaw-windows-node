@@ -36,6 +36,12 @@
                 <StackPanel x:Name="DevicePairingList" Spacing="4"/>
             </StackPanel>
 
+            <!-- Connected Clients (presence data) -->
+            <StackPanel x:Name="PresenceSection" Spacing="8" Visibility="Collapsed">
+                <TextBlock Text="🌐 Connected Clients" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,16,0,0"/>
+                <StackPanel x:Name="PresenceList" Spacing="4"/>
+            </StackPanel>
+
         </StackPanel>
     </ScrollViewer>
 </Page>

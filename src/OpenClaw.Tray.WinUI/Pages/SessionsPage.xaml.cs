@@ -33,12 +33,11 @@ public sealed partial class SessionsPage : Page
         if (hub.GatewayClient != null)
         {
             ConnectionWarning.Visibility = Visibility.Collapsed;
-            // Apply cached data immediately, then request fresh
             if (hub.LastSessions != null)
                 UpdateSessions(hub.LastSessions);
             else
                 SessionListView.ItemsSource = null;
-            _ = hub.GatewayClient.RequestSessionsAsync(hub.CurrentAgentId);
+            _ = hub.GatewayClient.RequestSessionsAsync();
         }
         else
         {
@@ -105,7 +104,7 @@ public sealed partial class SessionsPage : Page
         var client = _hub?.GatewayClient;
         if (client != null)
         {
-            _ = client.RequestSessionsAsync(_hub?.CurrentAgentId);
+            _ = client.RequestSessionsAsync();
         }
         RefreshButton.Content = "Refreshing...";
         var timer = DispatcherQueue.CreateTimer();

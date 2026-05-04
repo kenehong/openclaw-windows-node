@@ -44,10 +44,35 @@ public sealed partial class ConfigPage : Page
         DispatcherQueue?.TryEnqueue(() =>
         {
             _lastConfig = config;
-            if (config.TryGetProperty("baseHash", out var bh))
-                _baseHash = bh.GetString();
 
-            RenderTree(config);
+            // Get baseHash from the config.get response
+            // The gateway returns a 'hash' field which is SHA256 of the raw file content
+            if (config.TryGetProperty("baseHash", out var bh) && bh.ValueKind == JsonValueKind.String)
+            {
+                _baseHash = bh.GetString();
+            }
+            else if (config.TryGetProperty("hash", out var hashEl) && hashEl.ValueKind == JsonValueKind.String)
+            {
+                _baseHash = hashEl.GetString();
+            }
+            else if (config.TryGetProperty("raw", out var rawEl) && rawEl.ValueKind == JsonValueKind.String)
+            {
+                // Fallback: compute from raw content
+                var rawContent = rawEl.GetString();
+                if (rawContent != null)
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(rawContent);
+                    var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+                    _baseHash = Convert.ToHexStringLower(hash);
+                }
+            }
+
+            // Show file path in subtitle if available
+            if (config.TryGetProperty("path", out var pathEl))
+                ConfigSubtitle.Text = $"Editing {pathEl.GetString()} via schema-driven form";
+
+            RenderTree();
+            UpdateRawJson();
         });
     }
 
@@ -56,22 +81,79 @@ public sealed partial class ConfigPage : Page
         DispatcherQueue?.TryEnqueue(() =>
         {
             _lastSchema = schema;
+            // Re-render tree if config is already loaded
+            if (_lastConfig.HasValue)
+                RenderTree();
         });
     }
 
-    private void RenderTree(JsonElement config)
+    private void RenderTree()
     {
         _nodeMap.Clear();
         ConfigTree.RootNodes.Clear();
 
-        var configRoot = config;
-        if (config.TryGetProperty("config", out var inner))
-            configRoot = inner;
+        if (_lastSchema.HasValue)
+        {
+            // Schema-driven tree
+            NoSchemaPanel.Visibility = Visibility.Collapsed;
+            SchemaTreeGrid.Visibility = Visibility.Visible;
 
-        BuildTreeNodes(ConfigTree.RootNodes, configRoot, "");
+            var schema = _lastSchema.Value;
+            var schemaRoot = schema.TryGetProperty("schema", out var sr) ? sr : schema;
+            var configRoot = _lastConfig.HasValue
+                ? (_lastConfig.Value.TryGetProperty("config", out var cr) ? cr : _lastConfig.Value)
+                : (JsonElement?)null;
 
-        // Expand all nodes
-        ExpandAll(ConfigTree.RootNodes);
+            BuildSchemaTreeNodes(ConfigTree.RootNodes, schemaRoot, configRoot, "");
+            ExpandAll(ConfigTree.RootNodes);
+        }
+        else if (_lastConfig.HasValue)
+        {
+            // No schema — show fallback panel
+            SchemaTreeGrid.Visibility = Visibility.Collapsed;
+            NoSchemaPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            SchemaTreeGrid.Visibility = Visibility.Collapsed;
+            NoSchemaPanel.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void BuildSchemaTreeNodes(IList<TreeViewNode> parent, JsonElement schema, JsonElement? config, string basePath)
+    {
+        if (!schema.TryGetProperty("properties", out var properties) ||
+            properties.ValueKind != JsonValueKind.Object) return;
+
+        foreach (var prop in properties.EnumerateObject().OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var path = string.IsNullOrEmpty(basePath) ? prop.Name : $"{basePath}.{prop.Name}";
+            var node = new TreeViewNode();
+
+            var desc = prop.Value.TryGetProperty("description", out var descEl) ? descEl.GetString() : null;
+            var label = string.IsNullOrEmpty(desc) ? prop.Name : $"{prop.Name} — {desc}";
+
+            var propType = prop.Value.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
+            var configValue = config.HasValue && config.Value.TryGetProperty(prop.Name, out var cv) ? (JsonElement?)cv : null;
+
+            if (propType == "object" || (prop.Value.TryGetProperty("properties", out _)))
+            {
+                node.Content = $"📁 {prop.Name}";
+                node.IsExpanded = true;
+                // Store config value if available, otherwise empty object (not the schema!)
+                var nodeElement = configValue ?? JsonDocument.Parse("{}").RootElement;
+                _nodeMap[node] = (path, nodeElement);
+                BuildSchemaTreeNodes(node.Children, prop.Value, configValue, path);
+                parent.Add(node);
+            }
+            // Leaf nodes are not shown in the tree — they appear as edit controls
+            // in the detail panel when their parent folder is selected
+        }
+    }
+
+    private void OnOpenDashboard(object sender, RoutedEventArgs e)
+    {
+        _hub?.OpenDashboardAction?.Invoke("config");
     }
 
     private static void ExpandAll(IList<TreeViewNode> nodes)
@@ -86,31 +168,85 @@ public sealed partial class ConfigPage : Page
 
     private async void OnSave(object sender, RoutedEventArgs e)
     {
-        // Merge changes from schema editor and pending changes
-        var changes = new Dictionary<string, object?>(_pendingChanges);
-        foreach (var kv in SchemaEditor.GetChanges())
-            changes[kv.Key] = kv.Value;
+        // Capture changes from the currently displayed editor
+        if (DetailPanel.Children.Count > 0 && DetailPanel.Children[0] is Controls.SchemaConfigEditor activeEditor)
+        {
+            foreach (var kv in activeEditor.GetChanges())
+            {
+                var fullPath = string.IsNullOrEmpty(_selectedPath)
+                    ? kv.Key
+                    : (string.IsNullOrEmpty(kv.Key) ? _selectedPath : $"{_selectedPath}.{kv.Key}");
+                _pendingChanges[fullPath] = kv.Value;
+            }
+        }
 
-        if (changes.Count == 0)
+        if (_pendingChanges.Count == 0)
         {
             SaveStatus.Text = "No changes";
             return;
         }
 
-        if (_hub?.GatewayClient != null)
+        if (_hub?.GatewayClient == null || !_lastConfig.HasValue)
         {
-            SaveButton.IsEnabled = false;
-            SaveStatus.Text = "Saving...";
-            var ok = await _hub.GatewayClient.PatchConfigAsync(changes);
-            SaveStatus.Text = ok ? "✓ Saved" : "✗ Save failed — changes preserved";
-            SaveButton.IsEnabled = true;
+            SaveStatus.Text = "Not connected";
+            return;
+        }
 
-            if (ok)
+        // Build the full config with changes applied
+        // The config.get response has { path, exists, raw, parsed } — use parsed
+        var configRoot = _lastConfig.Value.TryGetProperty("parsed", out var pr) ? pr
+            : (_lastConfig.Value.TryGetProperty("config", out var cr) ? cr : _lastConfig.Value);
+        var configDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(configRoot.GetRawText(),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? new Dictionary<string, object?>();
+
+        // Apply dot-path changes to the config dict
+        foreach (var kv in _pendingChanges)
+        {
+            SetNestedValue(configDict, kv.Key, kv.Value);
+        }
+
+        // Serialize back and send as raw
+        var updatedJson = JsonSerializer.Serialize(configDict, new JsonSerializerOptions { WriteIndented = true });
+        var updatedElement = JsonDocument.Parse(updatedJson).RootElement;
+
+        SaveButton.IsEnabled = false;
+        SaveStatus.Text = "Saving...";
+        var ok = await _hub.GatewayClient.PatchConfigAsync(updatedElement, _baseHash);
+        SaveStatus.Text = ok ? "✓ Saved" : "✗ Save failed — changes preserved";
+        SaveButton.IsEnabled = true;
+
+        if (ok)
+        {
+            _pendingChanges.Clear();
+            _ = _hub.GatewayClient.RequestConfigAsync();
+        }
+    }
+
+    private static void SetNestedValue(Dictionary<string, object?> dict, string dotPath, object? value)
+    {
+        var segments = dotPath.Split('.');
+        var current = dict;
+        for (int i = 0; i < segments.Length - 1; i++)
+        {
+            if (current.TryGetValue(segments[i], out var existing) && existing is JsonElement je && je.ValueKind == JsonValueKind.Object)
             {
-                _pendingChanges.Clear();
-                _ = _hub.GatewayClient.RequestConfigAsync();
+                var child = JsonSerializer.Deserialize<Dictionary<string, object?>>(je.GetRawText()) ?? new();
+                current[segments[i]] = child;
+                current = child;
+            }
+            else if (existing is Dictionary<string, object?> childDict)
+            {
+                current = childDict;
+            }
+            else
+            {
+                var newChild = new Dictionary<string, object?>();
+                current[segments[i]] = newChild;
+                current = newChild;
             }
         }
+        current[segments[^1]] = value;
     }
 
     /// <summary>Walk the JSON Schema tree to find the sub-schema at a dot-separated path.</summary>
@@ -141,6 +277,34 @@ public sealed partial class ConfigPage : Page
             _ = _hub.GatewayClient.RequestConfigSchemaAsync();
             _ = _hub.GatewayClient.RequestConfigAsync();
         }
+    }
+
+    private void UpdateRawJson()
+    {
+        if (_lastConfig.HasValue)
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var configRoot = _lastConfig.Value.TryGetProperty("config", out var cr) ? cr : _lastConfig.Value;
+                RawJsonText.Text = JsonSerializer.Serialize(configRoot, options);
+            }
+            catch
+            {
+                RawJsonText.Text = _lastConfig.Value.GetRawText();
+            }
+        }
+        else
+        {
+            RawJsonText.Text = "No config loaded.";
+        }
+    }
+
+    private void OnConfigTabChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Refresh raw JSON when switching to it
+        if (ConfigTabs.SelectedIndex == 1)
+            UpdateRawJson();
     }
 
     // ── Fallback TreeView methods (used when schema is unavailable) ──
@@ -236,14 +400,13 @@ public sealed partial class ConfigPage : Page
             }
         }
 
-        // Use schema editor for this subtree if schema is available
+        // Use schema editor for this subtree
         if (nodeSchema.HasValue && element.ValueKind == JsonValueKind.Object)
         {
             var editor = new Controls.SchemaConfigEditor();
             editor.LoadSchema(nodeSchema.Value, element);
             editor.ConfigChanged += (s, changes) =>
             {
-                // Prefix changes with the current path
                 foreach (var kv in changes)
                 {
                     var fullPath = string.IsNullOrEmpty(kv.Key) ? path : $"{path}.{kv.Key}";

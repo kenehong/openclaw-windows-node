@@ -34,7 +34,7 @@
                 </Expander>
 
                 <!-- Notifications -->
-                <Expander x:Name="NotificationsExpander"
+                <Expander x:Name="NotificationsExpander" IsExpanded="True"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           AutomationProperties.AutomationId="NotificationsExpander">
                     <Expander.Header>

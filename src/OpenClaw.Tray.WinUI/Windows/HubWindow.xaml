@@ -13,12 +13,12 @@
 
     <Grid x:Name="RootGrid" PreviewKeyDown="OnRootPreviewKeyDown">
         <Grid.RowDefinitions>
-            <RowDefinition Height="32"/>
+            <RowDefinition Height="48"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="12,0,140,0">
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="16,0,140,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
@@ -27,18 +27,19 @@
             </Grid.ColumnDefinitions>
 
             <!-- Icon + Title -->
-            <TextBlock Grid.Column="0" Text="🦞" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBlock Grid.Column="1" x:Name="TitleText" Text="OpenClaw"
-                       FontSize="12" VerticalAlignment="Center"
+            <TextBlock Grid.Column="0" Text="🦞" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBlock Grid.Column="1" x:Name="TitleText" Text="OpenClaw Windows Companion"
+                       FontSize="13" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"/>
 
-            <!-- Search box (centered in remaining space) -->
+            <!-- Search box -->
             <AutoSuggestBox Grid.Column="2" x:Name="TitleSearchBox"
-                            PlaceholderText="Search commands… (Ctrl+K)"
+                            PlaceholderText="Search… (Ctrl+E)"
                             QueryIcon="Find"
-                            HorizontalAlignment="Center"
-                            Width="280" VerticalAlignment="Center"
-                            Margin="12,0,12,0"
+                            HorizontalAlignment="Stretch"
+                            MinWidth="200" MaxWidth="600"
+                            Height="32" VerticalAlignment="Center"
+                            Margin="16,0,16,0"
                             TextChanged="OnSearchTextChanged"
                             SuggestionChosen="OnSearchSuggestionChosen"
                             QuerySubmitted="OnSearchQuerySubmitted">
@@ -87,42 +88,32 @@
             <NavigationViewItem Tag="connection" Content="Connection">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE839;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <!-- Agents parent — children built dynamically -->
+            <NavigationViewItem Tag="sessions" Content="Sessions">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F2;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Tag="agentevents" Content="Agent Events">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE943;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Tag="skills" Content="Skills">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE945;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <!-- Agents — each agent is a direct nav item showing workspace -->
             <NavigationViewItem x:Name="AgentsNavItem" Content="Agents" SelectsOnInvoked="False" IsExpanded="True">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE99A;"/></NavigationViewItem.Icon>
                 <NavigationViewItem.MenuItems>
-                    <NavigationViewItem x:Name="DefaultAgentNavItem" Content="main" Tag="agent:main" IsExpanded="True">
+                    <NavigationViewItem x:Name="DefaultAgentNavItem" Content="main" Tag="agent:main">
                         <NavigationViewItem.Icon><FontIcon Glyph="&#xE99A;"/></NavigationViewItem.Icon>
-                        <NavigationViewItem.MenuItems>
-                            <NavigationViewItem Tag="agent:main:sessions" Content="Sessions">
-                                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F2;"/></NavigationViewItem.Icon>
-                            </NavigationViewItem>
-                            <NavigationViewItem Tag="agent:main:agentevents" Content="Agent Events">
-                                <NavigationViewItem.Icon><FontIcon Glyph="&#xE943;"/></NavigationViewItem.Icon>
-                            </NavigationViewItem>
-                            <NavigationViewItem Tag="agent:main:skills" Content="Skills">
-                                <NavigationViewItem.Icon><FontIcon Glyph="&#xE945;"/></NavigationViewItem.Icon>
-                            </NavigationViewItem>
-                            <NavigationViewItem Tag="agent:main:workspace" Content="Workspace">
-                                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;"/></NavigationViewItem.Icon>
-                            </NavigationViewItem>
-                        </NavigationViewItem.MenuItems>
                     </NavigationViewItem>
                 </NavigationViewItem.MenuItems>
             </NavigationViewItem>
             <NavigationViewItem Tag="channels" Content="Channels">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xEC05;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem Tag="nodes" Content="Nodes">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE977;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem Tag="bindings" Content="Bindings">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8AD;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Tag="instances" Content="Instances">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE968;"/></NavigationViewItem.Icon>
-                <NavigationViewItem.MenuItems>
-                    <NavigationViewItem Tag="nodes" Content="Nodes">
-                        <NavigationViewItem.Icon><FontIcon Glyph="&#xE977;"/></NavigationViewItem.Icon>
-                    </NavigationViewItem>
-                </NavigationViewItem.MenuItems>
             </NavigationViewItem>
             <NavigationViewItem Tag="config" Content="Config">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE90F;"/></NavigationViewItem.Icon>

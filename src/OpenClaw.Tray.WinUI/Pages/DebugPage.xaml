@@ -32,7 +32,7 @@
             </Expander>
 
             <!-- Connection Status -->
-            <Expander x:Name="ConnectionExpander"
+            <Expander x:Name="ConnectionExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
                     <TextBlock Text="Connection Status" Style="{StaticResource BodyStrongTextBlockStyle}"/>
@@ -66,7 +66,7 @@
             </Expander>
 
             <!-- Device Identity -->
-            <Expander x:Name="DeviceExpander"
+            <Expander x:Name="DeviceExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
                     <TextBlock Text="Device Identity" Style="{StaticResource BodyStrongTextBlockStyle}"/>
@@ -102,7 +102,7 @@
             </Expander>
 
             <!-- Debug Actions -->
-            <Expander x:Name="ActionsExpander"
+            <Expander x:Name="ActionsExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
                     <TextBlock Text="Debug Actions" Style="{StaticResource BodyStrongTextBlockStyle}"/>

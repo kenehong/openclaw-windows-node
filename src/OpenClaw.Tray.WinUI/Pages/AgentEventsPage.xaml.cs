@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using OpenClaw.Shared;
+using OpenClawTray.Windows;
 
 namespace OpenClawTray.Pages;
 
@@ -28,18 +29,37 @@ public sealed partial class AgentEventsPage : Page
         ApplyFilter();
     }
 
+    public void PopulateAgentFilter(HubWindow hub)
+    {
+        AgentFilterCombo.SelectionChanged -= OnAgentFilterComboChanged;
+        AgentFilterCombo.Items.Clear();
+        AgentFilterCombo.Items.Add(new ComboBoxItem { Content = "All Agents", Tag = "" });
+        foreach (var id in hub.GetAgentIds())
+            AgentFilterCombo.Items.Add(new ComboBoxItem { Content = id, Tag = id });
+        AgentFilterCombo.SelectedIndex = 0;
+        AgentFilterCombo.SelectionChanged += OnAgentFilterComboChanged;
+    }
+
+    private void OnAgentFilterComboChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized) return;
+        if (AgentFilterCombo.SelectedItem is ComboBoxItem item)
+        {
+            var tag = item.Tag as string;
+            SetAgentFilter(string.IsNullOrEmpty(tag) ? null : tag);
+        }
+    }
+
+    private bool _initialized;
+
     public AgentEventsPage()
     {
         InitializeComponent();
+        _initialized = true;
     }
 
     public void AddEvent(AgentEventInfo evt)
     {
-        // Filter by agent if set — only store events for this agent
-        if (_agentIdFilter != null && evt.SessionKey != null &&
-            !evt.SessionKey.StartsWith($"agent:{_agentIdFilter}:", StringComparison.OrdinalIgnoreCase))
-            return;
-
         _allEvents.Insert(0, evt);
         if (_allEvents.Count > MaxEvents)
             _allEvents.RemoveRange(MaxEvents, _allEvents.Count - MaxEvents);
@@ -73,15 +93,23 @@ public sealed partial class AgentEventsPage : Page
 
     private void ApplyFilter()
     {
-        var filtered = _activeFilter == "all"
-            ? _allEvents
-            : _allEvents.Where(e => e.Stream.Equals(_activeFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+        IEnumerable<AgentEventInfo> filtered = _allEvents;
 
-        EventsList.ItemsSource = filtered;
-        EventsList.Visibility = filtered.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        EmptyState.Visibility = filtered.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+        // Filter by agent
+        if (!string.IsNullOrEmpty(_agentIdFilter))
+            filtered = filtered.Where(e => e.SessionKey != null &&
+                e.SessionKey.StartsWith($"agent:{_agentIdFilter}:", StringComparison.OrdinalIgnoreCase));
+
+        // Filter by stream type
+        if (_activeFilter != "all")
+            filtered = filtered.Where(e => e.Stream.Equals(_activeFilter, StringComparison.OrdinalIgnoreCase));
+
+        var list = filtered.ToList();
+        EventsList.ItemsSource = list;
+        EventsList.Visibility = list.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyState.Visibility = list.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
         CountText.Text = $"({_allEvents.Count})";
-        StatusText.Text = $"{filtered.Count} of {_allEvents.Count} events";
+        StatusText.Text = $"{list.Count} of {_allEvents.Count} events";
     }
 
     private void OnClear(object sender, RoutedEventArgs e)

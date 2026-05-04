@@ -63,7 +63,7 @@
             </Expander>
 
             <!-- Node Allowlist -->
-            <Expander x:Name="AllowlistExpander"
+            <Expander x:Name="AllowlistExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
                     <TextBlock Text="Node Allowlist" Style="{StaticResource BodyStrongTextBlockStyle}"/>
@@ -86,7 +86,7 @@
             </Expander>
 
             <!-- System Permissions -->
-            <Expander x:Name="PermissionsExpander"
+            <Expander x:Name="PermissionsExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
                     <TextBlock Text="System Permissions" Style="{StaticResource BodyStrongTextBlockStyle}"/>

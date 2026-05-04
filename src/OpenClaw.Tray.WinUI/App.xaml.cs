@@ -1618,11 +1618,148 @@ public partial class App : Application
                 Logger.Info("Initializing Windows Node service (MCP-only, no gateway)...");
                 _ = _nodeService.StartLocalOnlyAsync();
             }
+
+            // Wire handlers after connect (RegisterCapabilities runs synchronously within Connect/StartLocal)
+            WireAppCapabilityHandlers();
         }
         catch (Exception ex)
         {
             Logger.Error($"Failed to initialize node service: {ex}");
         }
+    }
+
+    private void WireAppCapabilityHandlers()
+    {
+        var app = _nodeService?.AppCapability;
+        if (app == null) return;
+
+        app.NavigateHandler = async (page) =>
+        {
+            var tcs = new TaskCompletionSource<object?>();
+            _dispatcherQueue?.TryEnqueue(() =>
+            {
+                try { ShowHub(page); tcs.SetResult(new { navigated = true, page }); }
+                catch (Exception ex) { tcs.SetResult(new { navigated = false, error = ex.Message }); }
+            });
+            return await tcs.Task;
+        };
+
+        app.StatusHandler = () => new
+        {
+            connectionStatus = _currentStatus.ToString(),
+            nodeConnected = _nodeService?.IsConnected ?? false,
+            nodePaired = _nodeService?.IsPaired ?? false,
+            nodePendingApproval = _nodeService?.IsPendingApproval ?? false,
+            gatewayVersion = _lastGatewaySelf?.ServerVersion,
+            sessionCount = _lastSessions?.Length ?? 0,
+            nodeCount = _lastNodes?.Length ?? 0,
+        };
+
+        app.SessionsHandler = async (agentId) =>
+        {
+            var sessions = _lastSessions ?? Array.Empty<SessionInfo>();
+            if (!string.IsNullOrEmpty(agentId))
+                sessions = sessions.Where(s => s.Key != null &&
+                    s.Key.StartsWith($"agent:{agentId}:", StringComparison.OrdinalIgnoreCase)).ToArray();
+            return sessions.Select(s => new { s.Key, s.Status, s.Model, s.AgeText, tokens = s.InputTokens + s.OutputTokens }).ToArray();
+        };
+
+        app.AgentsHandler = async () =>
+        {
+            if (_lastAgentsList.HasValue &&
+                _lastAgentsList.Value.TryGetProperty("agents", out var agentsArr) &&
+                agentsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<object>(agentsArr.GetRawText());
+            }
+            return Array.Empty<object>();
+        };
+
+        app.NodesHandler = () =>
+        {
+            return _lastNodes?.Select(n => new { n.DisplayName, n.NodeId, n.IsOnline, n.Platform, n.CapabilityCount }).ToArray()
+                ?? Array.Empty<object>();
+        };
+
+        app.ConfigGetHandler = async (path) =>
+        {
+            if (_hubWindow?.LastConfig == null) return new { error = "Config not loaded" };
+            // Unwrap parsed/config from the gateway response wrapper
+            var raw = _hubWindow.LastConfig.Value;
+            var config = raw.TryGetProperty("parsed", out var parsed) ? parsed
+                : (raw.TryGetProperty("config", out var cfg) ? cfg : raw);
+            if (!string.IsNullOrEmpty(path))
+            {
+                foreach (var segment in path.Split('.'))
+                {
+                    if (config.TryGetProperty(segment, out var child)) config = child;
+                    else return (object)new { error = $"Path not found: {path}" };
+                }
+            }
+            return System.Text.Json.JsonSerializer.Deserialize<object>(config.GetRawText());
+        };
+
+        // Allowlist of safe settings (no secrets like Token, BootstrapToken, API keys)
+        var safeSettings = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "AutoStart", "GlobalHotkeyEnabled", "ShowNotifications", "NotificationSound",
+            "NotifyHealth", "NotifyUrgent", "NotifyReminder", "NotifyEmail", "NotifyCalendar",
+            "NotifyBuild", "NotifyStock", "NotifyInfo", "NotifyChatResponses",
+            "EnableNodeMode", "EnableMcpServer", "PreferStructuredCategories",
+            "NodeCanvasEnabled", "NodeScreenEnabled", "NodeCameraEnabled",
+            "NodeLocationEnabled", "NodeBrowserProxyEnabled", "NodeTtsEnabled",
+            "HasSeenActivityStreamTip", "TtsProvider"
+        };
+
+        app.SettingsGetHandler = (name) =>
+        {
+            if (_settings == null) return null;
+            if (!safeSettings.Contains(name)) return new { error = $"Setting '{name}' is not accessible" };
+            var prop = typeof(SettingsManager).GetProperty(name,
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+            return prop?.GetValue(_settings);
+        };
+
+        app.SettingsSetHandler = (name, value) =>
+        {
+            if (_settings == null) return new { error = "Settings not loaded" };
+            if (!safeSettings.Contains(name)) return new { error = $"Setting '{name}' is not accessible" };
+            var prop = typeof(SettingsManager).GetProperty(name,
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+            if (prop == null) return new { error = $"Unknown setting: {name}" };
+            try
+            {
+                var converted = Convert.ChangeType(value, prop.PropertyType);
+                prop.SetValue(_settings, converted);
+                _settings.Save();
+                return new { name, value = prop.GetValue(_settings) };
+            }
+            catch (Exception ex) { return new { error = ex.Message }; }
+        };
+
+        app.MenuHandler = () =>
+        {
+            var items = new List<object>
+            {
+                new { type = "status", status = _currentStatus.ToString() },
+                new { type = "sessions", count = _lastSessions?.Length ?? 0 },
+                new { type = "nodes", count = _lastNodes?.Length ?? 0 },
+            };
+            return items;
+        };
+
+        app.SearchHandler = (query) =>
+        {
+            if (_hubWindow == null) return Array.Empty<object>();
+            var commands = _hubWindow.BuildCommandList();
+            var matches = commands
+                .Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || c.Subtitle.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Take(10)
+                .Select(c => new { c.Title, c.Subtitle, c.Icon })
+                .ToArray();
+            return matches;
+        };
     }
 
     private static bool RequiresSetup(SettingsManager settings)

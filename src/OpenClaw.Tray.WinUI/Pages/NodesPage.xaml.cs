@@ -381,4 +381,73 @@ public sealed partial class NodesPage : Page
             DevicePairingList.Children.Add(card);
         }
     }
+
+    public void UpdatePresence(PresenceEntry[] entries)
+    {
+        DispatcherQueue?.TryEnqueue(() => RenderPresence(entries));
+    }
+
+    private void RenderPresence(PresenceEntry[] entries)
+    {
+        PresenceList.Children.Clear();
+
+        if (entries.Length == 0)
+        {
+            PresenceSection.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PresenceSection.Visibility = Visibility.Visible;
+
+        foreach (var entry in entries)
+        {
+            var card = new Border
+            {
+                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+            };
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+
+            row.Children.Add(new TextBlock
+            {
+                Text = entry.DisplayName,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            if (!string.IsNullOrEmpty(entry.Platform))
+                row.Children.Add(new TextBlock
+                {
+                    Text = entry.PlatformLabel,
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+            if (!string.IsNullOrEmpty(entry.Mode))
+                row.Children.Add(new TextBlock
+                {
+                    Text = entry.ModeLabel,
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+            if (!string.IsNullOrEmpty(entry.LastSeenText))
+                row.Children.Add(new TextBlock
+                {
+                    Text = entry.LastSeenText,
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+            card.Child = row;
+            PresenceList.Children.Add(card);
+        }
+    }
 }

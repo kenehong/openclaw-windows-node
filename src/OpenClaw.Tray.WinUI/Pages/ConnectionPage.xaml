@@ -115,7 +115,7 @@
             </Border>
 
             <!-- ═══ Section 4: Advanced Connection Settings ═══ -->
-            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="True">
                 <Expander.Header>
                     <TextBlock Text="Advanced Connection Settings" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                 </Expander.Header>

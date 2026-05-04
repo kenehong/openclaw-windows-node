@@ -88,7 +88,7 @@ public sealed partial class SchemaConfigEditor : UserControl
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            IsExpanded = depth < 1,
+            IsExpanded = true,
             Margin = new Thickness(0, 2, 0, 2)
         };
 
@@ -384,7 +384,7 @@ public sealed partial class SchemaConfigEditor : UserControl
                     {
                         HorizontalAlignment = HorizontalAlignment.Stretch,
                         HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                        IsExpanded = depth < 1,
+                        IsExpanded = true,
                         Margin = new Thickness(0, 2, 0, 2)
                     };
                     expander.Header = new TextBlock { Text = GetLabel(childPath, prop.Name), FontWeight = FontWeights.SemiBold };

@@ -12,6 +12,7 @@ namespace OpenClawTray.Pages;
 public sealed partial class CapabilitiesPage : Page
 {
     private HubWindow? _hub;
+    private bool _suppressMcpToggle;
 
     public CapabilitiesPage()
     {
@@ -30,7 +31,8 @@ public sealed partial class CapabilitiesPage : Page
 
     private void BuildCapabilityToggles(HubWindow hub)
     {
-        var settings = hub.Settings!;
+        if (hub.Settings == null) return;
+        var settings = hub.Settings;
 
         var capabilities = new (string Icon, string Label, bool Value, Action<bool> Setter)[]
         {
@@ -105,7 +107,9 @@ public sealed partial class CapabilitiesPage : Page
         var settings = hub.Settings;
         if (settings == null) return;
 
+        _suppressMcpToggle = true;
         McpToggle.IsOn = settings.EnableMcpServer;
+        _suppressMcpToggle = false;
         McpDetailsPanel.Visibility = settings.EnableMcpServer ? Visibility.Visible : Visibility.Collapsed;
         McpEndpointText.Text = NodeService.McpServerUrl;
 
@@ -119,6 +123,7 @@ public sealed partial class CapabilitiesPage : Page
 
     private void OnMcpToggled(object sender, RoutedEventArgs e)
     {
+        if (_suppressMcpToggle) return;
         if (_hub?.Settings == null) return;
         _hub.Settings.EnableMcpServer = McpToggle.IsOn;
         _hub.Settings.Save();

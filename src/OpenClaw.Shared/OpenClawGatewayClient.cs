@@ -494,9 +494,16 @@ public class OpenClawGatewayClient : WebSocketClientBase
         return TrySendTrackedRequestAsync("config.set", new { path, value });
     }
 
-    public Task<bool> PatchConfigAsync(object patch)
+    /// <summary>
+    /// Patch the gateway config. The gateway expects { raw: "full json string", baseHash: "..." }.
+    /// </summary>
+    public Task<bool> PatchConfigAsync(JsonElement fullConfig, string? baseHash)
     {
-        return TrySendTrackedRequestAsync("config.patch", new { patch });
+        var raw = fullConfig.GetRawText();
+        if (baseHash != null)
+            return TrySendTrackedRequestAsync("config.patch", new { raw, baseHash });
+        else
+            return TrySendTrackedRequestAsync("config.patch", new { raw });
     }
 
     // Agent methods
