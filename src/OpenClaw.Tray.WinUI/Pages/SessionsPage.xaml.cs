@@ -75,7 +75,8 @@ public sealed partial class SessionsPage : Page
         {
             var client = _hub?.GatewayClient;
             if (client == null) { ShowNotConnected(); return; }
-            await client.ResetSessionAsync(key);
+            try { await client.ResetSessionAsync(key); }
+            catch (Exception) { /* reset failed silently */ }
         }
     }
 
@@ -85,7 +86,8 @@ public sealed partial class SessionsPage : Page
         {
             var client = _hub?.GatewayClient;
             if (client == null) { ShowNotConnected(); return; }
-            await client.DeleteSessionAsync(key);
+            try { await client.DeleteSessionAsync(key); }
+            catch (Exception) { /* delete failed silently */ }
         }
     }
 
@@ -95,7 +97,8 @@ public sealed partial class SessionsPage : Page
         {
             var client = _hub?.GatewayClient;
             if (client == null) { ShowNotConnected(); return; }
-            await client.CompactSessionAsync(key);
+            try { await client.CompactSessionAsync(key); }
+            catch (Exception) { /* compact failed silently */ }
         }
     }
 

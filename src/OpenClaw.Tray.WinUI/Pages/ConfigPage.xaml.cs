@@ -14,6 +14,8 @@ namespace OpenClawTray.Pages;
 
 public sealed partial class ConfigPage : Page
 {
+    private static readonly JsonElement s_emptyObject = JsonDocument.Parse("{}").RootElement.Clone();
+
     private HubWindow? _hub;
     private JsonElement? _lastConfig;
     private JsonElement? _lastSchema;
@@ -141,7 +143,7 @@ public sealed partial class ConfigPage : Page
                 node.Content = $"📁 {prop.Name}";
                 node.IsExpanded = true;
                 // Store config value if available, otherwise empty object (not the schema!)
-                var nodeElement = configValue ?? JsonDocument.Parse("{}").RootElement;
+                var nodeElement = configValue ?? s_emptyObject;
                 _nodeMap[node] = (path, nodeElement);
                 BuildSchemaTreeNodes(node.Children, prop.Value, configValue, path);
                 parent.Add(node);
@@ -212,15 +214,19 @@ public sealed partial class ConfigPage : Page
 
         SaveButton.IsEnabled = false;
         SaveStatus.Text = "Saving...";
-        var ok = await _hub.GatewayClient.PatchConfigAsync(updatedElement, _baseHash);
-        SaveStatus.Text = ok ? "✓ Saved" : "✗ Save failed — changes preserved";
-        SaveButton.IsEnabled = true;
-
-        if (ok)
+        try
         {
-            _pendingChanges.Clear();
-            _ = _hub.GatewayClient.RequestConfigAsync();
+            var ok = await _hub.GatewayClient.PatchConfigAsync(updatedElement, _baseHash);
+            SaveStatus.Text = ok ? "✓ Saved" : "✗ Save failed — changes preserved";
+
+            if (ok)
+            {
+                _pendingChanges.Clear();
+                _ = _hub.GatewayClient.RequestConfigAsync();
+            }
         }
+        catch (Exception) { SaveStatus.Text = "✗ Save failed — changes preserved"; }
+        finally { SaveButton.IsEnabled = true; }
     }
 
     private static void SetNestedValue(Dictionary<string, object?> dict, string dotPath, object? value)
@@ -286,7 +292,8 @@ public sealed partial class ConfigPage : Page
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
-                var configRoot = _lastConfig.Value.TryGetProperty("config", out var cr) ? cr : _lastConfig.Value;
+                var configRoot = _lastConfig.Value.TryGetProperty("parsed", out var pr) ? pr
+                    : (_lastConfig.Value.TryGetProperty("config", out var cr) ? cr : _lastConfig.Value);
                 RawJsonText.Text = JsonSerializer.Serialize(configRoot, options);
             }
             catch

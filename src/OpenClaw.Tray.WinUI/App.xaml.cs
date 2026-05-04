@@ -1185,7 +1185,8 @@ public partial class App : Application
                 : session.Channel[..2].ToUpperInvariant();
             row1.Children.Add(BuildBadge(channelAbbrev));
         }
-        var statusText = char.ToUpperInvariant(session.Status[0]) + session.Status[1..];
+        var statusText = string.IsNullOrEmpty(session.Status) ? "Unknown"
+            : char.ToUpperInvariant(session.Status[0]) + session.Status[1..];
         row1.Children.Add(new TextBlock
         {
             Text = statusText,
@@ -1636,11 +1637,12 @@ public partial class App : Application
         app.NavigateHandler = async (page) =>
         {
             var tcs = new TaskCompletionSource<object?>();
-            _dispatcherQueue?.TryEnqueue(() =>
+            var queued = _dispatcherQueue?.TryEnqueue(() =>
             {
                 try { ShowHub(page); tcs.SetResult(new { navigated = true, page }); }
                 catch (Exception ex) { tcs.SetResult(new { navigated = false, error = ex.Message }); }
-            });
+            }) ?? false;
+            if (!queued) tcs.TrySetResult(new { navigated = false, error = "UI thread unavailable" });
             return await tcs.Task;
         };
 
@@ -1684,7 +1686,7 @@ public partial class App : Application
         app.ConfigGetHandler = async (path) =>
         {
             if (_hubWindow?.LastConfig == null) return new { error = "Config not loaded" };
-            // Unwrap parsed/config from the gateway response wrapper
+            // Config is already redacted by the gateway's redactConfigSnapshot
             var raw = _hubWindow.LastConfig.Value;
             var config = raw.TryGetProperty("parsed", out var parsed) ? parsed
                 : (raw.TryGetProperty("config", out var cfg) ? cfg : raw);
@@ -1754,7 +1756,7 @@ public partial class App : Application
             var commands = _hubWindow.BuildCommandList();
             var matches = commands
                 .Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || c.Subtitle.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    || (c.Subtitle?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
                 .Take(10)
                 .Select(c => new { c.Title, c.Subtitle, c.Icon })
                 .ToArray();
@@ -2506,7 +2508,11 @@ public partial class App : Application
                 _hubWindow.SettingsSaved -= OnSettingsSaved;
                 _hubWindow = null;
             };
-            // Navigate to default page now that properties are set
+
+            // Seed ALL cached data BEFORE first navigation so pages see data in Initialize()
+            SeedHubCachedData();
+
+            // Navigate to default page now that properties and data are set
             _hubWindow.NavigateToDefault();
         }
         // Always update live state
@@ -2522,19 +2528,28 @@ public partial class App : Application
             _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
         }
 
-        // Seed cached data into hub
-        if (_lastNodePairList != null) _hubWindow.UpdateNodePairList(_lastNodePairList);
-        if (_lastDevicePairList != null) _hubWindow.UpdateDevicePairList(_lastDevicePairList);
-        if (_lastModelsList != null) _hubWindow.UpdateModelsList(_lastModelsList);
-        if (_lastPresence != null) _hubWindow.UpdatePresence(_lastPresence);
-        if (_lastGatewaySelf != null) _hubWindow.UpdateGatewaySelf(_lastGatewaySelf);
-        if (_lastAgentsList.HasValue) _hubWindow.UpdateAgentsList(_lastAgentsList.Value);
+        // Seed cached data into hub (also on re-show)
+        SeedHubCachedData();
 
         if (navigateTo != null)
         {
             _hubWindow.NavigateTo(navigateTo);
         }
         _hubWindow.Activate();
+    }
+
+    private void SeedHubCachedData()
+    {
+        if (_hubWindow == null) return;
+        // Seed all cached data types so pages see data immediately
+        if (_lastSessions.Length > 0) _hubWindow.UpdateSessions(_lastSessions);
+        if (_lastNodes.Length > 0) _hubWindow.UpdateNodes(_lastNodes);
+        if (_lastNodePairList != null) _hubWindow.UpdateNodePairList(_lastNodePairList);
+        if (_lastDevicePairList != null) _hubWindow.UpdateDevicePairList(_lastDevicePairList);
+        if (_lastModelsList != null) _hubWindow.UpdateModelsList(_lastModelsList);
+        if (_lastPresence != null) _hubWindow.UpdatePresence(_lastPresence);
+        if (_lastGatewaySelf != null) _hubWindow.UpdateGatewaySelf(_lastGatewaySelf);
+        if (_lastAgentsList.HasValue) _hubWindow.UpdateAgentsList(_lastAgentsList.Value);
     }
 
     private void ShowSettings()

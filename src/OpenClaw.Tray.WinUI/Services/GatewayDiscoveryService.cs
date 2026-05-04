@@ -137,5 +137,6 @@ public sealed class GatewayDiscoveryService : IDisposable
     public void Dispose()
     {
         Stop();
+        _scanLock?.Dispose();
     }
 }

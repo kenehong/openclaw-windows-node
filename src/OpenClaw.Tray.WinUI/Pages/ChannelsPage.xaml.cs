@@ -159,9 +159,13 @@ public sealed partial class ChannelsPage : Page
             var client = _hub?.GatewayClient;
             if (client == null) { ConnectionWarning.Visibility = Visibility.Visible; return; }
             btn.IsEnabled = false;
-            await client.StartChannelAsync(name);
-            await client.CheckHealthAsync();
-            btn.IsEnabled = true;
+            try
+            {
+                await client.StartChannelAsync(name);
+                await client.CheckHealthAsync();
+            }
+            catch (Exception) { /* channel operation failed; button re-enabled below */ }
+            finally { btn.IsEnabled = true; }
         }
     }
 
@@ -172,9 +176,13 @@ public sealed partial class ChannelsPage : Page
             var client = _hub?.GatewayClient;
             if (client == null) { ConnectionWarning.Visibility = Visibility.Visible; return; }
             btn.IsEnabled = false;
-            await client.StopChannelAsync(name);
-            await client.CheckHealthAsync();
-            btn.IsEnabled = true;
+            try
+            {
+                await client.StopChannelAsync(name);
+                await client.CheckHealthAsync();
+            }
+            catch (Exception) { /* channel operation failed; button re-enabled below */ }
+            finally { btn.IsEnabled = true; }
         }
     }
 

@@ -1902,7 +1902,6 @@ public class OpenClawGatewayClient : WebSocketClientBase
                 }
 
                 // Remove sessions no longer present in the gateway response
-                if (incomingKeys.Count > 0)
                 {
                     var staleKeys = new List<string>();
                     foreach (var key in _sessions.Keys)

@@ -98,7 +98,7 @@ public sealed partial class HubWindow : WindowEx
         if (FindAndSelectNavItem(NavView.FooterMenuItems, tag)) return;
 
         // Fallback: navigate directly
-        if (tag.StartsWith("agent:")) _currentAgentId = ParseAgentIdFromTag(tag);
+        if (tag.StartsWith("agent:")) { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
         var pageType = TagToPageType(tag);
         if (pageType != null)
         {
@@ -122,15 +122,15 @@ public sealed partial class HubWindow : WindowEx
 
     public void UpdateStatus(ConnectionStatus status)
     {
-        CurrentStatus = status;
-        _cachedCommands = null; // invalidate search cache
-        if (status == ConnectionStatus.Disconnected)
-            _lastGatewaySelf = null;
         try
         {
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
+                CurrentStatus = status;
+                _cachedCommands = null;
+                if (status == ConnectionStatus.Disconnected)
+                    _lastGatewaySelf = null;
                 UpdateTitleBarStatus(status);
                 if (ContentFrame?.Content is HomePage homePage)
                 {
@@ -495,7 +495,7 @@ public sealed partial class HubWindow : WindowEx
         {
             var tag = item.Tag as string;
             if (tag?.StartsWith("agent:") == true)
-                _currentAgentId = ParseAgentIdFromTag(tag);
+            { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
             var pageType = TagToPageType(tag);
             if (pageType != null)
             {
