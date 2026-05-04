@@ -1,5 +1,8 @@
 # AGENTS.md
 
+한글로 짧고 명확하게
+프로젝트의 컨텍스트와 knoweldge는 C:\Users\kehong\repo\work-iq-cli-workspace\docs\knowledge\wiki\projects\claw-windows.md 를 참고
+
 ## Required Validation After Every Change
 
 All agents working in this repository must run validation after each code change before marking work complete.

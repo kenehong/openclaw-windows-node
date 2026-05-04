@@ -31,8 +31,8 @@
 
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="NavTrayStatus" Tag="tray-status" Content="Status &amp; tooltip" IsSelected="True"/>
+                <NavigationViewItem x:Name="NavClickInteraction" Tag="click-interaction" Content="Click interaction"/>
                 <NavigationViewItem Tag="lorem-1" Content="Lorem ipsum" IsEnabled="False"/>
-                <NavigationViewItem Tag="lorem-2" Content="Consectetur" IsEnabled="False"/>
             </NavigationView.MenuItems>
 
             <Grid>
@@ -387,6 +387,210 @@
                                    TextAlignment="Center"/>
                     </StackPanel>
                 </Grid>
+
+                <ScrollViewer x:Name="ClickInteractionPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Click interaction" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="Compare two interaction models for what happens when the user clicks the tray icon. Switch the option and the status to preview each combination."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Interactive option selector" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="OptionComboBox"
+                                              Header="Click behavior"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnClickOptionSelectionChanged"/>
+                                    <ComboBox x:Name="ClickStatusComboBox"
+                                              Grid.Column="1"
+                                              Header="Tray status"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnClickStatusSelectionChanged"/>
+                                </Grid>
+                                <TextBlock x:Name="OptionDescriptionText"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="System tray preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="The popover appears anchored above the tray icon. Resize the window to see how the canvas fits the desktop chrome."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource OverlayCornerRadius}"
+                                    Padding="16">
+                                <Grid MinHeight="820"
+                                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Border Grid.Row="0"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                            BorderThickness="1,1,1,0"
+                                            CornerRadius="8,8,0,0">
+                                        <Grid>
+                                            <Grid.Background>
+                                                <ImageBrush ImageSource="ms-appx:///Assets/Preview/bloom.png"
+                                                            Stretch="UniformToFill"
+                                                            AlignmentY="Bottom"
+                                                            AlignmentX="Center"/>
+                                            </Grid.Background>
+
+                                            <Border x:Name="ClickPreviewPanel"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Bottom"
+                                                    Margin="0,0,128,8"
+                                                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                                    BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource OverlayCornerRadius}">
+                                                <Border.Shadow>
+                                                    <ThemeShadow/>
+                                                </Border.Shadow>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Grid.Row="1"
+                                            Height="48"
+                                            Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="0,0,8,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Center">
+                                                <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                                    <FontIcon Glyph="&#xE782;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="20" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                                <Border Width="200" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource ControlFillColorDefaultBrush}" Padding="12,0">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <FontIcon Glyph="&#xE721;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                        <TextBlock Text="Search" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2"
+                                                        Orientation="Horizontal"
+                                                        Spacing="0"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,0,4,0">
+                                                <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <FontIcon Glyph="&#xE70E;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                                <Border x:Name="ClickTrayIconHitTarget"
+                                                        Width="32" Height="40"
+                                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                                    <Grid>
+                                                        <Image x:Name="ClickTrayIconImage"
+                                                               Width="16" Height="16"
+                                                               Stretch="Uniform"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                        <Border x:Name="ClickTrayBadge"
+                                                                Width="11" Height="11"
+                                                                CornerRadius="5.5"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Bottom"
+                                                                Margin="0,0,4,8"
+                                                                BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                                                BorderThickness="1"
+                                                                Visibility="Collapsed">
+                                                            <Grid>
+                                                                <Path x:Name="ClickTrayProgressArc"
+                                                                      Width="7" Height="7"
+                                                                      Stroke="#0078D4"
+                                                                      StrokeThickness="1.6"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      Data="M 3.5 0.6 A 2.9 2.9 0 1 1 0.6 3.5"
+                                                                      Visibility="Collapsed"
+                                                                      RenderTransformOrigin="0.5,0.5">
+                                                                    <Path.RenderTransform>
+                                                                        <RotateTransform x:Name="ClickTrayProgressRotate"/>
+                                                                    </Path.RenderTransform>
+                                                                </Path>
+                                                                <Path x:Name="ClickTrayErrorGlyph"
+                                                                      Width="6" Height="6"
+                                                                      Stroke="White"
+                                                                      StrokeThickness="1.4"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      Data="M 0.6 0.6 L 5.4 5.4 M 5.4 0.6 L 0.6 5.4"
+                                                                      Visibility="Collapsed"/>
+                                                                <Path x:Name="ClickTrayDoneGlyph"
+                                                                      Width="7" Height="6"
+                                                                      Stroke="White"
+                                                                      StrokeThickness="1.4"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="M 0.6 3.2 L 2.6 5 L 6.4 1"
+                                                                      Visibility="Collapsed"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                                <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <FontIcon Glyph="&#xE701;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                        <FontIcon Glyph="&#xE767;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                        <FontIcon Glyph="&#xE83F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Width="40" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <TextBlock Text="ENG" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" Padding="8,0">
+                                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <TextBlock x:Name="ClickClockTimeText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                                        <TextBlock x:Name="ClickClockDateText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <FontIcon Glyph="&#xEA8F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </Grid>
         </NavigationView>
     </Grid>
