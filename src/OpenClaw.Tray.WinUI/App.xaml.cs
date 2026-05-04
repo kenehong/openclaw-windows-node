@@ -1,6 +1,7 @@
 using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using OpenClaw.Shared;
 using OpenClaw.Shared.Capabilities;
 using OpenClawTray.Dialogs;
@@ -427,25 +428,9 @@ public partial class App : Application
         // Don't close - just hide
     }
 
-    private DateTime _lastTrayClickTime = DateTime.MinValue;
-
     private void OnTrayIconSelected(TrayIcon sender, TrayIconEventArgs e)
     {
-        var now = DateTime.UtcNow;
-        var elapsed = (now - _lastTrayClickTime).TotalMilliseconds;
-        _lastTrayClickTime = now;
-
-        if (elapsed < 400)
-        {
-            // Double-click: open Hub
-            _chatWindow?.Hide();
-            ShowHub();
-        }
-        else
-        {
-            // Single click: toggle chat panel
-            ShowChatWindow();
-        }
+        ShowChatWindow();
     }
 
     private void ShowChatWindow()
@@ -539,6 +524,7 @@ public partial class App : Application
         switch (action)
         {
             case "status": ShowStatusDetail(); break;
+            case "reconnect": ReconnectGateway(); break;
             case "dashboard": OpenDashboard(); break;
             case "canvas": _nodeService?.ShowCanvasWindow(); break;
             case "openchat": ShowChatWindow(); break;
@@ -604,6 +590,9 @@ public partial class App : Application
                     ShowActivityStream(action["activity:".Length..]);
                 else if (action.StartsWith("channel:", StringComparison.Ordinal))
                     ToggleChannel(action[8..]);
+                else
+                    // Default: treat as a Hub navigation tag (e.g. "nodes", "agent:main:sessions")
+                    ShowHub(action);
                 break;
         }
     }
@@ -807,22 +796,57 @@ public partial class App : Application
         });
         leftStack.Children.Add(titleRow);
 
-        // Subtitle: connection details
-        var subtitle = statusText;
+        // Subtitle line 1: connection details
+        var subtitleParts = new List<string> { statusText };
         if (isConnected && _lastGatewaySelf != null)
         {
             var ver = _lastGatewaySelf.ServerVersion;
-            if (!string.IsNullOrEmpty(ver)) subtitle += $" · v{ver}";
+            if (!string.IsNullOrEmpty(ver)) subtitleParts.Add($"v{ver}");
+            if (!string.IsNullOrEmpty(_lastGatewaySelf.AuthMode))
+                subtitleParts.Add(_lastGatewaySelf.AuthMode);
         }
         if (_lastPresence != null && _lastPresence.Length > 0)
-            subtitle += $" · {_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}";
+            subtitleParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
         leftStack.Children.Add(new TextBlock
         {
-            Text = subtitle,
+            Text = string.Join(" · ", subtitleParts),
             Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
             FontSize = 11
         });
+
+        // Subtitle line 2: node status (only if relevant)
+        if (_settings?.EnableNodeMode == true && _nodeService != null)
+        {
+            var nodeText = _nodeService.IsPaired ? "Node paired"
+                : _nodeService.IsPendingApproval ? "⏳ Node pairing pending"
+                : _nodeService.IsConnected ? "Node connected"
+                : null;
+            if (nodeText != null)
+            {
+                leftStack.Children.Add(new TextBlock
+                {
+                    Text = nodeText,
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                    FontSize = 11
+                });
+            }
+        }
+
+        // Auth failure message
+        if (!string.IsNullOrEmpty(_authFailureMessage))
+        {
+            leftStack.Children.Add(new TextBlock
+            {
+                Text = $"⚠️ {_authFailureMessage}",
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.OrangeRed),
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 260
+            });
+        }
 
         headerCard.Children.Add(leftStack);
 
@@ -917,7 +941,7 @@ public partial class App : Application
                     || node.NodeId?.Contains(currentHost, StringComparison.OrdinalIgnoreCase) == true;
                 if (isLocal && _settings != null)
                 {
-                    // Dynamic toggles based on what capabilities this node has
+                    // Build compact toggle button grid (3 columns)
                     var capToggles = new Dictionary<string, (Func<bool> Get, Action<bool> Set)>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["browser"] = (() => _settings.NodeBrowserProxyEnabled, v => _settings.NodeBrowserProxyEnabled = v),
@@ -929,33 +953,87 @@ public partial class App : Application
                         ["system"] = (() => _settings.EnableNodeMode, v => _settings.EnableNodeMode = v),
                     };
 
-                    foreach (var cap in node.Capabilities)
+                    // Show ALL possible capability toggles (not just gateway-reported ones)
+                    // so disabled capabilities like TTS appear as "off" buttons
+                    var allCaps = capToggles.Keys.ToList();
+
+                    if (allCaps.Count > 0)
                     {
-                        if (capToggles.TryGetValue(cap, out var capToggle))
+                        var columns = 3;
+                        var grid = new Grid
                         {
+                            Margin = new Thickness(28, 4, 14, 4),
+                            ColumnSpacing = 4,
+                            RowSpacing = 4,
+                            HorizontalAlignment = HorizontalAlignment.Stretch
+                        };
+                        for (int c = 0; c < columns; c++)
+                            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        var rowCount = (allCaps.Count + columns - 1) / columns;
+                        for (int r = 0; r < rowCount; r++)
+                            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                        for (int i = 0; i < allCaps.Count; i++)
+                        {
+                            var cap = allCaps[i];
+                            var capToggle = capToggles[cap];
                             var icon = CapabilityIcons.TryGetValue(cap, out var emoji) ? emoji : "▪";
                             var label = char.ToUpper(cap[0]) + cap[1..];
-                            menu.AddToggleItem(label, icon, capToggle.Get(), (on) =>
+                            var isOn = capToggle.Get();
+
+                            var btn = new ToggleButton
                             {
-                                capToggle.Set(on); _settings.Save(); OnSettingsSaved(this, EventArgs.Empty);
-                            }, indent: true);
+                                IsChecked = isOn,
+                                HorizontalAlignment = HorizontalAlignment.Stretch,
+                                HorizontalContentAlignment = HorizontalAlignment.Center,
+                                Padding = new Thickness(6, 5, 6, 5),
+                                MinHeight = 0,
+                                MinWidth = 0,
+                                Content = new TextBlock
+                                {
+                                    Text = $"{icon} {label}",
+                                    FontSize = 11,
+                                    TextTrimming = TextTrimming.CharacterEllipsis
+                                }
+                            };
+                            var capRef = capToggle; // capture for lambda
+                            btn.Click += (s, ev) =>
+                            {
+                                var on = ((ToggleButton)s!).IsChecked == true;
+                                capRef.Set(on); _settings.Save(); ReconnectNodeServiceOnly();
+                            };
+                            Grid.SetRow(btn, i / columns);
+                            Grid.SetColumn(btn, i % columns);
+                            grid.Children.Add(btn);
                         }
+                        menu.AddCustomElement(grid);
                     }
                 }
             }
         }
 
+        // ── Quick Connection Actions ──
+        menu.AddSeparator();
+        if (isConnected || _currentStatus == ConnectionStatus.Error)
+        {
+            menu.AddMenuItem("Reconnect", "🔄", "reconnect");
+        }
+        menu.AddMenuItem("Connection", "🔗", "connection");
+
         // ── Actions ──
         menu.AddSeparator();
-        menu.AddMenuItem("Open Dashboard", "🌐", "dashboard");
-        menu.AddMenuItem("Open Chat", "💬", "openchat");
-        menu.AddMenuItem("Open Canvas", "🎨", "canvas");
-        menu.AddMenuItem("Windows Companion", "🦞", "companion");
+        menu.AddMenuItem("Dashboard", "🌐", "dashboard");
+        menu.AddMenuItem("Chat", "💬", "openchat");
+        menu.AddMenuItem("Canvas", "🎨", "canvas");
+        menu.AddMenuItem("Companion", "🦞", "companion");
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_QuickSend"), "📤", "quicksend");
 
         // ── Exit ──
         menu.AddSeparator();
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_Exit"), "❌", "exit");
+
+        // Bottom padding
+        menu.AddCustomElement(new Border { Height = 4 });
     }
 
     private static string FormatTokenCount(long n)
@@ -1570,6 +1648,9 @@ public partial class App : Application
             UpdateTrayIcon();
             _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
         }
+
+        // Keep hub node state in sync for ConnectionPage
+        SyncHubNodeState();
         
         // Don't show "connected" toast if waiting for pairing - we'll show pairing status instead
         if (status == ConnectionStatus.Connected && _nodeService?.IsPaired == true)
@@ -1610,6 +1691,30 @@ public partial class App : Application
             }
         }
         catch { /* ignore */ }
+
+        SyncHubNodeState();
+    }
+
+    /// <summary>
+    /// Pushes current node service state to hub window so ConnectionPage reflects live pairing/identity.
+    /// </summary>
+    private void SyncHubNodeState()
+    {
+        if (_hubWindow == null || _hubWindow.IsClosed) return;
+        if (_nodeService != null)
+        {
+            _hubWindow.NodeIsConnected = _nodeService.IsConnected;
+            _hubWindow.NodeIsPaired = _nodeService.IsPaired;
+            _hubWindow.NodeIsPendingApproval = _nodeService.IsPendingApproval;
+            _hubWindow.NodeShortDeviceId = _nodeService.ShortDeviceId;
+            _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
+        }
+        else
+        {
+            _hubWindow.NodeIsConnected = false;
+            _hubWindow.NodeIsPaired = false;
+            _hubWindow.NodeIsPendingApproval = false;
+        }
     }
 
     public static string BuildPairingApprovalCommand(string deviceId) =>
@@ -2251,6 +2356,18 @@ public partial class App : Application
                 UpdateTrayIcon();
                 _hubWindow?.UpdateStatus(_currentStatus);
             };
+            _hubWindow.ReconnectAction = () =>
+            {
+                ReconnectGateway();
+            };
+            if (_nodeService != null)
+            {
+                _hubWindow.NodeIsConnected = _nodeService.IsConnected;
+                _hubWindow.NodeIsPaired = _nodeService.IsPaired;
+                _hubWindow.NodeIsPendingApproval = _nodeService.IsPendingApproval;
+                _hubWindow.NodeShortDeviceId = _nodeService.ShortDeviceId;
+                _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
+            }
             _hubWindow.SettingsSaved += OnSettingsSaved;
             _hubWindow.Closed += (s, e) =>
             {
@@ -2264,6 +2381,14 @@ public partial class App : Application
         _hubWindow.Settings = _settings;
         _hubWindow.GatewayClient = _gatewayClient;
         _hubWindow.CurrentStatus = _currentStatus;
+        if (_nodeService != null)
+        {
+            _hubWindow.NodeIsConnected = _nodeService.IsConnected;
+            _hubWindow.NodeIsPaired = _nodeService.IsPaired;
+            _hubWindow.NodeIsPendingApproval = _nodeService.IsPendingApproval;
+            _hubWindow.NodeShortDeviceId = _nodeService.ShortDeviceId;
+            _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
+        }
 
         // Seed cached data into hub
         if (_lastNodePairList != null) _hubWindow.UpdateNodePairList(_lastNodePairList);
@@ -2353,6 +2478,51 @@ public partial class App : Application
             _hubWindow.GatewayClient = _gatewayClient;
             _hubWindow.CurrentStatus = _currentStatus;
         }
+    }
+
+    /// <summary>
+    /// Lightweight reconnect: tears down and rebuilds gateway + node connections
+    /// without destroying the chat window or re-registering hotkeys/autostart.
+    /// Use for "Reconnect" actions where only the connection needs recycling.
+    /// </summary>
+    private void ReconnectGateway()
+    {
+        UnsubscribeGatewayEvents();
+        _gatewayClient?.Dispose();
+        _gatewayClient = null;
+        _lastGatewaySelf = null;
+        var oldNodeService = _nodeService;
+        _nodeService = null;
+        try { oldNodeService?.Dispose(); } catch (Exception ex) { Logger.Warn($"Node dispose error: {ex.Message}"); }
+
+        _currentStatus = ConnectionStatus.Disconnected;
+        _hubWindow?.UpdateStatus(_currentStatus);
+        UpdateTrayIcon();
+
+        InitializeGatewayClient();
+        if (_settings?.EnableNodeMode == true)
+            InitializeNodeService();
+
+        if (_hubWindow != null && !_hubWindow.IsClosed)
+        {
+            _hubWindow.Settings = _settings;
+            _hubWindow.GatewayClient = _gatewayClient;
+            _hubWindow.CurrentStatus = _currentStatus;
+        }
+    }
+
+    /// <summary>
+    /// Reconnects only the node service (preserves gateway client + chat window).
+    /// Use for capability toggle changes that don't require a full reconnect.
+    /// </summary>
+    private void ReconnectNodeServiceOnly()
+    {
+        var oldNodeService = _nodeService;
+        _nodeService = null;
+        try { oldNodeService?.Dispose(); } catch (Exception ex) { Logger.Warn($"Node dispose error: {ex.Message}"); }
+
+        if (_settings?.EnableNodeMode == true)
+            InitializeNodeService();
     }
 
     private void ShowWebChat()

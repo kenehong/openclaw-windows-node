@@ -53,6 +53,7 @@ public class SettingsData
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? McpOnlyMode { get; set; }
+    public string? PreferredGatewayId { get; set; }
     public bool HasSeenActivityStreamTip { get; set; } = false;
     public string? SkippedUpdateTag { get; set; }
     public bool NotifyChatResponses { get; set; } = true;

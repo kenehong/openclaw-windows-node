@@ -28,6 +28,14 @@ public sealed partial class HubWindow : WindowEx
     public Action<string?>? OpenDashboardAction { get; set; }
     public Action? ConnectAction { get; set; }
     public Action? DisconnectAction { get; set; }
+    public Action? ReconnectAction { get; set; }
+
+    // Node service state (set by App.xaml.cs in ShowHub)
+    public bool NodeIsConnected { get; set; }
+    public bool NodeIsPaired { get; set; }
+    public bool NodeIsPendingApproval { get; set; }
+    public string? NodeShortDeviceId { get; set; }
+    public string? NodeFullDeviceId { get; set; }
 
     // Cached gateway data — pages read these on navigation
     public SessionInfo[]? LastSessions { get; private set; }
@@ -130,6 +138,10 @@ public sealed partial class HubWindow : WindowEx
                 {
                     homePage.UpdateConnectionStatus(status, Settings?.GetEffectiveGatewayUrl());
                 }
+                if (ContentFrame?.Content is ConnectionPage connectionPage)
+                {
+                    connectionPage.UpdateStatus(status);
+                }
             });
         }
         catch { }
@@ -160,6 +172,7 @@ public sealed partial class HubWindow : WindowEx
     }
 
     private GatewaySelfInfo? _lastGatewaySelf;
+    public GatewaySelfInfo? LastGatewaySelf => _lastGatewaySelf;
 
     public void UpdateGatewaySelf(GatewaySelfInfo self)
     {
@@ -588,15 +601,19 @@ public sealed partial class HubWindow : WindowEx
 
     private List<CommandItem>? _paletteCommands;
 
-    private void OnCommandPalette(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private void OnRootPreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
-        args.Handled = true;
-        if (PaletteOverlay.Visibility == Visibility.Visible)
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            global::Windows.System.VirtualKey.Control).HasFlag(
+            global::Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (ctrl && (e.Key == global::Windows.System.VirtualKey.K || e.Key == global::Windows.System.VirtualKey.F))
         {
-            DismissPalette();
-            return;
+            e.Handled = true;
+            if (PaletteOverlay.Visibility == Visibility.Visible)
+                DismissPalette();
+            else
+                ShowPalette();
         }
-        ShowPalette();
     }
 
     private void ShowPalette()

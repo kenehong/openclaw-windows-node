@@ -11,11 +11,7 @@
         <MicaBackdrop/>
     </Window.SystemBackdrop>
 
-    <Grid>
-        <Grid.KeyboardAccelerators>
-            <KeyboardAccelerator Key="K" Modifiers="Control" Invoked="OnCommandPalette"/>
-            <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="OnCommandPalette"/>
-        </Grid.KeyboardAccelerators>
+    <Grid x:Name="RootGrid" PreviewKeyDown="OnRootPreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="32"/>
             <RowDefinition Height="*"/>
