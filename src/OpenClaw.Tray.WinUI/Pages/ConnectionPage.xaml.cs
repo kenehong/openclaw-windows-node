@@ -17,6 +17,8 @@ public sealed partial class ConnectionPage : Page
     private GatewayDiscoveryService? _discoveryService;
     private List<DiscoveredGateway> _discoveredGateways = new();
     private bool _suppressToggle;
+    private string? _pendingGatewayUrl; // URL waiting for token input
+    private string? _pendingGatewayId;
 
     public ConnectionPage()
     {
@@ -162,6 +164,31 @@ public sealed partial class ConnectionPage : Page
 
         UpdateDeviceIdentity();
         LoadConnectionLog();
+
+        // Show auth error if present
+        var authError = _hub?.LastAuthError;
+        if (!string.IsNullOrEmpty(authError))
+        {
+            AuthErrorBar.Message = GetAuthErrorGuidance(authError!);
+            AuthErrorBar.IsOpen = true;
+        }
+        else
+        {
+            AuthErrorBar.IsOpen = false;
+        }
+    }
+
+    private static string GetAuthErrorGuidance(string error)
+    {
+        if (error.Contains("token", StringComparison.OrdinalIgnoreCase))
+            return $"{error}\n\nCheck your token in the settings below, or paste a new setup code.";
+        if (error.Contains("pairing", StringComparison.OrdinalIgnoreCase))
+            return $"{error}\n\nYour device needs approval on the gateway host.";
+        if (error.Contains("password", StringComparison.OrdinalIgnoreCase))
+            return $"{error}\n\nThis gateway requires password authentication.";
+        if (error.Contains("signature", StringComparison.OrdinalIgnoreCase))
+            return $"{error}\n\nThe gateway may require a different auth protocol version.";
+        return $"{error}\n\nCheck your connection settings and try again.";
     }
 
     private void UpdateDeviceIdentity()
@@ -433,13 +460,56 @@ public sealed partial class ConnectionPage : Page
         var gw = _discoveredGateways.FirstOrDefault(g => g.Id == gatewayId);
         if (gw == null || _hub?.Settings == null) return;
 
-        _hub.Settings.GatewayUrl = gw.ConnectionUrl;
-        _hub.Settings.PreferredGatewayId = gw.Id;
+        // When switching to a different gateway, always prompt for token
+        // (different gateways may have different tokens)
+        var currentUrl = _hub.Settings.GetEffectiveGatewayUrl() ?? "";
+        var isSameGateway = !string.IsNullOrEmpty(currentUrl) &&
+            Uri.TryCreate(currentUrl, UriKind.Absolute, out var curUri) &&
+            $"{curUri.Host}:{curUri.Port}".Equals($"{gw.Host}:{gw.Port}", StringComparison.OrdinalIgnoreCase);
+
+        if (isSameGateway)
+            return; // already connected to this one
+
+        _pendingGatewayUrl = gw.ConnectionUrl;
+        _pendingGatewayId = gw.Id;
+        TokenPromptText.Text = $"Connect to gateway at {gw.Host}:{gw.Port}";
+        TokenPromptBox.Password = _hub.Settings.Token ?? "";
+        TokenPromptPanel.Visibility = Visibility.Visible;
+        TokenPromptBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+    }
+
+    private void OnConnectWithToken(object sender, RoutedEventArgs e)
+    {
+        var token = TokenPromptBox.Password?.Trim();
+        if (string.IsNullOrEmpty(token) || _hub?.Settings == null || string.IsNullOrEmpty(_pendingGatewayUrl))
+            return;
+
+        _hub.Settings.GatewayUrl = _pendingGatewayUrl;
+        _hub.Settings.Token = token;
+        if (!string.IsNullOrEmpty(_pendingGatewayId))
+            _hub.Settings.PreferredGatewayId = _pendingGatewayId;
         _hub.Settings.Save();
         _hub?.RaiseSettingsSaved();
 
-        // Update manual fields to reflect new selection
-        GatewayUrlTextBox.Text = gw.ConnectionUrl;
+        // Clear auth error from previous attempt
+        if (_hub != null) _hub.LastAuthError = null;
+        AuthErrorBar.IsOpen = false;
+
+        GatewayUrlTextBox.Text = _pendingGatewayUrl;
+        TokenTextBox.Text = token;
+        TokenPromptPanel.Visibility = Visibility.Collapsed;
+        _pendingGatewayUrl = null;
+        _pendingGatewayId = null;
+
+        // Refresh discovery list to show ✓ on newly connected gateway
+        PopulateGatewayList();
+    }
+
+    private void OnCancelTokenPrompt(object sender, RoutedEventArgs e)
+    {
+        TokenPromptPanel.Visibility = Visibility.Collapsed;
+        _pendingGatewayUrl = null;
+        _pendingGatewayId = null;
     }
 
     private void OnApplySetupCode(object sender, RoutedEventArgs e)

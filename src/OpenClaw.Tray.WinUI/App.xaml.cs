@@ -1936,7 +1936,11 @@ public partial class App : Application
         });
         _hubWindow?.UpdateStatus(_currentStatus);
         if (status == ConnectionStatus.Connected)
+        {
             _authFailureMessage = null;
+            if (_hubWindow != null && !_hubWindow.IsClosed)
+                _hubWindow.LastAuthError = null;
+        }
         UpdateTrayIcon();
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
         
@@ -1957,6 +1961,13 @@ public partial class App : Application
         });
         AddRecentActivity($"Auth failed: {message}", category: "error");
         UpdateTrayIcon();
+
+        // Forward to hub/connection page
+        if (_hubWindow != null && !_hubWindow.IsClosed)
+        {
+            _hubWindow.LastAuthError = message;
+            _hubWindow.UpdateStatus(_currentStatus);
+        }
     }
 
     private void OnActivityChanged(object? sender, AgentActivity? activity)

@@ -34,6 +34,7 @@ public sealed partial class HubWindow : WindowEx
     public bool NodeIsConnected { get; set; }
     public bool NodeIsPaired { get; set; }
     public bool NodeIsPendingApproval { get; set; }
+    public string? LastAuthError { get; set; }
     public string? NodeShortDeviceId { get; set; }
     public string? NodeFullDeviceId { get; set; }
 

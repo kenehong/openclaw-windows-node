@@ -12,6 +12,11 @@
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,8"/>
 
+            <!-- ═══ Auth Error ═══ -->
+            <InfoBar x:Name="AuthErrorBar" Title="Connection Error"
+                     Severity="Error" IsOpen="False" IsClosable="True"
+                     Margin="0,0,0,0"/>
+
             <!-- ═══ Section 1: Status Card ═══ -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -82,6 +87,33 @@
                         </StackPanel>
                     </Grid>
                     <StackPanel x:Name="GatewayListPanel" Spacing="4" Visibility="Collapsed"/>
+                    <!-- Inline token prompt (shown when connecting to a gateway that needs auth) -->
+                    <Border x:Name="TokenPromptPanel" Visibility="Collapsed"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            CornerRadius="6" Padding="12" Margin="0,4,0,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Name="TokenPromptText" Text="This gateway requires a token to connect."
+                                       Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"/>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <PasswordBox x:Name="TokenPromptBox" Grid.Column="0"
+                                             PlaceholderText="Gateway token" Header="Token"/>
+                                <Button Grid.Column="1" Content="Cancel"
+                                        VerticalAlignment="Bottom" Click="OnCancelTokenPrompt"/>
+                                <Button x:Name="TokenPromptConnectBtn" Grid.Column="2" Content="Connect"
+                                        Style="{ThemeResource AccentButtonStyle}"
+                                        VerticalAlignment="Bottom" Click="OnConnectWithToken"/>
+                            </Grid>
+                            <TextBlock Text="Run 'openclaw qr' on the gateway host for a setup code, or find the token in the gateway's config."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
                     <TextBlock x:Name="GatewayEmptyText" Text="No gateways found. Click Scan to search."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
