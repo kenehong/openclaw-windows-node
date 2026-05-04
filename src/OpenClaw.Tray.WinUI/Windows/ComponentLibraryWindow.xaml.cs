@@ -172,6 +172,9 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         SelectedStatusLabel.Text = GetDisplayName(state);
         SelectedStatusDescription.Text = GetDescription(state);
         MenuStatusText.Text = $"Status: {GetDisplayName(state)}";
+        var tooltip = GetHoverTooltip(state);
+        ToolTipService.SetToolTip(TrayIconHitTarget, tooltip);
+        TooltipPreviewText.Text = tooltip;
 
         ApplyBadge(state);
     }
@@ -274,4 +277,53 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         PreviewIconState.Done => "Green badge with bold white check — agent finished a task.",
         _ => string.Empty
     };
+
+    /// <summary>
+    /// Preview-only state-aware tooltip. Unlike production <c>App.BuildTrayTooltip</c>
+    /// (which always shows the same 4 lines), this surface tailors content per state:
+    /// - Connected: full operational view (topology, channels, nodes, warnings)
+    /// - Connecting: activity-first, suppress channel/node counts that are still 0
+    /// - Disconnected: cause + recovery hint, suppress operational counters
+    /// - Error: error message + actionable hint
+    /// - Done: brief task completion confirmation
+    /// </summary>
+    private static string GetHoverTooltip(PreviewIconState state)
+    {
+        var checkedAt = DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+
+        return state switch
+        {
+            PreviewIconState.Default =>
+                "OpenClaw Tray — Connected\n" +
+                "Topology: Windows native (localhost)\n" +
+                "Channels: 3/3 ready · Nodes: 1/1 online\n" +
+                $"Warnings: 0 · Last check: {checkedAt}",
+
+            PreviewIconState.Progress =>
+                "OpenClaw Tray — Connecting\n" +
+                "Activity: Reconnecting to gateway…\n" +
+                "Topology: Mac over SSH\n" +
+                $"Last attempt: {checkedAt}",
+
+            PreviewIconState.Offline =>
+                "OpenClaw Tray — Disconnected\n" +
+                "Last connected: 2m ago\n" +
+                "Reason: gateway unreachable\n" +
+                "Click to reconnect",
+
+            PreviewIconState.Error =>
+                "OpenClaw Tray — Error\n" +
+                "Auth failed: invalid or expired token\n" +
+                "Topology: Remote\n" +
+                "Click to open Settings",
+
+            PreviewIconState.Done =>
+                "OpenClaw Tray — Connected\n" +
+                "Activity: Task completed · 2s ago\n" +
+                "Channels: 3/3 ready · Nodes: 1/1 online\n" +
+                $"Last check: {checkedAt}",
+
+            _ => string.Empty
+        };
+    }
 }

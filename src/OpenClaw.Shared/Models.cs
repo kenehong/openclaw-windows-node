@@ -11,7 +11,8 @@ public enum ConnectionStatus
     Disconnected,
     Connecting,
     Connected,
-    Error
+    Error,
+    Done
 }
 
 public enum PairingStatus

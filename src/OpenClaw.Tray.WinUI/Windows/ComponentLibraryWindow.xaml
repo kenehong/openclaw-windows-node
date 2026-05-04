@@ -44,6 +44,32 @@
                                       Header="Tray status"
                                       MinWidth="240"
                                       SelectionChanged="OnStatusSelectionChanged"/>
+
+                            <Border Margin="0,8,0,0"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource ControlCornerRadius}"
+                                    Padding="12">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Hover tooltip"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="What appears when the user hovers the tray icon for this state. The text is also live on the icon below."
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap"/>
+                                    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource ControlCornerRadius}"
+                                            Padding="10,8">
+                                        <TextBlock x:Name="TooltipPreviewText"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   FontFamily="Consolas, Cascadia Mono, monospace"
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1"
@@ -140,23 +166,16 @@
                             </Grid.RowDefinitions>
 
                             <Border Grid.Row="0"
-                                    Margin="0,0,0,12"
-                                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="{StaticResource OverlayCornerRadius}">
+                                    BorderThickness="1,1,1,0"
+                                    CornerRadius="8,8,0,0">
                                 <Grid>
-                                    <StackPanel Margin="24"
-                                                Spacing="8"
-                                                VerticalAlignment="Top"
-                                                HorizontalAlignment="Left">
-                                        <TextBlock Text="Desktop preview area" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                                        <TextBlock Text="The tray menu is anchored above the simulated icon, like the production tray popup."
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   TextWrapping="Wrap"
-                                                   MaxWidth="360"/>
-                                    </StackPanel>
+                                    <Grid.Background>
+                                        <ImageBrush ImageSource="ms-appx:///Assets/Preview/bloom.png"
+                                                    Stretch="UniformToFill"
+                                                    AlignmentY="Bottom"
+                                                    AlignmentX="Center"/>
+                                    </Grid.Background>
 
                                     <Border x:Name="TrayMenuPreviewPanel"
                                             Width="280"
@@ -200,8 +219,8 @@
                                     Height="48"
                                     Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                                    BorderThickness="1,1,1,0"
-                                    CornerRadius="0">
+                                    BorderThickness="1"
+                                    CornerRadius="0,0,8,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>

@@ -1412,5 +1412,9 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="Onboarding_Connection_LaterStatus" xml:space="preserve">
     <value>Vous pouvez configurer la passerelle plus tard dans les paramètres.</value>
   </data>
+  <data name="StatusDisplay_Done" xml:space="preserve">
+    <value>Terminé</value>
+  </data>
+
 
 </root>

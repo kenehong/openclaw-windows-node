@@ -1413,5 +1413,9 @@
   <data name="Onboarding_Connection_LaterStatus" xml:space="preserve">
     <value>您可以稍后在“设置”中配置网关。</value>
   </data>
+  <data name="StatusDisplay_Done" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+
 
 </root>

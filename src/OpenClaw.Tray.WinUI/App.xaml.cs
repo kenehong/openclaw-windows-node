@@ -73,6 +73,8 @@ public partial class App : Application
     
     private ConnectionStatus _currentStatus = ConnectionStatus.Disconnected;
     private AgentActivity? _currentActivity;
+    // True after an agent task finishes; cleared when the user opens the tray menu.
+    private bool _pendingActivityCompletion;
     private ChannelHealth[] _lastChannels = Array.Empty<ChannelHealth>();
     private SessionInfo[] _lastSessions = Array.Empty<SessionInfo>();
     private GatewayNodeInfo[] _lastNodes = Array.Empty<GatewayNodeInfo>();
@@ -461,12 +463,23 @@ public partial class App : Application
 
     private void OnTrayIconSelected(TrayIcon sender, TrayIconEventArgs e)
     {
+        // Acknowledge the Done state when the user clicks the tray icon.
+        if (_pendingActivityCompletion)
+        {
+            _pendingActivityCompletion = false;
+            UpdateTrayIcon();
+        }
         // Left-click: show custom popup menu
         ShowTrayMenuPopup();
     }
 
     private void OnTrayContextMenu(TrayIcon sender, TrayIconEventArgs e)
     {
+        if (_pendingActivityCompletion)
+        {
+            _pendingActivityCompletion = false;
+            UpdateTrayIcon();
+        }
         // Right-click: show custom popup menu
         ShowTrayMenuPopup();
     }
@@ -1296,6 +1309,8 @@ public partial class App : Application
 
     private void OnActivityChanged(object? sender, AgentActivity? activity)
     {
+        var wasActive = _currentActivity != null && _currentActivity.Kind != OpenClaw.Shared.ActivityKind.Idle;
+
         if (activity == null)
         {
             // Activity ended
@@ -1330,7 +1345,20 @@ public partial class App : Application
                 _currentActivity = activity;
             }
         }
-        
+
+        var nowActive = _currentActivity != null && _currentActivity.Kind != OpenClaw.Shared.ActivityKind.Idle;
+        if (nowActive)
+        {
+            // New work started — clear any lingering Done acknowledgement.
+            _pendingActivityCompletion = false;
+        }
+        else if (wasActive)
+        {
+            // Activity transitioned non-Idle -> Idle. Surface the Done badge until the user
+            // clicks the tray icon (handled in OnTrayIconSelected/OnTrayContextMenu).
+            _pendingActivityCompletion = true;
+        }
+
         UpdateTrayIcon();
     }
 
@@ -1678,8 +1706,13 @@ public partial class App : Application
         {
             status = ConnectionStatus.Connecting; // Use connecting icon for activity
         }
+        else if (status == ConnectionStatus.Connected && _pendingActivityCompletion)
+        {
+            // Show the green Done badge until the user opens the tray menu.
+            status = ConnectionStatus.Done;
+        }
 
-        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "openclaw.ico");
+        var iconPath = IconHelper.GetStatusIconPath(status);
         var tooltip = BuildTrayTooltip();
 
         try

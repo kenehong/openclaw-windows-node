@@ -1413,5 +1413,9 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="Onboarding_Connection_LaterStatus" xml:space="preserve">
     <value>U kunt de gateway later configureren in Instellingen.</value>
   </data>
+  <data name="StatusDisplay_Done" xml:space="preserve">
+    <value>Voltooid</value>
+  </data>
+
 
 </root>

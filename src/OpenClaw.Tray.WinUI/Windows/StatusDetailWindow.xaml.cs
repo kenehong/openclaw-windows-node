@@ -63,8 +63,9 @@ public sealed partial class StatusDetailWindow : WindowEx
         var (glyph, color) = state.ConnectionStatus switch
         {
             ConnectionStatus.Connected => ("\uE8FB", Color.FromArgb(255, 76, 175, 80)),    // Checkmark, Green
-            ConnectionStatus.Connecting => ("\uE895", Color.FromArgb(255, 255, 193, 7)),   // Sync, Amber
+            ConnectionStatus.Connecting => ("\uE895", Color.FromArgb(255, 0, 120, 212)),   // Sync, Fluent blue
             ConnectionStatus.Error => ("\uE783", Color.FromArgb(255, 244, 67, 54)),        // Error, Red
+            ConnectionStatus.Done => ("\uE73E", Color.FromArgb(255, 76, 175, 80)),         // CheckMark, Green
             _ => ("\uE8FB", Color.FromArgb(255, 158, 158, 158))                            // Gray
         };
         StatusIcon.Glyph = glyph;

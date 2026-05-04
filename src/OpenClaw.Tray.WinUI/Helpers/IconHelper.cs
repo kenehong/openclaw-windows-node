@@ -30,6 +30,7 @@ public static class IconHelper
     private static Icon? _disconnectedIcon;
     private static Icon? _activityIcon;
     private static Icon? _errorIcon;
+    private static Icon? _doneIcon;
     private static Icon? _appIcon;
 
     public static string GetStatusIconPath(ConnectionStatus status)
@@ -50,6 +51,7 @@ public static class IconHelper
         ConnectionStatus.Connected => "Online",
         ConnectionStatus.Connecting => "Activity / connecting",
         ConnectionStatus.Error => "Error",
+        ConnectionStatus.Done => "Done",
         _ => "Offline"
     };
 
@@ -58,47 +60,9 @@ public static class IconHelper
         ConnectionStatus.Connected => "Current OpenClaw icon with no badge.",
         ConnectionStatus.Connecting => "White badge with a blue progress arc for connecting or active agent work.",
         ConnectionStatus.Error => "Red critical badge with a bold white cross for auth or connection errors.",
+        ConnectionStatus.Done => "Green badge with a bold white check — agent finished a task.",
         _ => "Greyed-out claw for the disconnected / offline state."
     };
-
-    /// <summary>
-    /// Returns a multi-line dummy tooltip mirroring the production
-    /// <c>BuildTrayTooltip</c> format for each connection state.
-    /// Used by the component library preview to show what users see on hover.
-    /// </summary>
-    public static string GetStatusHoverTooltip(ConnectionStatus status)
-    {
-        var normalized = NormalizeStatus(status);
-        var checkedAt = DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-
-        return normalized switch
-        {
-            ConnectionStatus.Connected =>
-                $"OpenClaw Tray — Connected\n" +
-                $"Topology: Direct (localhost)\n" +
-                $"Channels: 3/3 ready · Nodes: 1/1 online\n" +
-                $"Warnings: 0 · Last check: {checkedAt}",
-
-            ConnectionStatus.Connecting =>
-                $"OpenClaw Tray — Connecting\n" +
-                $"Activity: Reconnecting to gateway…\n" +
-                $"Topology: SSH tunnel (host.example.com)\n" +
-                $"Channels: 1/3 ready · Nodes: 0/1 online\n" +
-                $"Warnings: 1 · Last check: {checkedAt}",
-
-            ConnectionStatus.Error =>
-                $"OpenClaw Tray — Error\n" +
-                $"Topology: Remote gateway\n" +
-                $"Channels: 0/3 ready · Nodes: 0/1 online\n" +
-                $"Warnings: 2 · Last check: {checkedAt}",
-
-            _ =>
-                $"OpenClaw Tray — Disconnected\n" +
-                $"Topology: Not configured\n" +
-                $"Channels: 0/0 ready · Nodes: 0/0 online\n" +
-                $"Warnings: 1 · Last check: {checkedAt}",
-        };
-    }
 
     public static Icon GetStatusIcon(ConnectionStatus status)
     {
@@ -107,6 +71,7 @@ public static class IconHelper
             ConnectionStatus.Connected => GetOrCreateIcon(ref _connectedIcon, ConnectionStatus.Connected),
             ConnectionStatus.Connecting => GetOrCreateIcon(ref _activityIcon, ConnectionStatus.Connecting),
             ConnectionStatus.Error => GetOrCreateIcon(ref _errorIcon, ConnectionStatus.Error),
+            ConnectionStatus.Done => GetOrCreateIcon(ref _doneIcon, ConnectionStatus.Done),
             _ => GetOrCreateIcon(ref _disconnectedIcon, ConnectionStatus.Disconnected)
         };
     }
@@ -158,19 +123,24 @@ public static class IconHelper
         ConnectionStatus.Connected => ConnectionStatus.Connected,
         ConnectionStatus.Connecting => ConnectionStatus.Connecting,
         ConnectionStatus.Error => ConnectionStatus.Error,
+        ConnectionStatus.Done => ConnectionStatus.Done,
         _ => ConnectionStatus.Disconnected
     };
 
     private static string GetBaseIconPath() => Path.Combine(AssetsPath, "openclaw.ico");
     private static string GetOfflineImagePath() => Path.Combine(AssetsPath, "offline.png");
 
+    // Bump this when CreateStatusBitmap output changes so users pick up the
+    // new artwork without manually clearing %LOCALAPPDATA%\OpenClawTray\StatusIcons.
+    private const string StatusIconCacheVersion = "v2";
+
     private static StatusIconAssets EnsureStatusAssets(ConnectionStatus status)
     {
         Directory.CreateDirectory(GeneratedIconsPath);
 
         var assetName = NormalizeStatus(status).ToString();
-        var iconPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{assetName}.ico");
-        var pngPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{assetName}.png");
+        var iconPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{StatusIconCacheVersion}-{assetName}.ico");
+        var pngPath = Path.Combine(GeneratedIconsPath, $"OpenClawStatus-{StatusIconCacheVersion}-{assetName}.png");
 
         if (File.Exists(iconPath) && File.Exists(pngPath))
         {
@@ -270,6 +240,26 @@ public static class IconHelper
                     };
                     g.DrawLine(glyph, 8f, 8f, 13f, 13f);
                     g.DrawLine(glyph, 13f, 8f, 8f, 13f);
+                    break;
+                }
+            case ConnectionStatus.Done:
+                {
+                    using var bg = new SolidBrush(Color.FromArgb(76, 175, 80));
+                    g.FillEllipse(bg, badgeRect);
+                    using var glyph = new Pen(Color.White, 1.8f)
+                    {
+                        StartCap = LineCap.Round,
+                        EndCap = LineCap.Round,
+                        LineJoin = LineJoin.Round
+                    };
+                    using var path = new GraphicsPath();
+                    path.AddLines(new[]
+                    {
+                        new PointF(7.6f, 10.7f),
+                        new PointF(9.7f, 12.6f),
+                        new PointF(13.4f, 8.6f)
+                    });
+                    g.DrawPath(glyph, path);
                     break;
                 }
         }

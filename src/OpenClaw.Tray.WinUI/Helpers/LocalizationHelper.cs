@@ -54,6 +54,7 @@ public static class LocalizationHelper
         ConnectionStatus.Connecting => GetString("StatusDisplay_Connecting"),
         ConnectionStatus.Disconnected => GetString("StatusDisplay_Disconnected"),
         ConnectionStatus.Error => GetString("StatusDisplay_Error"),
+        ConnectionStatus.Done => GetString("StatusDisplay_Done"),
         _ => GetString("StatusDisplay_Unknown")
     };
 }
