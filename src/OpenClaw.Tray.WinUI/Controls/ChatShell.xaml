@@ -121,39 +121,54 @@
                                  KeyDown="OnComposerKeyDown"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+
+                            <!-- Left: dropdowns (channel / model / reasoning). Horizontally scrolls if narrow so the right cluster never gets pushed off-screen. -->
+                            <ScrollViewer Grid.Column="0"
+                                          HorizontalScrollMode="Auto"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollMode="Disabled"
+                                          VerticalScrollBarVisibility="Hidden"
+                                          VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <ComboBox x:Name="ChannelCombo" MinWidth="80" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Channel"
+                                              ItemsSource="{x:Bind ChannelOptions, Mode=OneWay}"
+                                              SelectedItem="{x:Bind SelectedChannel, Mode=TwoWay}"
+                                              SelectionChanged="OnChannelChanged"/>
+                                    <ComboBox x:Name="ModelCombo" MinWidth="140" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Model"
+                                              ItemsSource="{x:Bind ModelOptions, Mode=OneWay}"
+                                              SelectedItem="{x:Bind SelectedModel, Mode=TwoWay}"
+                                              SelectionChanged="OnModelChanged"/>
+                                    <ComboBox x:Name="ReasoningCombo" MinWidth="100" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Reasoning"
+                                              ItemsSource="{x:Bind ReasoningOptions, Mode=OneWay}"
+                                              SelectedItem="{x:Bind SelectedReasoning, Mode=TwoWay}"
+                                              SelectionChanged="OnReasoningChanged"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Divider -->
+                            <Border Grid.Column="1" Width="1"
+                                    Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                    Margin="8,4" VerticalAlignment="Stretch"/>
+
+                            <!-- Right: action buttons (attach, voice, plus, scroll-down, send). Send is always visible. -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4" ToolTipService.ToolTip="Attach">
                                     <FontIcon Glyph="&#xE723;" FontSize="14"/>
                                 </Button>
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4" ToolTipService.ToolTip="Voice">
                                     <FontIcon Glyph="&#xE720;" FontSize="14"/>
                                 </Button>
-                                <Border Width="1" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}" Margin="4,4"/>
-                                <ComboBox x:Name="ChannelCombo" MinWidth="80" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Channel"
-                                          ItemsSource="{x:Bind ChannelOptions, Mode=OneWay}"
-                                          SelectedItem="{x:Bind SelectedChannel, Mode=TwoWay}"
-                                          SelectionChanged="OnChannelChanged"/>
-                                <ComboBox x:Name="ModelCombo" MinWidth="140" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Model"
-                                          ItemsSource="{x:Bind ModelOptions, Mode=OneWay}"
-                                          SelectedItem="{x:Bind SelectedModel, Mode=TwoWay}"
-                                          SelectionChanged="OnModelChanged"/>
-                                <ComboBox x:Name="ReasoningCombo" MinWidth="100" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Reasoning"
-                                          ItemsSource="{x:Bind ReasoningOptions, Mode=OneWay}"
-                                          SelectedItem="{x:Bind SelectedReasoning, Mode=TwoWay}"
-                                          SelectionChanged="OnReasoningChanged"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4">
                                     <FontIcon Glyph="&#xE710;" FontSize="14"/>
                                 </Button>
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4">
                                     <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                 </Button>
-                                <Button x:Name="SendButton" Background="#0078D4" BorderThickness="0" Padding="8,4" Click="OnSendClick">
+                                <Button x:Name="SendButton" Background="#0078D4" BorderThickness="0" Padding="8,4" Click="OnSendClick" ToolTipService.ToolTip="Send">
                                     <FontIcon Glyph="&#xE724;" FontSize="14" Foreground="White"/>
                                 </Button>
                             </StackPanel>
