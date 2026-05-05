@@ -11,7 +11,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- WebView2 toolbar (Hub-specific actions, kept above ChatShell) -->
+        <!-- Hub-specific toolbar (kept above ChatSurface; hidden by default) -->
         <Border Grid.Row="0"
                 Visibility="Collapsed"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -41,42 +41,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Native ChatShell chrome wraps the WebView2 thread -->
-        <controls:ChatShell x:Name="Shell" Grid.Row="1" IsComposerVisible="True" IsHeaderVisible="False" Margin="8">
-            <controls:ChatShell.ThreadContent>
-                <Grid>
-                    <!-- WebView2 (gateway-served chat UI; brings its own composer) -->
-                    <WebView2 x:Name="WebView" Visibility="Collapsed"/>
-
-                    <!-- Loading -->
-                    <ProgressRing x:Name="LoadingRing" IsActive="False"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-
-                    <!-- Placeholder (shown when not connected) -->
-                    <StackPanel x:Name="PlaceholderPanel"
-                                VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
-                        <TextBlock Text="💬" FontSize="48" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Connect to gateway to start chatting"
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock Text="WebView2 chat will load here once a gateway connection is established."
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360"/>
-                    </StackPanel>
-
-                    <!-- Error -->
-                    <ScrollViewer x:Name="ErrorPanel" Visibility="Collapsed" Padding="20">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Web Chat Unavailable" Style="{StaticResource SubtitleTextBlockStyle}"
-                                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                            <TextBlock x:Name="ErrorText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
-                                       FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}"/>
-                            <Button Content="Open in Browser Instead" Click="OnPopout" HorizontalAlignment="Left"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </controls:ChatShell.ThreadContent>
-        </controls:ChatShell>
+        <!-- Shared chat surface (native chrome + WebView2 + injection/relay) -->
+        <controls:ChatSurface x:Name="Surface" Grid.Row="1" Margin="8"/>
     </Grid>
 </Page>

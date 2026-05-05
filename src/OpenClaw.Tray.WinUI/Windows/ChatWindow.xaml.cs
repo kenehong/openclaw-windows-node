@@ -1,16 +1,9 @@
-using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Hosting;
-using Microsoft.Web.WebView2.Core;
 using OpenClaw.Shared;
 using OpenClawTray.Helpers;
-using OpenClawTray.Services;
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using WinUIEx;
 
 namespace OpenClawTray.Windows;
@@ -19,8 +12,6 @@ public sealed partial class ChatWindow : WindowEx
 {
     private readonly string _gatewayUrl;
     private readonly string _token;
-    private string _chatUrl = "";
-    private bool _webViewInitialized;
     public bool IsClosed { get; private set; }
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -78,7 +69,9 @@ public sealed partial class ChatWindow : WindowEx
 
         // Hide instead of close — preserves WebView2 session for instant reopen
         Closed += OnWindowClosing;
-        _ = InitializeWebViewAsync();
+
+        // Hand off to the shared surface (handles WebView2 init, CSS injection, send relay).
+        Surface.Initialize(_gatewayUrl, _token);
     }
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
@@ -117,13 +110,12 @@ public sealed partial class ChatWindow : WindowEx
         int panelHPx = (int)(640 * scale);
 
         // Position: bottom-right of work area, 8px margin from edges
-        // This places the panel just above the taskbar, near the tray
         int margin = 8;
         int x = work.Right - panelWPx - margin;
         int y = work.Bottom - panelHPx - margin;
 
         this.Move(x, y);
-        this.SetWindowSize(480, 640); // DIPs
+        this.SetWindowSize(480, 640);
 
         this.Show();
         SetForegroundWindow(hwnd);
@@ -150,79 +142,7 @@ public sealed partial class ChatWindow : WindowEx
         Close();
     }
 
-    private async Task InitializeWebViewAsync()
-    {
-        try
-        {
-            PlaceholderPanel.Visibility = Visibility.Collapsed;
-            LoadingRing.IsActive = true;
-            LoadingRing.Visibility = Visibility.Visible;
-
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "OpenClawTray", "WebView2");
-            Directory.CreateDirectory(userDataFolder);
-            Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
-
-            await WebView.EnsureCoreWebView2Async();
-            _webViewInitialized = true;
-
-            WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-            WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
-
-            WebView.CoreWebView2.NavigationCompleted += (s, e) =>
-            {
-                LoadingRing.IsActive = false;
-                LoadingRing.Visibility = Visibility.Collapsed;
-                if (!e.IsSuccess && (e.WebErrorStatus == CoreWebView2WebErrorStatus.CannotConnect ||
-                                      e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionReset ||
-                                      e.WebErrorStatus == CoreWebView2WebErrorStatus.ServerUnreachable))
-                {
-                    WebView.Visibility = Visibility.Collapsed;
-                    ErrorPanel.Visibility = Visibility.Visible;
-                    ErrorText.Text = $"Cannot connect to gateway at {_gatewayUrl}";
-                }
-            };
-
-            // Build chat URL
-            if (GatewayUrlHelper.TryNormalizeWebSocketUrl(_gatewayUrl, out var normalizedUrl) &&
-                Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri))
-            {
-                var scheme = uri.Scheme == "wss" ? "https" : "http";
-                _chatUrl = $"{scheme}://{uri.Host}:{uri.Port}?token={Uri.EscapeDataString(_token)}";
-            }
-            else
-            {
-                _chatUrl = $"http://127.0.0.1:19001?token={Uri.EscapeDataString(_token)}";
-            }
-
-            WebView.Visibility = Visibility.Visible;
-            WebView.CoreWebView2.Navigate(_chatUrl);
-        }
-        catch (Exception ex)
-        {
-            LoadingRing.IsActive = false;
-            LoadingRing.Visibility = Visibility.Collapsed;
-            PlaceholderPanel.Visibility = Visibility.Collapsed;
-            ErrorPanel.Visibility = Visibility.Visible;
-            ErrorText.Text = $"WebView2 failed: {ex.Message}";
-        }
-    }
-
-    private void OnHome(object sender, RoutedEventArgs e)
-    {
-        if (_webViewInitialized && !string.IsNullOrEmpty(_chatUrl))
-            WebView.CoreWebView2?.Navigate(_chatUrl);
-    }
-
-    private void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_webViewInitialized) WebView.CoreWebView2?.Reload();
-    }
-
-    private void OnPopout(object sender, RoutedEventArgs e)
-    {
-        if (!string.IsNullOrEmpty(_chatUrl))
-            try { Process.Start(new ProcessStartInfo(_chatUrl) { UseShellExecute = true }); } catch { }
-    }
+    private void OnHome(object sender, RoutedEventArgs e) => Surface.NavigateHome();
+    private void OnRefresh(object sender, RoutedEventArgs e) => Surface.Reload();
+    private void OnPopout(object sender, RoutedEventArgs e) => Surface.OpenInBrowser();
 }
