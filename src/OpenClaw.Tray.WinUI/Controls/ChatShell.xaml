@@ -5,8 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Border BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="8"
+            BorderThickness="0"
+            CornerRadius="0"
             Background="{ThemeResource SubtleFillColorSecondaryBrush}">
         <Grid ColumnSpacing="0">
             <Grid.ColumnDefinitions>
@@ -105,9 +105,7 @@
                 </Border>
 
                 <!-- Thread slot (consumer-provided) -->
-                <ScrollViewer Grid.Row="1" Padding="20,16">
-                    <ContentPresenter x:Name="ThreadHost" Content="{x:Bind ThreadContent, Mode=OneWay}"/>
-                </ScrollViewer>
+                <ContentPresenter Grid.Row="1" x:Name="ThreadHost" Content="{x:Bind ThreadContent, Mode=OneWay}"/>
 
                 <!-- Composer -->
                 <Border x:Name="ComposerBorder" Grid.Row="2"
@@ -115,12 +113,12 @@
                         BorderThickness="0,1,0,0"
                         Padding="14,12">
                     <StackPanel Spacing="8">
-                        <Border Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="6" Padding="10,10" Height="56">
-                            <TextBlock Text="Message Assistant (Enter to send)"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                       VerticalAlignment="Top"/>
-                        </Border>
+                        <TextBox x:Name="ComposerInput"
+                                 PlaceholderText="Message Assistant (Enter to send)"
+                                 AcceptsReturn="False"
+                                 TextWrapping="Wrap"
+                                 MinHeight="56"
+                                 KeyDown="OnComposerKeyDown"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -135,21 +133,18 @@
                                     <FontIcon Glyph="&#xE720;" FontSize="14"/>
                                 </Button>
                                 <Border Width="1" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}" Margin="4,4"/>
-                                <ComboBox SelectedIndex="0" MinWidth="80" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Channel">
-                                    <ComboBoxItem Content="main"/>
-                                    <ComboBoxItem Content="release"/>
-                                    <ComboBoxItem Content="experimental"/>
-                                </ComboBox>
-                                <ComboBox SelectedIndex="0" MinWidth="140" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Model">
-                                    <ComboBoxItem Content="Claude Opus 4.7"/>
-                                    <ComboBoxItem Content="GPT-5"/>
-                                    <ComboBoxItem Content="Gemini 2.5 Pro"/>
-                                </ComboBox>
-                                <ComboBox SelectedIndex="0" MinWidth="100" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Reasoning">
-                                    <ComboBoxItem Content="Default"/>
-                                    <ComboBoxItem Content="High"/>
-                                    <ComboBoxItem Content="Low"/>
-                                </ComboBox>
+                                <ComboBox x:Name="ChannelCombo" MinWidth="80" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Channel"
+                                          ItemsSource="{x:Bind ChannelOptions, Mode=OneWay}"
+                                          SelectedItem="{x:Bind SelectedChannel, Mode=TwoWay}"
+                                          SelectionChanged="OnChannelChanged"/>
+                                <ComboBox x:Name="ModelCombo" MinWidth="140" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Model"
+                                          ItemsSource="{x:Bind ModelOptions, Mode=OneWay}"
+                                          SelectedItem="{x:Bind SelectedModel, Mode=TwoWay}"
+                                          SelectionChanged="OnModelChanged"/>
+                                <ComboBox x:Name="ReasoningCombo" MinWidth="100" Height="28" FontSize="11" Padding="8,0" ToolTipService.ToolTip="Reasoning"
+                                          ItemsSource="{x:Bind ReasoningOptions, Mode=OneWay}"
+                                          SelectedItem="{x:Bind SelectedReasoning, Mode=TwoWay}"
+                                          SelectionChanged="OnReasoningChanged"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4">
@@ -158,7 +153,7 @@
                                 <Button Background="Transparent" BorderThickness="0" Padding="6,4">
                                     <FontIcon Glyph="&#xE896;" FontSize="14"/>
                                 </Button>
-                                <Button Background="#0078D4" BorderThickness="0" Padding="8,4">
+                                <Button x:Name="SendButton" Background="#0078D4" BorderThickness="0" Padding="8,4" Click="OnSendClick">
                                     <FontIcon Glyph="&#xE724;" FontSize="14" Foreground="White"/>
                                 </Button>
                             </StackPanel>

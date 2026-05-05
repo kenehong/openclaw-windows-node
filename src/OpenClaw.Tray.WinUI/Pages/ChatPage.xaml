@@ -13,6 +13,7 @@
 
         <!-- WebView2 toolbar (Hub-specific actions, kept above ChatShell) -->
         <Border Grid.Row="0"
+                Visibility="Collapsed"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1" Padding="8">
@@ -41,7 +42,7 @@
         </Border>
 
         <!-- Native ChatShell chrome wraps the WebView2 thread -->
-        <controls:ChatShell Grid.Row="1" IsComposerVisible="False" IsHeaderVisible="False" Margin="8">
+        <controls:ChatShell x:Name="Shell" Grid.Row="1" IsComposerVisible="True" IsHeaderVisible="False" Margin="8">
             <controls:ChatShell.ThreadContent>
                 <Grid>
                     <!-- WebView2 (gateway-served chat UI; brings its own composer) -->
