@@ -15,6 +15,9 @@ public static class IconHelper
     private static readonly string AssetsPath = Path.Combine(AppContext.BaseDirectory, "Assets");
     private static readonly string IconsPath = Path.Combine(AssetsPath, "Icons");
 
+    public const int ConnectingFrameCount = 12;
+    public const int ConnectingFrameIntervalMs = 83;
+
     // Icon cache
     private static Icon? _connectedIcon;
     private static Icon? _disconnectedIcon;
@@ -41,6 +44,18 @@ public static class IconHelper
         }
 
         return path;
+    }
+
+    /// <summary>
+    /// Returns the path to a single frame of the connecting spinner. The frames cycle
+    /// 0..<see cref="ConnectingFrameCount"/>-1; if a specific frame is missing on disk,
+    /// falls back to <see cref="GetStatusIconPath"/> for <see cref="ConnectionStatus.Connecting"/>.
+    /// </summary>
+    public static string GetConnectingFramePath(int frame)
+    {
+        var idx = ((frame % ConnectingFrameCount) + ConnectingFrameCount) % ConnectingFrameCount;
+        var path = Path.Combine(IconsPath, $"StatusConnecting_{idx:D2}.ico");
+        return File.Exists(path) ? path : GetStatusIconPath(ConnectionStatus.Connecting);
     }
 
     public static Icon GetStatusIcon(ConnectionStatus status)

@@ -89,8 +89,9 @@ public partial class App : Application
     private PresenceEntry[]? _lastPresence;
     private UpdateCommandCenterInfo _lastUpdateInfo = BuildInitialUpdateInfo();
     private DateTime _lastCheckTime = DateTime.Now;
-    private DateTime? _lastConnectedTime;
     private DateTime _lastUsageActivityLogUtc = DateTime.MinValue;
+    private System.Threading.Timer? _spinnerTimer;
+    private int _spinnerFrame;
     private string? _lastChannelStatusSignature;
 
     // FrozenDictionary for O(1) case-insensitive notification type → setting lookup — no per-call allocation.
@@ -1971,7 +1972,6 @@ public partial class App : Application
         if (status == ConnectionStatus.Connected)
         {
             _authFailureMessage = null;
-            _lastConnectedTime = DateTime.Now;
             if (_hubWindow != null && !_hubWindow.IsClosed)
                 _hubWindow.LastAuthError = null;
         }
@@ -2453,7 +2453,9 @@ public partial class App : Application
             status = ConnectionStatus.Connecting; // Use connecting icon for activity
         }
 
-        var iconPath = IconHelper.GetStatusIconPath(status);
+        var iconPath = status == ConnectionStatus.Connecting
+            ? IconHelper.GetConnectingFramePath(_spinnerFrame)
+            : IconHelper.GetStatusIconPath(status);
         var tooltip = BuildTrayTooltip();
 
         try
@@ -2465,15 +2467,66 @@ public partial class App : Application
         {
             Logger.Warn($"Failed to update tray icon: {ex.Message}");
         }
+
+        if (status == ConnectionStatus.Connecting)
+        {
+            StartSpinnerTimer();
+        }
+        else
+        {
+            StopSpinnerTimer();
+        }
+    }
+
+    private void StartSpinnerTimer()
+    {
+        if (_spinnerTimer != null) return;
+        _spinnerTimer = new System.Threading.Timer(_ =>
+        {
+            _spinnerFrame = (_spinnerFrame + 1) % IconHelper.ConnectingFrameCount;
+            var dq = _dispatcherQueue;
+            if (dq != null)
+            {
+                dq.TryEnqueue(AdvanceSpinnerFrame);
+            }
+            else
+            {
+                AdvanceSpinnerFrame();
+            }
+        }, null, IconHelper.ConnectingFrameIntervalMs, IconHelper.ConnectingFrameIntervalMs);
+    }
+
+    private void StopSpinnerTimer()
+    {
+        var t = _spinnerTimer;
+        _spinnerTimer = null;
+        t?.Dispose();
+        _spinnerFrame = 0;
+    }
+
+    private void AdvanceSpinnerFrame()
+    {
+        if (_trayIcon == null) return;
+        var status = _currentStatus;
+        if (_currentActivity != null && _currentActivity.Kind != OpenClaw.Shared.ActivityKind.Idle)
+            status = ConnectionStatus.Connecting;
+        if (status != ConnectionStatus.Connecting)
+        {
+            StopSpinnerTimer();
+            return;
+        }
+        try
+        {
+            _trayIcon.SetIcon(IconHelper.GetConnectingFramePath(_spinnerFrame));
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Failed to advance spinner frame: {ex.Message}");
+        }
     }
 
     private string BuildTrayTooltip()
     {
-        if (_currentStatus == ConnectionStatus.Disconnected)
-        {
-            return BuildOfflineTrayTooltip();
-        }
-
         var topology = GatewayTopologyClassifier.Classify(
             _settings?.GatewayUrl,
             _settings?.UseSshTunnel == true,
@@ -2511,33 +2564,6 @@ public partial class App : Application
         }
 
         return string.Join("\n", tooltip);
-    }
-
-    private string BuildOfflineTrayTooltip()
-    {
-        var lastConnected = _lastConnectedTime.HasValue
-            ? FormatRelativeTime(DateTime.Now - _lastConnectedTime.Value)
-            : "never this session";
-        var reason = !string.IsNullOrEmpty(_authFailureMessage)
-            ? _authFailureMessage
-            : "gateway unreachable";
-
-        return string.Join("\n", new[]
-        {
-            "OpenClaw Tray — Disconnected",
-            $"Last connected: {lastConnected}",
-            $"Reason: {reason}",
-            "Click to reconnect"
-        });
-    }
-
-    private static string FormatRelativeTime(TimeSpan elapsed)
-    {
-        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-        if (elapsed.TotalSeconds < 60) return "just now";
-        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
-        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
-        return $"{(int)elapsed.TotalDays}d ago";
     }
 
     #endregion
