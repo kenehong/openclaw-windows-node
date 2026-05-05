@@ -506,6 +506,27 @@ public sealed partial class HubWindow : WindowEx
         }
     }
 
+    private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (args.InvokedItemContainer?.Tag is string tag && tag == "componentlibrary")
+        {
+            OpenComponentLibrary();
+        }
+    }
+
+    private ComponentLibraryWindow? _componentLibraryWindow;
+
+    internal void OpenComponentLibrary()
+    {
+        if (_componentLibraryWindow != null)
+        {
+            try { _componentLibraryWindow.Activate(); return; } catch { _componentLibraryWindow = null; }
+        }
+        _componentLibraryWindow = new ComponentLibraryWindow();
+        _componentLibraryWindow.Closed += (_, _) => _componentLibraryWindow = null;
+        _componentLibraryWindow.Activate();
+    }
+
     private void InitializeCurrentPage()
     {
         switch (ContentFrame.Content)
@@ -706,6 +727,7 @@ public sealed partial class HubWindow : WindowEx
             new() { Icon = "⚙️", Title = "Go to Settings", Subtitle = "Application settings", Tag = "settings" },
             new() { Icon = "🐛", Title = "Go to Debug", Subtitle = "Debug information", Tag = "debug" },
             new() { Icon = "ℹ️", Title = "Go to Info", Subtitle = "About this app", Tag = "info" },
+            new() { Icon = "🎨", Title = "Open Component Library", Subtitle = "Preview UI components and tray status icons", Execute = OpenComponentLibrary },
 
             // Actions
             new() { Icon = "💬", Title = "Open Chat Window", Subtitle = "Open standalone chat", Tag = "chat" },

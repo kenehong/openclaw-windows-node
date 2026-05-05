@@ -1,0 +1,771 @@
+<?xml version="1.0" encoding="utf-8"?>
+<winex:WindowEx
+    x:Class="OpenClawTray.Windows.ComponentLibraryWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winex="using:WinUIEx"
+    xmlns:controls="using:OpenClawTray.Controls"
+    Title="OpenClaw Component Library"
+    MinWidth="720"
+    MinHeight="640">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop/>
+    </Window.SystemBackdrop>
+
+    <Grid Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <NavigationView x:Name="ComponentNav"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="260"
+                        IsPaneToggleButtonVisible="True"
+                        SelectionChanged="OnNavSelectionChanged">
+            <NavigationView.PaneHeader>
+                <StackPanel Spacing="2" Margin="4,8,4,12">
+                    <TextBlock Text="Component Library" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="OpenClaw Tray"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </NavigationView.PaneHeader>
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavTrayStatus" Tag="tray-status" Content="Status &amp; tooltip" IsSelected="True"/>
+                <NavigationViewItem x:Name="NavClickInteraction" Tag="click-interaction" Content="Click interaction"/>
+                <NavigationViewItem x:Name="NavChat" Tag="chat" Content="Chat"/>
+                <NavigationViewItem x:Name="NavAgentRunCard" Tag="agent-run-card" Content="Agent run card"/>
+                <NavigationViewItem Tag="lorem-1" Content="Lorem ipsum" IsEnabled="False"/>
+            </NavigationView.MenuItems>
+
+            <Grid>
+                <ScrollViewer x:Name="TrayStatusPage" Padding="24">
+                    <StackPanel Spacing="24">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Component Library" Style="{StaticResource TitleTextBlockStyle}"/>
+                    <TextBlock Text="Preview tray icon states in a system-tray-like interaction before applying them to the production tray."
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource OverlayCornerRadius}"
+                        Padding="16">
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Interactive status selector" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="Use the dropdown to change the simulated tray state below."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                            <ComboBox x:Name="StatusComboBox"
+                                      Header="Tray status"
+                                      MinWidth="240"
+                                      SelectionChanged="OnStatusSelectionChanged"/>
+
+                            <Border Margin="0,8,0,0"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource ControlCornerRadius}"
+                                    Padding="12">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Hover tooltip"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                    <TextBlock Text="What appears when the user hovers the tray icon for this state. The text is also live on the icon below."
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap"/>
+                                    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource ControlCornerRadius}"
+                                            Padding="10,8">
+                                        <TextBlock x:Name="TooltipPreviewText"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   FontFamily="Consolas, Cascadia Mono, monospace"
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Spacing="8"
+                                    HorizontalAlignment="Center">
+                            <Border Width="96"
+                                    Height="96"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                    CornerRadius="{StaticResource ControlCornerRadius}"
+                                    Padding="8">
+                                <Grid>
+                                    <Image x:Name="SelectedStatusImage"
+                                           Width="80"
+                                           Height="80"
+                                           Stretch="Uniform"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+
+                                    <Border x:Name="LargeBadge"
+                                            Width="36"
+                                            Height="36"
+                                            CornerRadius="18"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,-6,-10"
+                                            BorderBrush="{ThemeResource ControlFillColorDefaultBrush}"
+                                            BorderThickness="2"
+                                            Visibility="Collapsed">
+                                        <Grid>
+                                            <Path x:Name="LargeProgressArc"
+                                                  Width="22" Height="22"
+                                                  Stroke="#0078D4"
+                                                  StrokeThickness="3.5"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  Data="M 11 1 A 10 10 0 1 1 1 11"
+                                                  Visibility="Collapsed"
+                                                  RenderTransformOrigin="0.5,0.5">
+                                                <Path.RenderTransform>
+                                                    <RotateTransform x:Name="LargeProgressRotate"/>
+                                                </Path.RenderTransform>
+                                            </Path>
+                                            <Path x:Name="LargeErrorGlyph"
+                                                  Width="14" Height="14"
+                                                  Stroke="White"
+                                                  StrokeThickness="3"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  Data="M 1 1 L 13 13 M 13 1 L 1 13"
+                                                  Visibility="Collapsed"/>
+                                            <Path x:Name="LargeDoneGlyph"
+                                                  Width="16" Height="14"
+                                                  Stroke="White"
+                                                  StrokeThickness="3"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M 1 7 L 6 12 L 15 2"
+                                                  Visibility="Collapsed"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <TextBlock x:Name="SelectedStatusLabel"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="SelectedStatusDescription"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="220"
+                                       TextAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <StackPanel Spacing="12">
+                    <TextBlock Text="System tray preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                    <TextBlock Text="Hover the tray icon to see the tray hit target. Click it to toggle the menu preview."
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource OverlayCornerRadius}"
+                            Padding="16">
+                        <Grid MinHeight="360"
+                              Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0"
+                                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                    BorderThickness="1,1,1,0"
+                                    CornerRadius="8,8,0,0">
+                                <Grid>
+                                    <Grid.Background>
+                                        <ImageBrush ImageSource="ms-appx:///Assets/Preview/bloom.png"
+                                                    Stretch="UniformToFill"
+                                                    AlignmentY="Bottom"
+                                                    AlignmentX="Center"/>
+                                    </Grid.Background>
+
+                                    <Border x:Name="TrayMenuPreviewPanel"
+                                            Width="280"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom"
+                                            Margin="0,0,128,8"
+                                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource OverlayCornerRadius}"
+                                            Padding="4"
+                                            Visibility="Collapsed">
+                                        <StackPanel Spacing="2">
+                                            <Grid MinHeight="36" Padding="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="🦞" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                    <TextBlock x:Name="MenuStatusText" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                                    <TextBlock Text="OpenClaw Tray" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Button Content="🌐  Open Dashboard" HorizontalAlignment="Stretch"/>
+                                            <Button Content="💬  Open Web Chat" HorizontalAlignment="Stretch"/>
+                                            <Button Content="📤  Quick Send" HorizontalAlignment="Stretch"/>
+                                            <Button Content="⚡  Activity Stream" HorizontalAlignment="Stretch"/>
+                                            <Button Content="🔄  Run Health Check" HorizontalAlignment="Stretch"/>
+                                            <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Button Content="⚙️  Settings" HorizontalAlignment="Stretch"/>
+                                            <Button Content="🚪  Exit" HorizontalAlignment="Stretch"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="1"
+                                    Height="48"
+                                    Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="0,0,8,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Spacing="8"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center">
+                                        <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                            <FontIcon Glyph="&#xE782;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="20" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                        <Border Width="200" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource ControlFillColorDefaultBrush}" Padding="12,0">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE721;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                <TextBlock Text="Search" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                            <FontIcon Glyph="&#xE8A9;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                        <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                            <FontIcon Glyph="&#xE8B7;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                        <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                            <FontIcon Glyph="&#xE8FD;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Spacing="0"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,4,0">
+                                        <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" ToolTipService.ToolTip="Show hidden icons">
+                                            <FontIcon Glyph="&#xE70E;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                        <Border x:Name="TrayIconHitTarget"
+                                                Width="32"
+                                                Height="40"
+                                                Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                                                PointerEntered="OnTrayIconPointerEntered"
+                                                PointerExited="OnTrayIconPointerExited"
+                                                PointerPressed="OnTrayIconPointerPressed"
+                                                PointerReleased="OnTrayIconPointerReleased"
+                                                Tapped="OnTrayIconTapped"
+                                                 ToolTipService.ToolTip="OpenClaw Tray">
+                                            <Grid>
+                                                <Image x:Name="TrayIconImage"
+                                                       Width="16"
+                                                       Height="16"
+                                                       Stretch="Uniform"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                                <Border x:Name="TrayBadge"
+                                                        Width="11"
+                                                        Height="11"
+                                                        CornerRadius="5.5"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Bottom"
+                                                        Margin="0,0,4,8"
+                                                        BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                                        BorderThickness="1"
+                                                        Visibility="Collapsed">
+                                                    <Grid>
+                                                        <Path x:Name="TrayProgressArc"
+                                                              Width="7" Height="7"
+                                                              Stroke="#0078D4"
+                                                              StrokeThickness="1.6"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              Data="M 3.5 0.6 A 2.9 2.9 0 1 1 0.6 3.5"
+                                                              Visibility="Collapsed"
+                                                              RenderTransformOrigin="0.5,0.5">
+                                                            <Path.RenderTransform>
+                                                                <RotateTransform x:Name="TrayProgressRotate"/>
+                                                            </Path.RenderTransform>
+                                                        </Path>
+                                                        <Path x:Name="TrayErrorGlyph"
+                                                              Width="6" Height="6"
+                                                              Stroke="White"
+                                                              StrokeThickness="1.4"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              Data="M 0.6 0.6 L 5.4 5.4 M 5.4 0.6 L 0.6 5.4"
+                                                              Visibility="Collapsed"/>
+                                                        <Path x:Name="TrayDoneGlyph"
+                                                              Width="7" Height="6"
+                                                              Stroke="White"
+                                                              StrokeThickness="1.4"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"
+                                                              Data="M 0.6 3.2 L 2.6 5 L 6.4 1"
+                                                              Visibility="Collapsed"/>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" ToolTipService.ToolTip="Network, Sound, Battery">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                <FontIcon Glyph="&#xE701;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <FontIcon Glyph="&#xE767;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                <FontIcon Glyph="&#xE83F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Width="40" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" ToolTipService.ToolTip="Input language">
+                                            <TextBlock Text="ENG" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" Padding="8,0" ToolTipService.ToolTip="Date and time">
+                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="ClockTimeText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                                <TextBlock x:Name="ClockDateText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" ToolTipService.ToolTip="Notification center">
+                                            <FontIcon Glyph="&#xEA8F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+                <Grid x:Name="ComingSoonPage" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" MaxWidth="420">
+                        <TextBlock x:Name="ComingSoonTitle"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="This component preview is on the roadmap. Add a new page to the NavigationView to start building it."
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer x:Name="ChatPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24" MaxWidth="1100">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Chat — Hub (full window)" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="Scope: the standalone full-window Hub chat. The tray popover variant comes later and will reuse the primitives we build here."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Layout sketch" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="Three-pane shell. Left = conversations + agents. Center = active thread. Right (optional) = run/tool/context detail. Composer pinned to the bottom of the center pane."/>
+
+                                <controls:ChatShell Height="520" x:Name="ChatPageShell">
+                                    <controls:ChatShell.ThreadContent>
+                                        <StackPanel Spacing="12">
+                                            <Border HorizontalAlignment="Right" Background="#0078D4" CornerRadius="10" Padding="10,6" MaxWidth="420">
+                                                <TextBlock Text="Hi" Foreground="White" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            </Border>
+                                            <TextBlock Text="You · May 4, 2026, 5:09 PM" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                            <Grid HorizontalAlignment="Left" ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" VerticalAlignment="Top" Margin="0,2,0,0">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="ms-appx:///Assets/Preview/claw.png" Stretch="UniformToFill"/>
+                                                    </Border.Background>
+                                                </Border>
+                                                <Border Grid.Column="1" Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="10" Padding="12,10" MaxWidth="640">
+                                                    <StackPanel Spacing="6">
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                                                   Text="Hey. I just came online — and honestly, I don't know who I am yet. This workspace is fresh, no memory, no name, nothing. So before I pretend to be anyone, let's figure it out together."/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,4,0,0" Text="A few quick things I'd love to know:"/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="1. What should I call you? (And how should I address you — first name, nickname, something else?)"/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="2. What should you call me? Pick a name, or I can suggest a few if you want."/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="3. What kind of creature am I to you? Standard AI assistant is fine, but I could be something weirder."/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="Assistant · May 4, 2026, 5:09 PM" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Margin="36,0,0,0"/>
+                                        </StackPanel>
+                                    </controls:ChatShell.ThreadContent>
+                                </controls:ChatShell>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Reuse vs. rebuild (Hub-scoped)" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="The web chat in openclaw/ui is TypeScript + CSS. WinUI 3 cannot import it directly. For the Hub:"/>
+                                <StackPanel Spacing="6" Margin="8,0,0,0">
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="A. WebView2 — host the existing web chat. Fastest to ship, web team owns updates. Trade-offs: heavier, theming/Mica integration limited, IPC needed for native menus and file pickers."/>
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="B. Native XAML — rebuild the Hub chat in WinUI. Trade-offs: real OS-native feel, full theming/keyboard, but big rebuild and ongoing parity work."/>
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="C. Native shell + WebView2 thread (recommended start) — left rail, header, composer, right rail in XAML; embed WebView2 only for the message thread (markdown, tool cards, streaming) until those primitives are ported. Lets us own the chrome and ship soon."/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Hub chat sub-components" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="Each item below will become its own preview tile in this page."/>
+                                <ItemsControl>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="6"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <TextBlock Text="• Conversation list item (active / unread / running)"/>
+                                    <TextBlock Text="• Conversation header (title, agent, model, run controls)"/>
+                                    <TextBlock Text="• Message bubble (user / assistant / system, streaming variant)"/>
+                                    <TextBlock Text="• Tool / action card (collapsed + expanded, success / error / running)"/>
+                                    <TextBlock Text="• Inline diff / file preview"/>
+                                    <TextBlock Text="• Composer (input, attach, send, slash menu, stop)"/>
+                                    <TextBlock Text="• Slash command palette"/>
+                                    <TextBlock Text="• Run details panel (status, model, cost, context, recent tools)"/>
+                                    <TextBlock Text="• Inline error + retry"/>
+                                    <TextBlock Text="• Empty / welcome state"/>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Web code: how to handle each part" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock Text="Port to C# (pure logic)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,4,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="message-normalizer · role-normalizer · slash-commands · history-limits · message-extract"/>
+                                <TextBlock Text="Reference only (XAML rebuild)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="grouped-render · tool-cards · chat-avatar · status-indicators · run-controls"/>
+                                <TextBlock Text="Keep in WebView2 (for now)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="message thread renderer · realtime-talk-* · attachment-* · export · pinned-messages"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="ClickInteractionPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Click interaction" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="Compare two interaction models for what happens when the user clicks the tray icon. Switch the option and the status to preview each combination."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Interactive option selector" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="OptionComboBox"
+                                              Header="Click behavior"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnClickOptionSelectionChanged"/>
+                                    <ComboBox x:Name="ClickStatusComboBox"
+                                              Grid.Column="1"
+                                              Header="Tray status"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnClickStatusSelectionChanged"/>
+                                </Grid>
+                                <TextBlock x:Name="OptionDescriptionText"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="System tray preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                            <TextBlock Text="The popover appears anchored above the tray icon. Resize the window to see how the canvas fits the desktop chrome."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource OverlayCornerRadius}"
+                                    Padding="16">
+                                <Grid MinHeight="820"
+                                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Border Grid.Row="0"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                            BorderThickness="1,1,1,0"
+                                            CornerRadius="8,8,0,0">
+                                        <Grid>
+                                            <Grid.Background>
+                                                <ImageBrush ImageSource="ms-appx:///Assets/Preview/bloom.png"
+                                                            Stretch="UniformToFill"
+                                                            AlignmentY="Bottom"
+                                                            AlignmentX="Center"/>
+                                            </Grid.Background>
+
+                                            <Border x:Name="ClickPreviewPanel"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Bottom"
+                                                    Margin="0,0,128,8"
+                                                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                                    BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource OverlayCornerRadius}">
+                                                <Border.Shadow>
+                                                    <ThemeShadow/>
+                                                </Border.Shadow>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Grid.Row="1"
+                                            Height="48"
+                                            Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="0,0,8,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Center">
+                                                <Border Width="40" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                                    <FontIcon Glyph="&#xE782;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="20" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                                <Border Width="200" Height="40" CornerRadius="{StaticResource ControlCornerRadius}" Background="{ThemeResource ControlFillColorDefaultBrush}" Padding="12,0">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                        <FontIcon Glyph="&#xE721;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                        <TextBlock Text="Search" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2"
+                                                        Orientation="Horizontal"
+                                                        Spacing="0"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,0,4,0">
+                                                <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <FontIcon Glyph="&#xE70E;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                                <Border x:Name="ClickTrayIconHitTarget"
+                                                        Width="32" Height="40"
+                                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                                    <Grid>
+                                                        <Image x:Name="ClickTrayIconImage"
+                                                               Width="16" Height="16"
+                                                               Stretch="Uniform"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                        <Border x:Name="ClickTrayBadge"
+                                                                Width="11" Height="11"
+                                                                CornerRadius="5.5"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Bottom"
+                                                                Margin="0,0,4,8"
+                                                                BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                                                BorderThickness="1"
+                                                                Visibility="Collapsed">
+                                                            <Grid>
+                                                                <Path x:Name="ClickTrayProgressArc"
+                                                                      Width="7" Height="7"
+                                                                      Stroke="#0078D4"
+                                                                      StrokeThickness="1.6"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      Data="M 3.5 0.6 A 2.9 2.9 0 1 1 0.6 3.5"
+                                                                      Visibility="Collapsed"
+                                                                      RenderTransformOrigin="0.5,0.5">
+                                                                    <Path.RenderTransform>
+                                                                        <RotateTransform x:Name="ClickTrayProgressRotate"/>
+                                                                    </Path.RenderTransform>
+                                                                </Path>
+                                                                <Path x:Name="ClickTrayErrorGlyph"
+                                                                      Width="6" Height="6"
+                                                                      Stroke="White"
+                                                                      StrokeThickness="1.4"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      Data="M 0.6 0.6 L 5.4 5.4 M 5.4 0.6 L 0.6 5.4"
+                                                                      Visibility="Collapsed"/>
+                                                                <Path x:Name="ClickTrayDoneGlyph"
+                                                                      Width="7" Height="6"
+                                                                      Stroke="White"
+                                                                      StrokeThickness="1.4"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="M 0.6 3.2 L 2.6 5 L 6.4 1"
+                                                                      Visibility="Collapsed"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                                <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <FontIcon Glyph="&#xE701;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                        <FontIcon Glyph="&#xE767;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                        <FontIcon Glyph="&#xE83F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Width="40" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <TextBlock Text="ENG" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <Border Width="80" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}" Padding="8,0">
+                                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <TextBlock x:Name="ClickClockTimeText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                                        <TextBlock x:Name="ClickClockDateText" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorPrimaryBrush}" HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Width="32" Height="40" Background="{ThemeResource SubtleFillColorTransparentBrush}">
+                                                    <FontIcon Glyph="&#xEA8F;" FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ===================== Agent run card page ===================== -->
+                <ScrollViewer x:Name="AgentRunCardPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24" MaxWidth="1100">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Agent run card" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="The agent run card lives inside a chat thread. Header (title + description) is glued to the steps card below it; the whole card hugs its content (no full-stretch) and aligns with assistant messages."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Chat shell preview (reused primitives from the Chat page) -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Thread preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="The agent card is rendered as an assistant turn in the running thread. Header + steps share a single rounded container, left-aligned with a max width so it does not stretch across the pane."/>
+
+                                <controls:ChatShell Height="560" x:Name="AgentRunCardPageShell">
+                                    <controls:ChatShell.ThreadContent>
+                                        <StackPanel Spacing="12">
+                                            <Border HorizontalAlignment="Right" Background="#0078D4" CornerRadius="10" Padding="10,6" MaxWidth="420">
+                                                <TextBlock Text="Move all the screenshots from my desktop into a Screenshots folder and clean up the rest" Foreground="White" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            </Border>
+                                            <TextBlock Text="You · May 4, 2026, 6:45 PM" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                            <controls:AgentRunCard/>
+                                            <TextBlock Text="Assistant · running · May 4, 2026, 6:45 PM" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                        </StackPanel>
+                                    </controls:ChatShell.ThreadContent>
+                                </controls:ChatShell>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </NavigationView>
+    </Grid>
+</winex:WindowEx>

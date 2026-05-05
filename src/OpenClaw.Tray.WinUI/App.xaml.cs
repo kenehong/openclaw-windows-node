@@ -37,6 +37,7 @@ public partial class App : Application
 
     private TrayIcon? _trayIcon;
     private OpenClawGatewayClient? _gatewayClient;
+    private ComponentLibraryWindow? _componentLibraryWindow;
 
     /// <summary>The persistent gateway client. Used by the onboarding wizard for RPC calls.</summary>
     public OpenClawGatewayClient? GatewayClient => _gatewayClient;
@@ -88,6 +89,7 @@ public partial class App : Application
     private PresenceEntry[]? _lastPresence;
     private UpdateCommandCenterInfo _lastUpdateInfo = BuildInitialUpdateInfo();
     private DateTime _lastCheckTime = DateTime.Now;
+    private DateTime? _lastConnectedTime;
     private DateTime _lastUsageActivityLogUtc = DateTime.MinValue;
     private string? _lastChannelStatusSignature;
 
@@ -273,10 +275,27 @@ public partial class App : Application
         return null;
     }
 
+    private static bool IsComponentLibraryMode(string[] args) =>
+        args.Any(arg =>
+            string.Equals(arg, "--component-library", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "--component-preview", StringComparison.OrdinalIgnoreCase));
+
+    private void ShowComponentLibrary()
+    {
+        _componentLibraryWindow = new ComponentLibraryWindow();
+        _componentLibraryWindow.Closed += (_, _) =>
+        {
+            _componentLibraryWindow = null;
+            Exit();
+        };
+        _componentLibraryWindow.Activate();
+    }
+
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         _startupArgs = Environment.GetCommandLineArgs();
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        var componentLibraryMode = IsComponentLibraryMode(_startupArgs);
 
         // Check for protocol activation (MSIX packaged apps receive deep links this way)
         string? protocolUri = GetProtocolActivationUri();
@@ -295,6 +314,12 @@ public partial class App : Application
                 System.Text.Encoding.UTF8.GetBytes(DataDirOverride));
             mutexName = $"OpenClawTray-{Convert.ToHexString(hash, 0, 4)}";
         }
+        else if (componentLibraryMode)
+        {
+            // Use a distinct mutex so the standalone Component Library preview can
+            // run alongside the regular tray instance.
+            mutexName = "OpenClawTray-ComponentLibrary";
+        }
         _mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -312,6 +337,13 @@ public partial class App : Application
 
         // Store protocol URI for processing after setup
         _pendingProtocolUri = protocolUri;
+
+        if (componentLibraryMode)
+        {
+            // Standalone preview surface — do not initialize tray, settings, gateway, etc.
+            ShowComponentLibrary();
+            return;
+        }
 
         // Initialize settings before update check so skip selections can be remembered.
         _settings = new SettingsManager();
@@ -418,6 +450,7 @@ public partial class App : Application
         _trayIcon.IsVisible = true;
         _trayIcon.Selected += OnTrayIconSelected;
         _trayIcon.ContextMenu += OnTrayContextMenu;
+        UpdateTrayIcon();
     }
 
     private void InitializeTrayMenuWindow()
@@ -1938,6 +1971,7 @@ public partial class App : Application
         if (status == ConnectionStatus.Connected)
         {
             _authFailureMessage = null;
+            _lastConnectedTime = DateTime.Now;
             if (_hubWindow != null && !_hubWindow.IsClosed)
                 _hubWindow.LastAuthError = null;
         }
@@ -2435,6 +2469,11 @@ public partial class App : Application
 
     private string BuildTrayTooltip()
     {
+        if (_currentStatus == ConnectionStatus.Disconnected)
+        {
+            return BuildOfflineTrayTooltip();
+        }
+
         var topology = GatewayTopologyClassifier.Classify(
             _settings?.GatewayUrl,
             _settings?.UseSshTunnel == true,
@@ -2472,6 +2511,33 @@ public partial class App : Application
         }
 
         return string.Join("\n", tooltip);
+    }
+
+    private string BuildOfflineTrayTooltip()
+    {
+        var lastConnected = _lastConnectedTime.HasValue
+            ? FormatRelativeTime(DateTime.Now - _lastConnectedTime.Value)
+            : "never this session";
+        var reason = !string.IsNullOrEmpty(_authFailureMessage)
+            ? _authFailureMessage
+            : "gateway unreachable";
+
+        return string.Join("\n", new[]
+        {
+            "OpenClaw Tray — Disconnected",
+            $"Last connected: {lastConnected}",
+            $"Reason: {reason}",
+            "Click to reconnect"
+        });
+    }
+
+    private static string FormatRelativeTime(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        if (elapsed.TotalSeconds < 60) return "just now";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        return $"{(int)elapsed.TotalDays}d ago";
     }
 
     #endregion

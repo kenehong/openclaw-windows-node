@@ -73,6 +73,7 @@
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             PaneDisplayMode="Auto"
+            ItemInvoked="NavView_ItemInvoked"
             SelectionChanged="NavView_SelectionChanged">
 
         <NavigationView.MenuItems>
@@ -142,6 +143,9 @@
         </NavigationView.MenuItems>
 
         <NavigationView.FooterMenuItems>
+            <NavigationViewItem Tag="componentlibrary" Content="Component Library" SelectsOnInvoked="False">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE71D;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem Tag="debug" Content="Debug">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xEBE8;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
