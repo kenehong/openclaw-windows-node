@@ -65,7 +65,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Border Grid.Row="0"
+                <Border x:Name="HeaderBorder" Grid.Row="0"
                         BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                         BorderThickness="0,0,0,1"
                         Padding="10,8">

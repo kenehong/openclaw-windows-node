@@ -41,7 +41,7 @@
         </Border>
 
         <!-- Native ChatShell chrome wraps the WebView2 thread -->
-        <controls:ChatShell Grid.Row="1" IsComposerVisible="False" Margin="8">
+        <controls:ChatShell Grid.Row="1" IsComposerVisible="False" IsHeaderVisible="False" Margin="8">
             <controls:ChatShell.ThreadContent>
                 <Grid>
                     <!-- WebView2 (gateway-served chat UI; brings its own composer) -->

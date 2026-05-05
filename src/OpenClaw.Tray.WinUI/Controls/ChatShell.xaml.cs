@@ -17,6 +17,10 @@ public sealed partial class ChatShell : UserControl
         DependencyProperty.Register(nameof(IsComposerVisible), typeof(bool), typeof(ChatShell),
             new PropertyMetadata(true, OnIsComposerVisibleChanged));
 
+    public static readonly DependencyProperty IsHeaderVisibleProperty =
+        DependencyProperty.Register(nameof(IsHeaderVisible), typeof(bool), typeof(ChatShell),
+            new PropertyMetadata(true, OnIsHeaderVisibleChanged));
+
     public object? ThreadContent
     {
         get => GetValue(ThreadContentProperty);
@@ -35,6 +39,12 @@ public sealed partial class ChatShell : UserControl
         set => SetValue(IsComposerVisibleProperty, value);
     }
 
+    public bool IsHeaderVisible
+    {
+        get => (bool)GetValue(IsHeaderVisibleProperty);
+        set => SetValue(IsHeaderVisibleProperty, value);
+    }
+
     public ChatShell()
     {
         InitializeComponent();
@@ -42,6 +52,7 @@ public sealed partial class ChatShell : UserControl
         {
             ApplyLeftRail();
             ApplyComposer();
+            ApplyHeader();
         };
     }
 
@@ -53,6 +64,9 @@ public sealed partial class ChatShell : UserControl
 
     private static void OnIsComposerVisibleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ChatShell)d).ApplyComposer();
+
+    private static void OnIsHeaderVisibleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((ChatShell)d).ApplyHeader();
 
     private void ApplyLeftRail()
     {
@@ -73,5 +87,11 @@ public sealed partial class ChatShell : UserControl
     {
         if (ComposerBorder == null) return;
         ComposerBorder.Visibility = IsComposerVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ApplyHeader()
+    {
+        if (HeaderBorder == null) return;
+        HeaderBorder.Visibility = IsHeaderVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 }
