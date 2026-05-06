@@ -283,6 +283,38 @@ public class OpenClawGatewayClient : WebSocketClientBase
     }
 
     /// <summary>
+    /// Aborts an in-flight agent run. The gateway persists any partial assistant text
+    /// already streamed; the client (transcript store) should mark the active assistant
+    /// bubble as aborted and stop accumulating into it.
+    ///
+    /// Per docs/openclaw-chat-interface.md, chat.abort takes { runId } and returns
+    /// best-effort. If runId is unknown the gateway responds with an error which we
+    /// surface via the standard tracked-request error pipeline.
+    /// </summary>
+    public Task<bool> AbortChatAsync(string runId)
+    {
+        if (string.IsNullOrWhiteSpace(runId))
+            throw new ArgumentException("runId is required", nameof(runId));
+
+        return TrySendTrackedRequestAsync("chat.abort", new { runId });
+    }
+
+    /// <summary>
+    /// Requests the visible transcript for the given session. Used for initial hydration
+    /// and for rehydrating after a reconnect (streamed deltas are not retroactive).
+    /// The gateway responds with a tracked "chat.history" response that ProcessMessage
+    /// surfaces as a normal RPC reply consumed by ChatTranscriptStore.
+    /// </summary>
+    public Task<bool> RequestChatHistoryAsync(string? sessionKey = null)
+    {
+        var effectiveSessionKey = string.IsNullOrWhiteSpace(sessionKey)
+            ? _mainSessionKey
+            : sessionKey!.Trim();
+
+        return TrySendTrackedRequestAsync("chat.history", new { sessionKey = effectiveSessionKey });
+    }
+
+    /// <summary>
     /// Sends a wizard RPC request and waits for the response payload.
     /// Used for wizard.start, wizard.next, wizard.cancel, wizard.status.
     /// </summary>

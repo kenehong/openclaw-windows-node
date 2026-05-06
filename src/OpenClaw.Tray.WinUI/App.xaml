@@ -13,13 +13,17 @@
             <!-- Custom OpenClaw Theme Resources -->
             <SolidColorBrush x:Key="LobsterAccentBrush" Color="#E74C3C" />
             <SolidColorBrush x:Key="LobsterAccentBrushHover" Color="#C0392B" />
-            
+
+            <!-- Blue accent used for primary CTAs (Open all, Edit, Retry, etc.) -->
+            <SolidColorBrush x:Key="BlueAccentBrush" Color="#0078D4" />
+            <SolidColorBrush x:Key="BlueAccentBrushHover" Color="#005A9E" />
+
             <!-- Hub NavigationView accent -->
             <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="#E74C3C"/>
 
             <!-- Custom Button Style -->
             <Style x:Key="AccentButtonStyle" TargetType="Button">
-                <Setter Property="Background" Value="{StaticResource LobsterAccentBrush}" />
+                <Setter Property="Background" Value="{StaticResource BlueAccentBrush}" />
                 <Setter Property="Foreground" Value="White" />
                 <Setter Property="CornerRadius" Value="4" />
             </Style>

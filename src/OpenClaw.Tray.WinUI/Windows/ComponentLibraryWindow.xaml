@@ -34,6 +34,7 @@
                 <NavigationViewItem x:Name="NavTrayStatus" Tag="tray-status" Content="Status &amp; tooltip" IsSelected="True"/>
                 <NavigationViewItem x:Name="NavClickInteraction" Tag="click-interaction" Content="Click interaction"/>
                 <NavigationViewItem x:Name="NavChat" Tag="chat" Content="Chat"/>
+                <NavigationViewItem x:Name="NavNativeChat" Tag="native-chat" Content="Native chat (M1)"/>
                 <NavigationViewItem x:Name="NavAgentRunCard" Tag="agent-run-card" Content="Agent run card"/>
                 <NavigationViewItem Tag="lorem-1" Content="Lorem ipsum" IsEnabled="False"/>
             </NavigationView.MenuItems>
@@ -391,6 +392,24 @@
                     </StackPanel>
                 </Grid>
 
+                <ScrollViewer x:Name="NativeChatPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="16" MaxWidth="900">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Native chat (M1)" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="Pure WinUI chat thread. Render path bypasses WebView2 — items below are deterministic mocks driven by ChatTranscriptStore.Apply()."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Height="600"
+                                Background="{ThemeResource LayerFillColorDefaultBrush}">
+                            <controls:NativeChatThread x:Name="NativeChatPreview"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <ScrollViewer x:Name="ChatPage" Padding="24" Visibility="Collapsed">
                     <StackPanel Spacing="24" MaxWidth="1100">
                         <StackPanel Spacing="8">
@@ -737,6 +756,19 @@
                                        TextWrapping="Wrap"/>
                         </StackPanel>
 
+                        <!-- State picker -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="State" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <ComboBox x:Name="AgentRunCardStateCombo"
+                                      SelectedIndex="0"
+                                      MinWidth="160"
+                                      SelectionChanged="OnAgentRunCardStateChanged">
+                                <ComboBoxItem Content="Running"/>
+                                <ComboBoxItem Content="Completed"/>
+                            </ComboBox>
+                        </StackPanel>
+
                         <!-- Chat shell preview (reused primitives from the Chat page) -->
                         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -749,14 +781,14 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Text="The agent card is rendered as an assistant turn in the running thread. Header + steps share a single rounded container, left-aligned with a max width so it does not stretch across the pane."/>
 
-                                <controls:ChatShell Height="560" x:Name="AgentRunCardPageShell">
+                                <controls:ChatShell Height="560" x:Name="AgentRunCardPageShell" IsHeaderVisible="False">
                                     <controls:ChatShell.ThreadContent>
                                         <StackPanel Spacing="12">
                                             <Border HorizontalAlignment="Right" Background="#0078D4" CornerRadius="10" Padding="10,6" MaxWidth="420">
                                                 <TextBlock Text="Move all the screenshots from my desktop into a Screenshots folder and clean up the rest" Foreground="White" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
                                             </Border>
                                             <TextBlock Text="You · May 4, 2026, 6:45 PM" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                            <controls:AgentRunCard/>
+                                            <controls:AgentRunCard x:Name="AgentRunCardPreview"/>
                                             <TextBlock Text="Assistant · running · May 4, 2026, 6:45 PM" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                         </StackPanel>
                                     </controls:ChatShell.ThreadContent>

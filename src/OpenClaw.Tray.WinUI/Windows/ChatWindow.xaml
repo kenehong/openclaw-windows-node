@@ -53,5 +53,8 @@
 
         <!-- Shared chat surface (native ChatShell + WebView2) -->
         <controls:ChatSurface x:Name="Surface" Grid.Row="1"/>
+
+        <!-- Native chat surface (Wave 4 — gated by NativeChatFeature.IsEnabled). -->
+        <controls:NativeChatSurface x:Name="NativeSurface" Grid.Row="1" Visibility="Collapsed"/>
     </Grid>
 </winex:WindowEx>

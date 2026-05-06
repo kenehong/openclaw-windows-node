@@ -153,6 +153,7 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         TrayStatusPage.Visibility = Visibility.Collapsed;
         ClickInteractionPage.Visibility = Visibility.Collapsed;
         ChatPage.Visibility = Visibility.Collapsed;
+        NativeChatPage.Visibility = Visibility.Collapsed;
         AgentRunCardPage.Visibility = Visibility.Collapsed;
         ComingSoonPage.Visibility = Visibility.Collapsed;
 
@@ -169,6 +170,11 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         {
             ChatPage.Visibility = Visibility.Visible;
         }
+        else if (tag == "native-chat")
+        {
+            NativeChatPage.Visibility = Visibility.Visible;
+            EnsureNativeChatPreviewInitialized();
+        }
         else if (tag == "agent-run-card")
         {
             AgentRunCardPage.Visibility = Visibility.Visible;
@@ -181,6 +187,13 @@ public sealed partial class ComponentLibraryWindow : WindowEx
     }
 
     // Chat hamburger + agent run card toggle are handled inside the ChatShell / AgentRunCard UserControls.
+
+    private void OnAgentRunCardStateChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
+    {
+        if (AgentRunCardPreview == null || AgentRunCardStateCombo?.SelectedItem is not Microsoft.UI.Xaml.Controls.ComboBoxItem item)
+            return;
+        AgentRunCardPreview.State = item.Content?.ToString() ?? "Running";
+    }
 
     private void OnTrayIconPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
@@ -393,6 +406,56 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         ClickOption.MenuOnly,
         ClickOption.ChatPopover
     ];
+
+    private bool _nativeChatPreviewInitialized;
+
+    private void EnsureNativeChatPreviewInitialized()
+    {
+        if (_nativeChatPreviewInitialized) return;
+        _nativeChatPreviewInitialized = true;
+
+        var store = new OpenClawTray.Services.Chat.ChatTranscriptStore(client: null, sessionKey: "library-preview");
+
+        // Build a deterministic mock conversation that exercises every timeline item.
+        store.Items.Add(new OpenClawTray.Services.Chat.SystemNoticeItem
+        {
+            Kind = OpenClawTray.Services.Chat.SystemNoticeKind.Connected,
+            Message = "Connected to gateway."
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.UserMessageItem
+        {
+            Text = "Read README.md and summarize what OpenClaw does."
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.ThinkingBlockItem
+        {
+            Text = "Need to open the file first, then synthesize a 2-line summary.",
+            IsStreaming = false,
+            IsExpanded = false
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.AgentEventCardItem
+        {
+            ToolName = "read", Glyph = "📄", Label = "read README.md",
+            Phase = OpenClawTray.Services.Chat.AgentEventPhase.Done,
+            Detail = "1 file, 142 lines"
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.AgentEventCardItem
+        {
+            ToolName = "search", Glyph = "🔍", Label = "search 'tray icon'",
+            Phase = OpenClawTray.Services.Chat.AgentEventPhase.Running
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.AssistantMessageItem
+        {
+            Text = "OpenClaw is a Windows system-tray companion for the gateway.\n\nIt surfaces:\n\n```cs\n// example\nvar status = ConnectionStatus.Connected;\n```\n\nSee [docs](https://example.invalid) for the full spec.",
+            IsStreaming = false
+        });
+        store.Items.Add(new OpenClawTray.Services.Chat.SystemNoticeItem
+        {
+            Kind = OpenClawTray.Services.Chat.SystemNoticeKind.Aborted,
+            Message = "Run aborted."
+        });
+
+        NativeChatPreview.Source = store.Items;
+    }
 
     private bool _clickInteractionInitialized;
     private ClickOption _selectedClickOption = ClickOption.MenuOnly;

@@ -1,4 +1,6 @@
 # AGENTS.md
+한글로 간단명료
+모든 설명은 (논테크 설명으로)
 
 ## Required Validation After Every Change
 

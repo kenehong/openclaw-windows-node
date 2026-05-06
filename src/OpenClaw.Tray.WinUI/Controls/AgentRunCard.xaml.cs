@@ -9,17 +9,17 @@ public sealed partial class AgentRunCard : UserControl
         DependencyProperty.Register(nameof(Title), typeof(string), typeof(AgentRunCard),
             new PropertyMetadata("Organizing desktop", OnTitleChanged));
 
-    public static readonly DependencyProperty DescriptionProperty =
-        DependencyProperty.Register(nameof(Description), typeof(string), typeof(AgentRunCard),
-            new PropertyMetadata("Move all the screenshots from my desktop into a Screenshots folder and clean up the rest", OnDescriptionChanged));
+    public static readonly DependencyProperty ModelProperty =
+        DependencyProperty.Register(nameof(Model), typeof(string), typeof(AgentRunCard),
+            new PropertyMetadata("Claude Opus 4.7", OnModelChanged));
 
-    public static readonly DependencyProperty StatusTextProperty =
-        DependencyProperty.Register(nameof(StatusText), typeof(string), typeof(AgentRunCard),
-            new PropertyMetadata("2/3 steps · running", OnStatusChanged));
+    public static readonly DependencyProperty TimestampProperty =
+        DependencyProperty.Register(nameof(Timestamp), typeof(string), typeof(AgentRunCard),
+            new PropertyMetadata("just now", OnTimestampChanged));
 
-    public static readonly DependencyProperty IsExpandedProperty =
-        DependencyProperty.Register(nameof(IsExpanded), typeof(bool), typeof(AgentRunCard),
-            new PropertyMetadata(true, OnIsExpandedChanged));
+    public static readonly DependencyProperty StateProperty =
+        DependencyProperty.Register(nameof(State), typeof(string), typeof(AgentRunCard),
+            new PropertyMetadata("Running", OnStateChanged));
 
     public string Title
     {
@@ -27,22 +27,22 @@ public sealed partial class AgentRunCard : UserControl
         set => SetValue(TitleProperty, value);
     }
 
-    public string Description
+    public string Model
     {
-        get => (string)GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get => (string)GetValue(ModelProperty);
+        set => SetValue(ModelProperty, value);
     }
 
-    public string StatusText
+    public string Timestamp
     {
-        get => (string)GetValue(StatusTextProperty);
-        set => SetValue(StatusTextProperty, value);
+        get => (string)GetValue(TimestampProperty);
+        set => SetValue(TimestampProperty, value);
     }
 
-    public bool IsExpanded
+    public string State
     {
-        get => (bool)GetValue(IsExpandedProperty);
-        set => SetValue(IsExpandedProperty, value);
+        get => (string)GetValue(StateProperty);
+        set => SetValue(StateProperty, value);
     }
 
     public AgentRunCard()
@@ -51,45 +51,47 @@ public sealed partial class AgentRunCard : UserControl
         Loaded += (_, _) =>
         {
             ApplyTitle();
-            ApplyDescription();
-            ApplyStatus();
-            ApplyExpanded();
+            ApplyModel();
+            ApplyTimestamp();
+            ApplyState();
         };
     }
-
-    private void OnHeaderClick(object sender, RoutedEventArgs e) => IsExpanded = !IsExpanded;
 
     private static void OnTitleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((AgentRunCard)d).ApplyTitle();
 
-    private static void OnDescriptionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
-        ((AgentRunCard)d).ApplyDescription();
+    private static void OnModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((AgentRunCard)d).ApplyModel();
 
-    private static void OnStatusChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
-        ((AgentRunCard)d).ApplyStatus();
+    private static void OnTimestampChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((AgentRunCard)d).ApplyTimestamp();
 
-    private static void OnIsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
-        ((AgentRunCard)d).ApplyExpanded();
+    private static void OnStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((AgentRunCard)d).ApplyState();
 
     private void ApplyTitle()
     {
         if (TitleText != null) TitleText.Text = Title ?? string.Empty;
     }
 
-    private void ApplyDescription()
+    private void ApplyModel()
     {
-        if (DescriptionText != null) DescriptionText.Text = Description ?? string.Empty;
+        if (ModelText != null) ModelText.Text = Model ?? string.Empty;
     }
 
-    private void ApplyStatus()
+    private void ApplyTimestamp()
     {
-        if (StatusTextBlock != null) StatusTextBlock.Text = StatusText ?? string.Empty;
+        if (TimestampText != null) TimestampText.Text = Timestamp ?? string.Empty;
     }
 
-    private void ApplyExpanded()
+    private void ApplyState()
     {
-        if (Body == null || Chevron == null) return;
-        Body.Visibility = IsExpanded ? Visibility.Visible : Visibility.Collapsed;
-        Chevron.Glyph = IsExpanded ? "\uE70E" : "\uE70D";
+        if (RunningStepsBox == null) return;
+        bool completed = string.Equals(State, "Completed", System.StringComparison.OrdinalIgnoreCase);
+        RunningStepsBox.Visibility = completed ? Visibility.Collapsed : Visibility.Visible;
+        CompletedStepsBox.Visibility = completed ? Visibility.Visible : Visibility.Collapsed;
+        CompletedActions.Visibility = completed ? Visibility.Visible : Visibility.Collapsed;
+        StatusText.Text = completed ? "Completed" : string.Empty;
+        StatusText.Visibility = completed ? Visibility.Visible : Visibility.Collapsed;
     }
 }

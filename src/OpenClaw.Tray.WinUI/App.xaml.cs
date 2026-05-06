@@ -42,6 +42,9 @@ public partial class App : Application
     /// <summary>The persistent gateway client. Used by the onboarding wizard for RPC calls.</summary>
     public OpenClawGatewayClient? GatewayClient => _gatewayClient;
 
+    /// <summary>Read-only accessor used by the chat surface seam to resolve the native-chat feature flag.</summary>
+    public SettingsManager? Settings => _settings;
+
     /// <summary>
     /// Ensures the managed SSH tunnel is started using the current settings.
     /// Used by the onboarding ConnectionPage when the user picks the SSH topology.

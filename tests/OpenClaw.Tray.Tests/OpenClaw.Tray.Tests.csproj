@@ -39,6 +39,9 @@
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\GatewayHealthCheck.cs" Link="Imported\GatewayHealthCheck.cs" />
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\InputValidator.cs" Link="Imported\InputValidator.cs" />
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Onboarding\Services\WizardStepParser.cs" Link="Imported\WizardStepParser.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Helpers\NativeChatFeature.cs" Link="Helpers\NativeChatFeature.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Services\Chat\ChatTimelineItem.cs" Link="Services\Chat\ChatTimelineItem.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Services\Chat\ChatTranscriptStore.cs" Link="Services\Chat\ChatTranscriptStore.cs" />
   </ItemGroup>
 
 </Project>

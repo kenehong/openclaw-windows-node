@@ -83,6 +83,12 @@ public class SettingsManager
     public string SkippedUpdateTag { get; set; } = "";
     public string? PreferredGatewayId { get; set; }
 
+    // Native chat (M1 migration). When true, ChatWindow / ChatPage host the new
+    // NativeChatSurface instead of the WebView2-based ChatSurface. See
+    // docs/NATIVE_CHAT_MIGRATION.md. Default off; OPENCLAW_TRAY_NATIVE_CHAT=1
+    // env var can force-enable for dogfood without flipping the setting.
+    public bool UseNativeChat { get; set; } = false;
+
     public SettingsManager() : this(DefaultSettingsDirectory)
     {
     }

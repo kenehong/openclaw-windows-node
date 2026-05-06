@@ -43,5 +43,8 @@
 
         <!-- Shared chat surface (native chrome + WebView2 + injection/relay) -->
         <controls:ChatSurface x:Name="Surface" Grid.Row="1" Margin="8"/>
+
+        <!-- Native chat surface (Wave 4 — gated by NativeChatFeature.IsEnabled). -->
+        <controls:NativeChatSurface x:Name="NativeSurface" Grid.Row="1" Margin="8" Visibility="Collapsed"/>
     </Grid>
 </Page>

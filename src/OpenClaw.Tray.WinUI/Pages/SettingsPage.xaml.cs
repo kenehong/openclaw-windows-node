@@ -35,6 +35,7 @@ public sealed partial class SettingsPage : Page
     {
         AutoStartToggle.IsOn = settings.AutoStart;
         GlobalHotkeyToggle.IsOn = settings.GlobalHotkeyEnabled;
+        UseNativeChatToggle.IsOn = settings.UseNativeChat;
         NotificationsToggle.IsOn = settings.ShowNotifications;
 
         for (int i = 0; i < NotificationSoundComboBox.Items.Count; i++)
@@ -111,5 +112,12 @@ public sealed partial class SettingsPage : Page
                 .Show();
         }
         catch { }
+    }
+
+    private void OnUseNativeChatToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized || _hub?.Settings == null) return;
+        _hub.Settings.UseNativeChat = UseNativeChatToggle.IsOn;
+        _hub.Settings.Save();
     }
 }

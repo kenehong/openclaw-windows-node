@@ -70,9 +70,24 @@ public sealed partial class ChatWindow : WindowEx
         // Hide instead of close — preserves WebView2 session for instant reopen
         Closed += OnWindowClosing;
 
-        // Hand off to the shared surface (handles WebView2 init, CSS injection, send relay).
-        Surface.Initialize(_gatewayUrl, _token);
+        // Hand off to the active surface (native if flag is on, else WebView2-backed).
+        var app = Application.Current as App;
+        var settings = app?.Settings;
+        _nativeActive = NativeChatFeature.IsEnabled(settings);
+        if (_nativeActive)
+        {
+            Surface.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            NativeSurface.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            if (app?.GatewayClient != null)
+                NativeSurface.Initialize(_gatewayUrl, _token, app.GatewayClient);
+        }
+        else
+        {
+            Surface.Initialize(_gatewayUrl, _token);
+        }
     }
+
+    private readonly bool _nativeActive;
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
@@ -142,7 +157,16 @@ public sealed partial class ChatWindow : WindowEx
         Close();
     }
 
-    private void OnHome(object sender, RoutedEventArgs e) => Surface.NavigateHome();
-    private void OnRefresh(object sender, RoutedEventArgs e) => Surface.Reload();
-    private void OnPopout(object sender, RoutedEventArgs e) => Surface.OpenInBrowser();
+    private void OnHome(object sender, RoutedEventArgs e)
+    {
+        if (_nativeActive) NativeSurface.NavigateHome(); else Surface.NavigateHome();
+    }
+    private void OnRefresh(object sender, RoutedEventArgs e)
+    {
+        if (_nativeActive) NativeSurface.Reload(); else Surface.Reload();
+    }
+    private void OnPopout(object sender, RoutedEventArgs e)
+    {
+        if (_nativeActive) NativeSurface.OpenInBrowser(); else Surface.OpenInBrowser();
+    }
 }
