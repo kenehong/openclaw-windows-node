@@ -39,6 +39,7 @@ public sealed partial class NativeChatSurface : UserControl
     /// </summary>
     public void Initialize(OpenClawGatewayClient client, string sessionKey = "main")
     {
+        OpenClawTray.Services.Logger.Info($"[NativeChat] NativeChatSurface.Initialize: sessionKey={sessionKey}, client={(client != null ? "non-null" : "NULL")}");
         DetachStore();
         _client = client;
         _sessionKey = string.IsNullOrWhiteSpace(sessionKey) ? "main" : sessionKey;
@@ -46,6 +47,7 @@ public sealed partial class NativeChatSurface : UserControl
             dispatch: a => DispatcherQueue.TryEnqueue(() => a()));
         Thread.Source = _store.Items;
         PlaceholderPanel.Visibility = Visibility.Collapsed;
+        OpenClawTray.Services.Logger.Info($"[NativeChat] NativeChatSurface.Initialize: store created, Thread.Source bound (count={_store.Items.Count})");
 
         // Wave 5 — kick off a chat.history request so reconnects rehydrate.
         _ = TryRehydrateAsync();
@@ -171,6 +173,22 @@ public sealed partial class NativeChatSurface : UserControl
 
     private async void OnSendRequested(object? sender, string text)
     {
+        OpenClawTray.Services.Logger.Info($"[NativeChat] OnSendRequested: textLen={text?.Length ?? 0}, store={(_store != null ? "ready" : "NULL")}, client={(_client != null ? "ready" : "NULL")}");
+        if (_store == null)
+        {
+            // Fallback: surface wasn't fully initialized — try lazy attach to live client.
+            var app = Application.Current as OpenClawTray.App;
+            if (app?.GatewayClient != null)
+            {
+                OpenClawTray.Services.Logger.Info("[NativeChat] OnSendRequested: lazy-attaching to App.GatewayClient");
+                Initialize(_gatewayUrl, "", app.GatewayClient, _sessionKey);
+            }
+            else
+            {
+                OpenClawTray.Services.Logger.Info("[NativeChat] OnSendRequested: no client available — aborting send");
+                return;
+            }
+        }
         if (_store == null || string.IsNullOrWhiteSpace(text)) return;
         try
         {
@@ -186,8 +204,9 @@ public sealed partial class NativeChatSurface : UserControl
                 model: Shell.SelectedModel,
                 reasoning: Shell.SelectedReasoning);
         }
-        catch
+        catch (Exception ex)
         {
+            OpenClawTray.Services.Logger.Info($"[NativeChat] OnSendRequested: SendAsync threw — {ex.Message}");
             // SendAsync already records a SystemNoticeItem; nothing further to do.
         }
     }

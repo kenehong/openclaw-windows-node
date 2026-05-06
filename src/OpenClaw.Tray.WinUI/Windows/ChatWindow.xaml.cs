@@ -74,17 +74,37 @@ public sealed partial class ChatWindow : WindowEx
         var app = Application.Current as App;
         var settings = app?.Settings;
         _nativeActive = NativeChatFeature.IsEnabled(settings);
+        OpenClawTray.Services.Logger.Info($"[NativeChat] ChatWindow ctor: nativeActive={_nativeActive}, gatewayClient={(app?.GatewayClient != null ? "ready" : "NULL")}, url={_gatewayUrl}");
         if (_nativeActive)
         {
             Surface.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             NativeSurface.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             if (app?.GatewayClient != null)
+            {
+                OpenClawTray.Services.Logger.Info("[NativeChat] ChatWindow: calling NativeSurface.Initialize with live GatewayClient");
                 NativeSurface.Initialize(_gatewayUrl, _token, app.GatewayClient);
+            }
+            else
+            {
+                OpenClawTray.Services.Logger.Info("[NativeChat] ChatWindow: GatewayClient is NULL — deferring NativeSurface.Initialize");
+            }
         }
         else
         {
             Surface.Initialize(_gatewayUrl, _token);
         }
+    }
+
+    /// <summary>
+    /// Re-bind the native surface to a (possibly new) GatewayClient. Called from App
+    /// after ReinitializeGatewayClient so a stale/null client doesn't leave the surface
+    /// dead.
+    /// </summary>
+    public void RebindNativeSurface(OpenClawGatewayClient client)
+    {
+        if (!_nativeActive) return;
+        OpenClawTray.Services.Logger.Info("[NativeChat] ChatWindow.RebindNativeSurface: re-initializing NativeSurface");
+        NativeSurface.Initialize(_gatewayUrl, _token, client);
     }
 
     private readonly bool _nativeActive;

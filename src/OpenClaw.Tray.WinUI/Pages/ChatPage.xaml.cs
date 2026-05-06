@@ -19,6 +19,7 @@ public sealed partial class ChatPage : Page
     {
         _hub = hub;
         _nativeActive = NativeChatFeature.IsEnabled(hub.Settings);
+        OpenClawTray.Services.Logger.Info($"[NativeChat] ChatPage.Initialize: nativeActive={_nativeActive}, gatewayClient={(hub.GatewayClient != null ? "ready" : "NULL")}");
 
         if (_nativeActive)
         {

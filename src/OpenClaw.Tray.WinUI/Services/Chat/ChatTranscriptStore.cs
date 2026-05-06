@@ -64,12 +64,14 @@ public class ChatTranscriptStore
 
     public async Task SendAsync(string message, string? channel = null, string? model = null, string? reasoning = null)
     {
+        OpenClawTray.Services.Logger.Info($"[NativeChat] Store.SendAsync: msgLen={message?.Length ?? 0}, hasClient={_client != null}, sessionKey={_sessionKey}");
         if (string.IsNullOrWhiteSpace(message)) return;
 
         var bubble = new UserMessageItem { Text = message };
         _dispatch(() => Items.Add(bubble));
+        OpenClawTray.Services.Logger.Info($"[NativeChat] Store.SendAsync: user bubble queued (Items.Count after dispatch may be {Items.Count + 1})");
 
-        if (_client == null) return;
+        if (_client == null) { OpenClawTray.Services.Logger.Info("[NativeChat] Store.SendAsync: _client null — bubble only"); return; }
 
         try
         {
@@ -81,9 +83,11 @@ public class ChatTranscriptStore
             _ = channel; // No documented slash for channel selection yet.
 
             await _client.SendChatMessageAsync(message, _sessionKey).ConfigureAwait(false);
+            OpenClawTray.Services.Logger.Info("[NativeChat] Store.SendAsync: SendChatMessageAsync completed");
         }
         catch (Exception ex)
         {
+            OpenClawTray.Services.Logger.Info($"[NativeChat] Store.SendAsync: throw — {ex.GetType().Name}: {ex.Message}");
             _dispatch(() =>
             {
                 bubble.IsErrored = true;
@@ -154,7 +158,9 @@ public class ChatTranscriptStore
     private void OnAgentEventReceived(object? sender, AgentEventInfo evt)
     {
         if (evt == null) return;
-        if (!string.IsNullOrEmpty(evt.SessionKey) && evt.SessionKey != _sessionKey) return;
+        var passes = string.IsNullOrEmpty(evt.SessionKey) || evt.SessionKey == _sessionKey;
+        OpenClawTray.Services.Logger.Info($"[NativeChat] OnAgentEventReceived: stream={evt.Stream}, sessionKey='{evt.SessionKey ?? "<null>"}', mySession='{_sessionKey}', passes={passes}");
+        if (!passes) return;
 
         _dispatch(() => Apply(evt));
     }
