@@ -158,7 +158,11 @@ public class ChatTranscriptStore
     private void OnAgentEventReceived(object? sender, AgentEventInfo evt)
     {
         if (evt == null) return;
-        var passes = string.IsNullOrEmpty(evt.SessionKey) || evt.SessionKey == _sessionKey;
+        // Gateway normalizes sessionKey to "agent:{kind}:{name}", so accept exact match,
+        // suffix match (":<mySession>"), or empty (broadcast).
+        var passes = string.IsNullOrEmpty(evt.SessionKey)
+            || evt.SessionKey == _sessionKey
+            || evt.SessionKey.EndsWith(":" + _sessionKey, StringComparison.Ordinal);
         OpenClawTray.Services.Logger.Info($"[NativeChat] OnAgentEventReceived: stream={evt.Stream}, sessionKey='{evt.SessionKey ?? "<null>"}', mySession='{_sessionKey}', passes={passes}");
         if (!passes) return;
 
