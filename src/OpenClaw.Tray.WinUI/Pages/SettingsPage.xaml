@@ -43,7 +43,7 @@
                     <StackPanel Spacing="12" Padding="4">
                         <ToggleSwitch x:Name="UseLegacyWebChatToggle" Header="Use standard Gateway Chat interface"
                                       AutomationProperties.AutomationId="SettingsPageUseLegacyWebChat"/>
-                        <TextBlock Text="When on, the Hub Chat tab and tray Chat popup host the gateway's WebView2-based chat UI instead of the native Windows surface."
+                        <TextBlock Text="When on, the Chat tab and tray Chat popup host the gateway's chat interface instead of the custom Windows interface."
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"/>

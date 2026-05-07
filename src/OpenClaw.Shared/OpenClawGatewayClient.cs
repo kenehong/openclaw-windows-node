@@ -1649,6 +1649,10 @@ public class OpenClawGatewayClient : WebSocketClientBase
     {
         if (!root.TryGetProperty("payload", out var payload)) return;
 
+        // Trace inbound agent events so we can verify tool-card pipeline
+        // end-to-end (no other code path emits ``agent`` to the log).
+        try { _logger.Debug($"Agent event received: {root.GetRawText()[..Math.Min(2000, root.GetRawText().Length)]}"); } catch { }
+
         // sessionKey is inside payload, not root
         var sessionKey = "unknown";
         if (payload.TryGetProperty("sessionKey", out var sk))

@@ -588,7 +588,19 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             case "lifecycle":
                 return MapLifecycleEvent(evt);
             case "tool":
+                // Spec name; gateway 2026.4.x uses ``item`` (kind=tool) instead.
                 return MapToolEvent(evt);
+            case "item":
+                // Verified live shape: stream="item", data.kind ∈
+                // {"tool","command","reasoning","message"}, data.phase ∈
+                // {"start","end"}, data.title/itemId/details. We surface
+                // tool items as chips and ignore the redundant command
+                // children (their output arrives on ``command_output``).
+                return MapItemEvent(evt);
+            case "command_output":
+                // Shell command stdout/stderr — attach to the active tool
+                // chip as its ``Tool output`` body.
+                return MapCommandOutputEvent(evt);
             case "job":
                 return MapJobEvent(evt);
             default:
@@ -683,6 +695,129 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             "error" => new ChatToolErrorEvent(ExtractToolErrorText(evt.Data, fallback: label)),
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Map ``stream: "item"`` agent events (the gateway's actual tool/command
+    /// lifecycle channel as of 2026.4.x — distinct from the spec's ``"tool"``
+    /// stream which has not been observed in the wild).
+    ///
+    /// Verified payload shape:
+    /// <code>
+    /// {
+    ///   "stream": "item",
+    ///   "data": {
+    ///     "itemId": "tool:call_xxx|fc_yyy",
+    ///     "phase": "start" | "end",
+    ///     "kind": "tool" | "command" | "reasoning" | "message",
+    ///     "title": "exec run command openclaw → ..."
+    ///   }
+    /// }
+    /// </code>
+    ///
+    /// We only surface ``kind: "tool"`` items as chips; ``kind: "command"``
+    /// items are children of the parent tool whose output stream is
+    /// ``command_output`` (handled separately).
+    /// </summary>
+    private static ChatEvent? MapItemEvent(AgentEventInfo evt)
+    {
+        if (evt.Data.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+
+        var kind = evt.Data.TryGetProperty("kind", out var kindProp) ? kindProp.GetString() ?? "" : "";
+        if (!string.Equals(kind, "tool", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var phase = evt.Data.TryGetProperty("phase", out var phaseProp) ? phaseProp.GetString() ?? "" : "";
+        var title = evt.Data.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? "" : "";
+        var toolName = ExtractToolKindFromTitle(title);
+
+        return phase.ToLowerInvariant() switch
+        {
+            "start" => new ChatToolStartEvent(title, toolName),
+            // ``end`` flips the active tool's status to Success even when no
+            // command_output arrived (e.g. ``read``, ``glob`` — non-shell).
+            // Use the title as a no-op output so the reducer marks Success.
+            "end" => new ChatToolOutputEvent(string.Empty),
+            "error" => new ChatToolErrorEvent(title),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Map ``stream: "command_output"`` agent events. These carry shell
+    /// stdout/stderr and may arrive in chunks (phase=delta) and as a final
+    /// (phase=end) — we attach the text to the currently-active tool chip.
+    /// </summary>
+    private static ChatEvent? MapCommandOutputEvent(AgentEventInfo evt)
+    {
+        if (evt.Data.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+
+        var phase = evt.Data.TryGetProperty("phase", out var phaseProp) ? phaseProp.GetString() ?? "" : "";
+        // Only emit on ``end`` — accumulating deltas into the same chip
+        // would require a new reducer event; the consolidated final
+        // payload is enough to populate the body in one go.
+        if (!string.Equals(phase, "end", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var output = ExtractCommandOutputText(evt.Data);
+        if (string.IsNullOrEmpty(output))
+            return null;
+
+        return new ChatToolOutputEvent(output);
+    }
+
+    /// <summary>
+    /// Pull a short ``kind`` token out of the gateway's free-form ``title``
+    /// for display in the chip header. Titles look like
+    /// ``"exec run command ..."`` or ``"read ./foo"`` — we take the first
+    /// token before whitespace, lower-cased.
+    /// </summary>
+    private static string ExtractToolKindFromTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return "tool";
+        var space = title.IndexOf(' ');
+        var head = space > 0 ? title[..space] : title;
+        return head.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Extract a printable text payload from a ``command_output`` end event.
+    /// Walks the common fields the gateway uses: ``output``, ``text``,
+    /// ``content``, ``stdout``, ``stderr``, ``preview``, ``body``.
+    /// </summary>
+    private static string ExtractCommandOutputText(System.Text.Json.JsonElement data)
+    {
+        foreach (var key in new[] { "output", "text", "content", "stdout", "preview", "body", "stderr" })
+        {
+            if (data.TryGetProperty(key, out var v))
+            {
+                if (v.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var s = v.GetString();
+                    if (!string.IsNullOrEmpty(s))
+                        return TruncateForToolOutput(s);
+                }
+                else if (v.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                         v.TryGetProperty("text", out var inner) &&
+                         inner.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var s = inner.GetString();
+                    if (!string.IsNullOrEmpty(s))
+                        return TruncateForToolOutput(s);
+                }
+            }
+        }
+
+        // Fall back to the title field so the chip body isn't empty.
+        if (data.TryGetProperty("title", out var titleProp) &&
+            titleProp.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            var s = titleProp.GetString();
+            if (!string.IsNullOrEmpty(s))
+                return TruncateForToolOutput(s);
+        }
+
+        return string.Empty;
     }
 
     private static ChatEvent? MapJobEvent(AgentEventInfo evt)
