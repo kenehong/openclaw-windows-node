@@ -1470,7 +1470,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="ClearButton.Content" xml:space="preserve">
     <value>Wissen</value>
   </data>
-<data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
+  <data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
     <value>🔀 Koppelingen</value>
   </data>
   <data name="BindingsPage_TextBlock_17.Text" xml:space="preserve">
@@ -1517,15 +1517,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   </data>
   <data name="ChatPage_TextBlock_53.Text" xml:space="preserve">
     <value>Maak verbinding met de gateway om te chatten</value>
-  </data>
-  <data name="ChatPage_TextBlock_56.Text" xml:space="preserve">
-    <value>WebView2-chat wordt hier geladen zodra er verbinding is met een gateway.</value>
-  </data>
-  <data name="ChatPage_TextBlock_65.Text" xml:space="preserve">
-    <value>Webchat niet beschikbaar</value>
-  </data>
-  <data name="ChatPage_Button_69.Content" xml:space="preserve">
-    <value>In plaats daarvan openen in browser</value>
   </data>
   <data name="ConfigPage_TextBlock_17.Text" xml:space="preserve">
     <value>⚙️ Configuratie</value>
@@ -1704,7 +1695,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CronPage_TextBlock_120.Text" xml:space="preserve">
     <value>Geen cron-taken geconfigureerd</value>
   </data>
-<data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
+  <data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
     <value>🐛 Foutopsporing</value>
   </data>
   <data name="DebugPage_TextBlock_14.Text" xml:space="preserve">
@@ -1758,7 +1749,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="DebugPage_Button_114.Content" xml:space="preserve">
     <value>📋 Ondersteuningscontext kopiëren</value>
   </data>
-<data name="StatusHeadline.Text" xml:space="preserve">
+  <data name="StatusHeadline.Text" xml:space="preserve">
     <value>Niet verbonden met gateway</value>
   </data>
   <data name="ScanButton.Content" xml:space="preserve">
@@ -2010,12 +2001,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="ChatWindow_TextBlock_60.Text" xml:space="preserve">
     <value>Maak verbinding met de gateway om te chatten</value>
   </data>
-  <data name="ChatWindow_TextBlock_67.Text" xml:space="preserve">
-    <value>Chat niet beschikbaar</value>
-  </data>
-  <data name="ChatWindow_Button_71.Content" xml:space="preserve">
-    <value>In plaats daarvan openen in browser</value>
-  </data>
   <data name="TitleText.Text" xml:space="preserve">
     <value>OpenClaw Windows Companion</value>
   </data>
@@ -2244,29 +2229,14 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="UsagePage_TextBlock_10.Text" xml:space="preserve">
     <value>📊 Gebruik en kosten</value>
   </data>
-  <data name="ChatWindowHomeToolTip.Content" xml:space="preserve">
-    <value>Start</value>
-  </data>
-  <data name="ChatWindowRefreshToolTip.Content" xml:space="preserve">
-    <value>Vernieuwen</value>
-  </data>
   <data name="ChatWindowOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>Openen in browser</value>
   </data>
   <data name="ChatWindowCloseToolTip.Content" xml:space="preserve">
     <value>Sluiten</value>
   </data>
-  <data name="ChatPageHomeToolTip.Content" xml:space="preserve">
-    <value>Start</value>
-  </data>
-  <data name="ChatPageRefreshToolTip.Content" xml:space="preserve">
-    <value>Vernieuwen</value>
-  </data>
   <data name="ChatPageOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>Openen in browser</value>
-  </data>
-  <data name="ChatPageDeveloperToolsToolTip.Content" xml:space="preserve">
-    <value>Ontwikkelaarstools</value>
   </data>
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Taak verwijderen</value>

@@ -1470,7 +1470,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="ClearButton.Content" xml:space="preserve">
     <value>Effacer</value>
   </data>
-<data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
+  <data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
     <value>🔀 Liaisons</value>
   </data>
   <data name="BindingsPage_TextBlock_17.Text" xml:space="preserve">
@@ -1517,15 +1517,6 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   </data>
   <data name="ChatPage_TextBlock_53.Text" xml:space="preserve">
     <value>Connectez-vous à la passerelle pour commencer la discussion</value>
-  </data>
-  <data name="ChatPage_TextBlock_56.Text" xml:space="preserve">
-    <value>La discussion WebView2 se chargera ici une fois la connexion à la passerelle établie.</value>
-  </data>
-  <data name="ChatPage_TextBlock_65.Text" xml:space="preserve">
-    <value>Chat indisponible</value>
-  </data>
-  <data name="ChatPage_Button_69.Content" xml:space="preserve">
-    <value>Ouvrir plutôt dans le navigateur</value>
   </data>
   <data name="ConfigPage_TextBlock_17.Text" xml:space="preserve">
     <value>⚙️ Configuration</value>
@@ -1704,7 +1695,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="CronPage_TextBlock_120.Text" xml:space="preserve">
     <value>Aucune tâche cron configurée</value>
   </data>
-<data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
+  <data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
     <value>🐛 Débogage</value>
   </data>
   <data name="DebugPage_TextBlock_14.Text" xml:space="preserve">
@@ -1758,7 +1749,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="DebugPage_Button_114.Content" xml:space="preserve">
     <value>📋 Copier le contexte de support</value>
   </data>
-<data name="StatusHeadline.Text" xml:space="preserve">
+  <data name="StatusHeadline.Text" xml:space="preserve">
     <value>Non connecté à la passerelle</value>
   </data>
   <data name="ScanButton.Content" xml:space="preserve">
@@ -2010,12 +2001,6 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="ChatWindow_TextBlock_60.Text" xml:space="preserve">
     <value>Connectez-vous à la passerelle pour commencer la discussion</value>
   </data>
-  <data name="ChatWindow_TextBlock_67.Text" xml:space="preserve">
-    <value>Discussion indisponible</value>
-  </data>
-  <data name="ChatWindow_Button_71.Content" xml:space="preserve">
-    <value>Ouvrir plutôt dans le navigateur</value>
-  </data>
   <data name="TitleText.Text" xml:space="preserve">
     <value>OpenClaw Windows Companion</value>
   </data>
@@ -2244,29 +2229,14 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="UsagePage_TextBlock_10.Text" xml:space="preserve">
     <value>📊 Utilisation et coût</value>
   </data>
-  <data name="ChatWindowHomeToolTip.Content" xml:space="preserve">
-    <value>Accueil</value>
-  </data>
-  <data name="ChatWindowRefreshToolTip.Content" xml:space="preserve">
-    <value>Actualiser</value>
-  </data>
   <data name="ChatWindowOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>Ouvrir dans le navigateur</value>
   </data>
   <data name="ChatWindowCloseToolTip.Content" xml:space="preserve">
     <value>Fermer</value>
   </data>
-  <data name="ChatPageHomeToolTip.Content" xml:space="preserve">
-    <value>Accueil</value>
-  </data>
-  <data name="ChatPageRefreshToolTip.Content" xml:space="preserve">
-    <value>Actualiser</value>
-  </data>
   <data name="ChatPageOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>Ouvrir dans le navigateur</value>
-  </data>
-  <data name="ChatPageDeveloperToolsToolTip.Content" xml:space="preserve">
-    <value>Outils de développement</value>
   </data>
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Supprimer la tâche</value>

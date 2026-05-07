@@ -1,0 +1,913 @@
+using ChatSample.Chat.Model;
+using OpenClaw.Shared;
+using OpenClawTray.Chat;
+using System.Text.Json;
+
+namespace OpenClaw.Tray.Tests;
+
+public class OpenClawChatDataProviderTests
+{
+    private sealed class FakeBridge : IChatGatewayBridge
+    {
+        public bool IsConnected { get; set; }
+        public ConnectionStatus CurrentStatus { get; set; }
+        public List<string> SentMessages { get; } = new();
+        public List<string?> SentSessionKeys { get; } = new();
+        public List<string?> SentSessionIds { get; } = new();
+        public List<string> AbortedRunIds { get; } = new();
+        public Func<string, string?, string?, Task>? SendBehavior { get; set; }
+        public Func<string?, Task<ChatHistoryInfo>>? HistoryBehavior { get; set; }
+        public Func<string, Task>? AbortBehavior { get; set; }
+        public SessionInfo[] Sessions { get; set; } = Array.Empty<SessionInfo>();
+        public ModelsListInfo? CurrentModels { get; set; }
+
+        public SessionInfo[] GetSessionList() => Sessions;
+        public ModelsListInfo? GetCurrentModelsList() => CurrentModels;
+
+        public Task SendChatMessageAsync(string message, string? sessionKey, string? sessionId)
+        {
+            SentMessages.Add(message);
+            SentSessionKeys.Add(sessionKey);
+            SentSessionIds.Add(sessionId);
+            return SendBehavior?.Invoke(message, sessionKey, sessionId) ?? Task.CompletedTask;
+        }
+
+        public Task<ChatHistoryInfo> RequestChatHistoryAsync(string? sessionKey)
+        {
+            return HistoryBehavior?.Invoke(sessionKey)
+                ?? Task.FromResult(new ChatHistoryInfo { SessionKey = sessionKey ?? "" });
+        }
+
+        public Task SendChatAbortAsync(string runId)
+        {
+            AbortedRunIds.Add(runId);
+            return AbortBehavior?.Invoke(runId) ?? Task.CompletedTask;
+        }
+
+        public event EventHandler<ConnectionStatus>? StatusChanged;
+        public event EventHandler<SessionInfo[]>? SessionsUpdated;
+        public event EventHandler<ChatMessageInfo>? ChatMessageReceived;
+        public event EventHandler<AgentEventInfo>? AgentEventReceived;
+        public event EventHandler<ModelsListInfo>? ModelsListUpdated;
+
+        public void RaiseStatus(ConnectionStatus s) { CurrentStatus = s; StatusChanged?.Invoke(this, s); }
+        public void RaiseSessions(SessionInfo[] s) { Sessions = s; SessionsUpdated?.Invoke(this, s); }
+        public void RaiseChat(ChatMessageInfo m) => ChatMessageReceived?.Invoke(this, m);
+        public void RaiseAgent(AgentEventInfo a) => AgentEventReceived?.Invoke(this, a);
+        public void RaiseModels(ModelsListInfo m) { CurrentModels = m; ModelsListUpdated?.Invoke(this, m); }
+    }
+
+    private static (FakeBridge bridge, OpenClawChatDataProvider provider, List<ChatDataSnapshot> snapshots, List<ChatProviderNotification> notifications)
+        CreateProvider(SessionInfo[]? initial = null)
+    {
+        var bridge = new FakeBridge { Sessions = initial ?? Array.Empty<SessionInfo>() };
+        var provider = new OpenClawChatDataProvider(bridge);
+        var snapshots = new List<ChatDataSnapshot>();
+        var notifications = new List<ChatProviderNotification>();
+        provider.Changed += (_, e) => snapshots.Add(e.Snapshot);
+        provider.NotificationRequested += (_, e) => notifications.Add(e.Notification);
+        return (bridge, provider, snapshots, notifications);
+    }
+
+    private static SessionInfo MainSession() =>
+        new() { Key = "main", IsMain = true, DisplayName = "Main session", Status = "active" };
+
+    private static AgentEventInfo MakeAgentEvent(string stream, string json, string sessionKey = "main", string? runId = null)
+    {
+        var doc = JsonDocument.Parse(json);
+        return new AgentEventInfo
+        {
+            Stream = stream,
+            Data = doc.RootElement.Clone(),
+            SessionKey = sessionKey,
+            RunId = runId ?? string.Empty
+        };
+    }
+
+    [Fact]
+    public async Task LoadAsync_ReturnsSeededSessionsAsThreads()
+    {
+        var (_, provider, _, _) = CreateProvider(new[] { MainSession() });
+
+        var snapshot = await provider.LoadAsync();
+
+        Assert.Single(snapshot.Threads);
+        Assert.Equal("main", snapshot.Threads[0].Id);
+        Assert.Equal("Main session", snapshot.Threads[0].Title);
+        Assert.Equal("main", snapshot.DefaultThreadId);
+        Assert.True(snapshot.Timelines.ContainsKey("main"));
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_AddsLocalUserEntryBeforeAwaitingGateway()
+    {
+        var tcs = new TaskCompletionSource();
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.SendBehavior = (_, _, _) => tcs.Task;
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        var sendTask = provider.SendMessageAsync("main", "Hello");
+
+        // Snapshot must be emitted before SendChatMessageAsync completes.
+        Assert.Single(snapshots);
+        var timeline = snapshots[0].Timelines["main"];
+        Assert.True(timeline.TurnActive);
+        Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.User, timeline.Entries[0].Kind);
+        Assert.Equal("Hello", timeline.Entries[0].Text);
+        Assert.Single(bridge.SentMessages);
+        Assert.Equal("Hello", bridge.SentMessages[0]);
+        Assert.Equal("main", bridge.SentSessionKeys[0]);
+
+        tcs.SetResult();
+        await sendTask;
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_GatewayThrows_AppendsErrorAndRethrows()
+    {
+        var (bridge, provider, snapshots, notifications) = CreateProvider(new[] { MainSession() });
+        bridge.SendBehavior = (_, _, _) => throw new InvalidOperationException("boom");
+        await provider.LoadAsync();
+        snapshots.Clear();
+        notifications.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.SendMessageAsync("main", "Hi"));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e => e.Kind == ChatTimelineItemKind.Status && e.Text.Contains("boom"));
+        Assert.False(timeline.TurnActive);
+        Assert.Contains(notifications, n => n.Kind == ChatProviderNotificationKind.Error);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_RejectsEmptyMessage()
+    {
+        var (_, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => provider.SendMessageAsync("main", "  "));
+    }
+
+    [Fact]
+    public async Task ChatMessageReceived_FinalAssistant_AppendsAssistantEntry()
+    {
+        var (bridge, provider, snapshots, notifications) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+        notifications.Clear();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "Hello from assistant",
+            State = "final"
+        });
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Assistant && e.Text == "Hello from assistant");
+        Assert.False(timeline.TurnActive);
+        Assert.Contains(notifications, n => n.Kind == ChatProviderNotificationKind.TurnComplete);
+    }
+
+    [Fact]
+    public async Task ChatMessageReceived_DeltaAssistant_AppendsAssistantWithoutEndingTurn()
+    {
+        // Block-streamed deltas carry cumulative assistant text and should
+        // upsert the active assistant entry without ending the turn.
+        var (bridge, provider, snapshots, notifications) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+        notifications.Clear();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "Hello",
+            State = "delta"
+        });
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Assistant && e.Text == "Hello");
+        Assert.True(timeline.TurnActive);
+        Assert.DoesNotContain(notifications, n => n.Kind == ChatProviderNotificationKind.TurnComplete);
+    }
+
+    [Fact]
+    public async Task ChatMessageReceived_UserEcho_Ignored()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "user",
+            Text = "hi",
+            State = "final"
+        });
+
+        Assert.Empty(snapshots);
+    }
+
+    [Fact]
+    public async Task AgentEvent_ToolStart_AppendsToolCallEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"powershell","args":{"command":"ls"}}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.ToolCall, entry.Kind);
+        Assert.Equal("powershell", entry.ToolName);
+        Assert.Equal("ls", entry.Text);
+        Assert.Equal(ChatToolCallStatus.InProgress, entry.ToolResult);
+    }
+
+    [Fact]
+    public async Task AgentEvent_ToolStartThenResult_MarksToolSuccess()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"grep","args":{"pattern":"foo"}}"""));
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"result","name":"grep","args":{"pattern":"foo"}}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatToolCallStatus.Success, entry.ToolResult);
+    }
+
+    [Fact]
+    public async Task AgentEvent_JobError_EmitsErrorEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        var evt = MakeAgentEvent("job", """{"state":"error"}""");
+        evt.Summary = "kaboom";
+        bridge.RaiseAgent(evt);
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Status && e.Text.Contains("kaboom"));
+    }
+
+    [Fact]
+    public async Task AgentEvent_JobDone_ClearsTurnActive()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        // Kick off a turn
+        _ = provider.SendMessageAsync("main", "hi");
+
+        bridge.RaiseAgent(MakeAgentEvent("job", """{"state":"done"}"""));
+
+        // Snapshot the timeline directly.
+        var snap = await provider.LoadAsync();
+        Assert.False(snap.Timelines["main"].TurnActive);
+    }
+
+    [Fact]
+    public async Task SessionsUpdated_RebuildsThreadsAndSeedsTimelines()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider();
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseSessions(new[]
+        {
+            new SessionInfo { Key = "main", IsMain = true, DisplayName = "Main" },
+            new SessionInfo { Key = "sub:abc", IsMain = false, DisplayName = "Sub" }
+        });
+
+        var snap = snapshots[^1];
+        Assert.Equal(2, snap.Threads.Length);
+        Assert.True(snap.Timelines.ContainsKey("main"));
+        Assert.True(snap.Timelines.ContainsKey("sub:abc"));
+        Assert.Equal("main", snap.DefaultThreadId);
+    }
+
+    [Fact]
+    public async Task StatusChanged_IsReflectedInSnapshotConnectionLabel()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseStatus(ConnectionStatus.Connected);
+        Assert.Equal("Connected", snapshots[^1].ConnectionStatus);
+
+        bridge.RaiseStatus(ConnectionStatus.Connecting);
+        Assert.Equal("Connecting…", snapshots[^1].ConnectionStatus);
+
+        bridge.RaiseStatus(ConnectionStatus.Disconnected);
+        Assert.Equal("Disconnected", snapshots[^1].ConnectionStatus);
+    }
+
+    [Fact]
+    public async Task PostDelegate_IsUsedForChangedAndNotifications()
+    {
+        var bridge = new FakeBridge { Sessions = new[] { MainSession() } };
+        var queued = new List<Action>();
+        var provider = new OpenClawChatDataProvider(bridge, post: a => queued.Add(a));
+        var snapshots = new List<ChatDataSnapshot>();
+        provider.Changed += (_, e) => snapshots.Add(e.Snapshot);
+
+        bridge.RaiseChat(new ChatMessageInfo { SessionKey = "main", Role = "assistant", Text = "x", State = "final" });
+
+        // Snapshot was queued, not invoked immediately.
+        Assert.Empty(snapshots);
+        Assert.NotEmpty(queued);
+        foreach (var a in queued) a();
+        Assert.NotEmpty(snapshots);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_UnsubscribesAndStopsRaisingChanged()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        await provider.DisposeAsync();
+        snapshots.Clear();
+
+        bridge.RaiseChat(new ChatMessageInfo { SessionKey = "main", Role = "assistant", Text = "after dispose", State = "final" });
+        bridge.RaiseSessions(new[] { MainSession() });
+        bridge.RaiseStatus(ConnectionStatus.Disconnected);
+
+        Assert.Empty(snapshots);
+    }
+
+    [Fact]
+    public async Task CreateThreadAsync_WithInitialMessage_SendsAndReturnsMain()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        var thread = await provider.CreateThreadAsync("first message");
+
+        Assert.Equal("main", thread.Id);
+        Assert.Equal("first message", bridge.SentMessages[0]);
+    }
+
+    [Fact]
+    public async Task CreateThreadAsync_WithoutSession_ReturnsSyntheticMain()
+    {
+        var (_, provider, _, _) = CreateProvider();
+        var thread = await provider.CreateThreadAsync(null);
+        Assert.Equal("main", thread.Id);
+    }
+
+    // ── Parity additions: streaming, lifecycle, reasoning, history, abort ──
+
+    [Fact]
+    public async Task AgentEvent_AssistantDelta_AppendsStreamingAssistantEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseAgent(MakeAgentEvent("assistant", """{"delta":"Hel"}"""));
+        bridge.RaiseAgent(MakeAgentEvent("assistant", """{"delta":"lo "}"""));
+        bridge.RaiseAgent(MakeAgentEvent("assistant", """{"delta":"world"}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var assistant = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.Assistant, assistant.Kind);
+        Assert.Equal("Hello world", assistant.Text);
+        Assert.True(assistant.IsStreaming);
+        Assert.True(timeline.TurnActive);
+    }
+
+    [Fact]
+    public async Task AgentEvent_AssistantContent_AppendsFinalAssistantEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseAgent(MakeAgentEvent("assistant",
+            """{"content":"Final answer."}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.Assistant, entry.Kind);
+        Assert.Equal("Final answer.", entry.Text);
+        Assert.False(entry.IsStreaming);
+    }
+
+    [Fact]
+    public async Task AgentEvent_LifecycleStart_SetsTurnActive()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle",
+            """{"phase":"start"}""", runId: "run-1"));
+
+        Assert.True(snapshots[^1].Timelines["main"].TurnActive);
+    }
+
+    [Fact]
+    public async Task AgentEvent_LifecycleEnd_ClearsTurnActiveAndAssistant()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"start"}""", runId: "run-1"));
+        bridge.RaiseAgent(MakeAgentEvent("assistant", """{"delta":"hi"}"""));
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"end"}""", runId: "run-1"));
+
+        var snap = await provider.LoadAsync();
+        var timeline = snap.Timelines["main"];
+        Assert.False(timeline.TurnActive);
+        Assert.Null(timeline.ActiveAssistantId);
+    }
+
+    [Fact]
+    public async Task AgentEvent_LifecycleError_AppendsErrorStatusEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        var evt = MakeAgentEvent("lifecycle", """{"phase":"error","message":"model unreachable"}""", runId: "run-1");
+        bridge.RaiseAgent(evt);
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Status && e.Text.Contains("model unreachable"));
+    }
+
+    [Fact]
+    public async Task AgentEvent_ReasoningDelta_AccumulatesReasoningEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseAgent(MakeAgentEvent("reasoning", """{"delta":"thinking… "}"""));
+        bridge.RaiseAgent(MakeAgentEvent("reasoning", """{"delta":"step 2."}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.Reasoning, entry.Kind);
+        Assert.Equal("thinking… step 2.", entry.Text);
+    }
+
+    [Fact]
+    public async Task StopResponseAsync_WithActiveRun_CallsAbortRpc()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"start"}""", runId: "run-42"));
+
+        await provider.StopResponseAsync("main");
+
+        Assert.Single(bridge.AbortedRunIds);
+        Assert.Equal("run-42", bridge.AbortedRunIds[0]);
+    }
+
+    [Fact]
+    public async Task StopResponseAsync_WithoutActiveRun_DoesNotCallAbort()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        await provider.StopResponseAsync("main");
+
+        Assert.Empty(bridge.AbortedRunIds);
+    }
+
+    [Fact]
+    public async Task StopResponseAsync_AfterLifecycleEnd_NoLongerAborts()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"start"}""", runId: "run-9"));
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"end"}""", runId: "run-9"));
+
+        await provider.StopResponseAsync("main");
+
+        Assert.Empty(bridge.AbortedRunIds);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_FoldsTranscriptIntoTimeline()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            SessionId = "sess-uuid-123",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user", Text = "Hi", State = "final" },
+                new ChatMessageInfo { Role = "assistant", Text = "Hello!", State = "final" },
+                new ChatMessageInfo { Role = "user", Text = "Bye", State = "final" }
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Equal(3, timeline.Entries.Count);
+        Assert.Equal(ChatTimelineItemKind.User, timeline.Entries[0].Kind);
+        Assert.Equal("Hi", timeline.Entries[0].Text);
+        Assert.Equal(ChatTimelineItemKind.Assistant, timeline.Entries[1].Kind);
+        Assert.Equal("Hello!", timeline.Entries[1].Text);
+        Assert.Equal(ChatTimelineItemKind.User, timeline.Entries[2].Kind);
+        Assert.False(timeline.TurnActive);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_MultipleAssistantTurns_PreservesEachAsSeparateEntry()
+    {
+        // Regression test: previously every ChatMessageEvent would upsert the
+        // active assistant entry, collapsing N assistant messages into 1. The
+        // fix is to bracket each assistant message with ChatTurnEndEvent.
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user",      Text = "Q1", State = "final", Ts = 1 },
+                new ChatMessageInfo { Role = "assistant", Text = "A1", State = "final", Ts = 2 },
+                new ChatMessageInfo { Role = "user",      Text = "Q2", State = "final", Ts = 3 },
+                new ChatMessageInfo { Role = "assistant", Text = "A2", State = "final", Ts = 4 },
+                new ChatMessageInfo { Role = "user",      Text = "Q3", State = "final", Ts = 5 },
+                new ChatMessageInfo { Role = "assistant", Text = "A3", State = "final", Ts = 6 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Equal(6, timeline.Entries.Count);
+        Assert.Equal(new[] { "Q1", "A1", "Q2", "A2", "Q3", "A3" },
+            timeline.Entries.Select(e => e.Text).ToArray());
+        Assert.Equal(new[]
+        {
+            ChatTimelineItemKind.User,      ChatTimelineItemKind.Assistant,
+            ChatTimelineItemKind.User,      ChatTimelineItemKind.Assistant,
+            ChatTimelineItemKind.User,      ChatTimelineItemKind.Assistant,
+        }, timeline.Entries.Select(e => e.Kind).ToArray());
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_SystemRole_RendersAsDimStatusEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user",      Text = "Hello",   State = "final", Ts = 1 },
+                new ChatMessageInfo { Role = "system",    Text = "ctx",     State = "final", Ts = 2 },
+                new ChatMessageInfo { Role = "assistant", Text = "Hi back", State = "final", Ts = 3 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Equal(3, timeline.Entries.Count);
+        Assert.Equal(ChatTimelineItemKind.User, timeline.Entries[0].Kind);
+        Assert.Equal(ChatTimelineItemKind.Status, timeline.Entries[1].Kind);
+        Assert.Equal("ctx", timeline.Entries[1].Text);
+        Assert.Equal(ChatTone.Dim, timeline.Entries[1].Tone);
+        Assert.Equal(ChatTimelineItemKind.Assistant, timeline.Entries[2].Kind);
+        Assert.Equal("Hi back", timeline.Entries[2].Text);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_OutOfOrderTimestamps_AreSortedAscending()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            // Deliberately scrambled — provider must sort by Ts.
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "assistant", Text = "Last",  State = "final", Ts = 30 },
+                new ChatMessageInfo { Role = "user",      Text = "First", State = "final", Ts = 10 },
+                new ChatMessageInfo { Role = "assistant", Text = "Mid",   State = "final", Ts = 20 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Equal(new[] { "First", "Mid", "Last" },
+            timeline.Entries.Select(e => e.Text).ToArray());
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_IsIdempotent()
+    {
+        var calls = 0;
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => { calls++; return Task.FromResult(new ChatHistoryInfo { SessionKey = "main" }); };
+        await provider.LoadAsync();
+
+        await provider.LoadHistoryAsync("main");
+        await provider.LoadHistoryAsync("main");
+        await provider.LoadHistoryAsync("main");
+
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_DoesNotForwardSessionIdToGateway()
+    {
+        // The live gateway rejects `sessionId` at the chat.send root with
+        // "unexpected property". The provider tracks sessionId from chat.history
+        // for client-side correlation but must not forward it. (Gateway client
+        // ignores the sessionId arg; bridge still receives it for future use.)
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            SessionId = "sess-uuid-7"
+        });
+        await provider.LoadAsync();
+        await provider.LoadHistoryAsync("main");
+
+        await provider.SendMessageAsync("main", "Ping");
+
+        // The bridge surface still receives the sessionId for tests / future
+        // protocol use, but the production gateway client drops it before
+        // serializing the chat.send request.
+        Assert.Equal("sess-uuid-7", bridge.SentSessionIds[0]);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_PersistsSessionIdForFutureSends()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            SessionId = "sess-uuid-7"
+        });
+        await provider.LoadAsync();
+        await provider.LoadHistoryAsync("main");
+
+        await provider.SendMessageAsync("main", "Ping");
+
+        Assert.Equal("sess-uuid-7", bridge.SentSessionIds[0]);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_WithoutHistory_PassesNullSessionId()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        await provider.SendMessageAsync("main", "Ping");
+
+        Assert.Null(bridge.SentSessionIds[0]);
+    }
+
+    // ── Iteration 3: tool result, abort marker, reconnect history, models ──
+
+    [Fact]
+    public async Task AgentEvent_ToolResult_ExtractsResultContent()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"powershell","args":{"command":"echo hi"}}"""));
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"result","name":"powershell","result":{"content":"hi\n"}}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatToolCallStatus.Success, entry.ToolResult);
+        Assert.Equal("hi\n", entry.ToolOutput);
+    }
+
+    [Fact]
+    public async Task AgentEvent_ToolResult_FallsBackToOutputField()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"grep","args":{"pattern":"foo"}}"""));
+        // Some tools return output at data.output rather than data.result.content
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"result","name":"grep","output":"line1\nline2"}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal("line1\nline2", entry.ToolOutput);
+    }
+
+    [Fact]
+    public async Task AgentEvent_ToolError_ExtractsErrorText()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"web_fetch","args":{"url":"https://example"}}"""));
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"error","name":"web_fetch","error":"timeout after 30s"}"""));
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatToolCallStatus.Error, entry.ToolResult);
+        Assert.Equal("timeout after 30s", entry.ToolOutput);
+    }
+
+    [Fact]
+    public async Task AgentEvent_ToolResult_TruncatesVeryLargeOutput()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        var huge = new string('x', 10000);
+        bridge.RaiseAgent(MakeAgentEvent("tool",
+            """{"phase":"start","name":"read","args":{"path":"/big.txt"}}"""));
+        var resultJson = "{\"phase\":\"result\",\"name\":\"read\",\"result\":{\"content\":\"" + huge + "\"}}";
+        bridge.RaiseAgent(MakeAgentEvent("tool", resultJson));
+
+        var entry = snapshots[^1].Timelines["main"].Entries[0];
+        Assert.NotNull(entry.ToolOutput);
+        Assert.True(entry.ToolOutput!.Length < huge.Length, "expected truncation");
+        Assert.EndsWith("(truncated)", entry.ToolOutput);
+    }
+
+    [Fact]
+    public async Task StopResponseAsync_DuringActiveTurn_AppendsAbortMarker()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"start"}""", runId: "run-1"));
+        bridge.RaiseAgent(MakeAgentEvent("assistant", """{"delta":"partial answer"}"""));
+        snapshots.Clear();
+
+        await provider.StopResponseAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Status &&
+            e.Text.Equals("Aborted", StringComparison.OrdinalIgnoreCase) &&
+            e.Tone == ChatTone.Warning);
+        Assert.False(timeline.TurnActive);
+        Assert.Contains("partial answer", timeline.Entries.Select(e => e.Text));
+    }
+
+    [Fact]
+    public async Task StopResponseAsync_WithoutActiveTurn_DoesNotAppendAbortMarker()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.StopResponseAsync("main");
+
+        // Either no snapshot or snapshot timeline has no Status="Aborted".
+        if (snapshots.Count > 0)
+        {
+            var timeline = snapshots[^1].Timelines["main"];
+            Assert.DoesNotContain(timeline.Entries, e =>
+                e.Kind == ChatTimelineItemKind.Status &&
+                e.Text.Equals("Aborted", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    [Fact]
+    public async Task Reconnect_AfterDisconnect_ReloadsHistoryForLoadedThreads()
+    {
+        var historyCalls = 0;
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => { historyCalls++; return Task.FromResult(new ChatHistoryInfo { SessionKey = "main" }); };
+
+        await provider.LoadAsync();
+        await provider.LoadHistoryAsync("main");
+        Assert.Equal(1, historyCalls);
+
+        // Drop and reconnect.
+        bridge.RaiseStatus(ConnectionStatus.Disconnected);
+        bridge.RaiseStatus(ConnectionStatus.Connected);
+
+        // Give the fire-and-forget reload a moment to dispatch.
+        for (int i = 0; i < 50 && historyCalls < 2; i++)
+            await Task.Delay(20);
+
+        Assert.Equal(2, historyCalls);
+    }
+
+    [Fact]
+    public async Task Reconnect_FromConnectingToConnected_DoesNotReload()
+    {
+        // The "just reconnected" condition should only fire on a transition
+        // from a non-Connected state to Connected — not on the initial
+        // Connecting → Connected boot sequence.
+        var historyCalls = 0;
+        var bridge = new FakeBridge { Sessions = new[] { MainSession() }, CurrentStatus = ConnectionStatus.Connected };
+        var provider = new OpenClawChatDataProvider(bridge);
+        bridge.HistoryBehavior = _ => { historyCalls++; return Task.FromResult(new ChatHistoryInfo { SessionKey = "main" }); };
+        await provider.LoadAsync();
+        await provider.LoadHistoryAsync("main");
+        Assert.Equal(1, historyCalls);
+
+        // Already Connected → setting Connected again is a no-op.
+        bridge.RaiseStatus(ConnectionStatus.Connected);
+        for (int i = 0; i < 10; i++) await Task.Delay(10);
+
+        Assert.Equal(1, historyCalls);
+    }
+
+    [Fact]
+    public async Task ModelsListUpdated_PopulatesAvailableModelsInSnapshot()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        bridge.RaiseModels(new ModelsListInfo
+        {
+            Models = new List<ModelInfo>
+            {
+                new() { Id = "gpt-5.4", Name = "GPT-5.4" },
+                new() { Id = "claude-sonnet-4.6", Name = "Claude Sonnet 4.6" },
+                new() { Id = "ollama-only-id" }
+            }
+        });
+
+        Assert.Equal(
+            new[] { "GPT-5.4", "Claude Sonnet 4.6", "ollama-only-id" },
+            snapshots[^1].AvailableModels);
+    }
+
+    [Fact]
+    public async Task ModelsListUpdated_DedupesDisplayNames()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseModels(new ModelsListInfo
+        {
+            Models = new List<ModelInfo>
+            {
+                new() { Id = "gpt-5.4", Name = "GPT-5.4" },
+                new() { Id = "gpt-5.4-mirror", Name = "GPT-5.4" },
+            }
+        });
+
+        Assert.Single(snapshots[^1].AvailableModels);
+        Assert.Equal("GPT-5.4", snapshots[^1].AvailableModels[0]);
+    }
+
+    [Fact]
+    public async Task LoadAsync_SeedsModelsFromBridgeSnapshot()
+    {
+        var bridge = new FakeBridge
+        {
+            Sessions = new[] { MainSession() },
+            CurrentModels = new ModelsListInfo
+            {
+                Models = new List<ModelInfo> { new() { Id = "x", Name = "X" } }
+            }
+        };
+        var provider = new OpenClawChatDataProvider(bridge);
+
+        var snap = await provider.LoadAsync();
+
+        Assert.Equal(new[] { "X" }, snap.AvailableModels);
+    }
+}

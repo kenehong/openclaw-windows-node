@@ -16,8 +16,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenClaw.Shared\OpenClaw.Shared.csproj" />
+    <ProjectReference Include="..\..\external\reactor\samples\apps\chat\Chat.Model\Chat.Model.csproj" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Chat\IChatGatewayBridge.cs" Link="Chat\IChatGatewayBridge.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Chat\OpenClawChatDataProvider.cs" Link="Chat\OpenClawChatDataProvider.cs" />
   </ItemGroup>
 
   <ItemGroup>

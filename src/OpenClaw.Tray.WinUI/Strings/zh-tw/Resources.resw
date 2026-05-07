@@ -1470,7 +1470,7 @@
   <data name="ClearButton.Content" xml:space="preserve">
     <value>清除</value>
   </data>
-<data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
+  <data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
     <value>🔀 繫結</value>
   </data>
   <data name="BindingsPage_TextBlock_17.Text" xml:space="preserve">
@@ -1517,15 +1517,6 @@
   </data>
   <data name="ChatPage_TextBlock_53.Text" xml:space="preserve">
     <value>連線到閘道以開始聊天</value>
-  </data>
-  <data name="ChatPage_TextBlock_56.Text" xml:space="preserve">
-    <value>建立閘道連線後，WebView2 聊天會在這裡載入。</value>
-  </data>
-  <data name="ChatPage_TextBlock_65.Text" xml:space="preserve">
-    <value>網頁聊天不可用</value>
-  </data>
-  <data name="ChatPage_Button_69.Content" xml:space="preserve">
-    <value>改在瀏覽器中開啟</value>
   </data>
   <data name="ConfigPage_TextBlock_17.Text" xml:space="preserve">
     <value>⚙️ 設定</value>
@@ -1704,7 +1695,7 @@
   <data name="CronPage_TextBlock_120.Text" xml:space="preserve">
     <value>未設定 Cron 工作</value>
   </data>
-<data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
+  <data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
     <value>🐛 偵錯</value>
   </data>
   <data name="DebugPage_TextBlock_14.Text" xml:space="preserve">
@@ -1758,7 +1749,7 @@
   <data name="DebugPage_Button_114.Content" xml:space="preserve">
     <value>📋 複製支援內容</value>
   </data>
-<data name="StatusHeadline.Text" xml:space="preserve">
+  <data name="StatusHeadline.Text" xml:space="preserve">
     <value>未連線到閘道</value>
   </data>
   <data name="ScanButton.Content" xml:space="preserve">
@@ -2010,12 +2001,6 @@
   <data name="ChatWindow_TextBlock_60.Text" xml:space="preserve">
     <value>連線到閘道以開始聊天</value>
   </data>
-  <data name="ChatWindow_TextBlock_67.Text" xml:space="preserve">
-    <value>聊天無法使用</value>
-  </data>
-  <data name="ChatWindow_Button_71.Content" xml:space="preserve">
-    <value>改在瀏覽器中開啟</value>
-  </data>
   <data name="TitleText.Text" xml:space="preserve">
     <value>OpenClaw Windows Companion</value>
   </data>
@@ -2244,29 +2229,14 @@
   <data name="UsagePage_TextBlock_10.Text" xml:space="preserve">
     <value>📊 使用量與成本</value>
   </data>
-  <data name="ChatWindowHomeToolTip.Content" xml:space="preserve">
-    <value>首頁</value>
-  </data>
-  <data name="ChatWindowRefreshToolTip.Content" xml:space="preserve">
-    <value>重新整理</value>
-  </data>
   <data name="ChatWindowOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>在瀏覽器中開啟</value>
   </data>
   <data name="ChatWindowCloseToolTip.Content" xml:space="preserve">
     <value>關閉</value>
   </data>
-  <data name="ChatPageHomeToolTip.Content" xml:space="preserve">
-    <value>首頁</value>
-  </data>
-  <data name="ChatPageRefreshToolTip.Content" xml:space="preserve">
-    <value>重新整理</value>
-  </data>
   <data name="ChatPageOpenInBrowserToolTip.Content" xml:space="preserve">
     <value>在瀏覽器中開啟</value>
-  </data>
-  <data name="ChatPageDeveloperToolsToolTip.Content" xml:space="preserve">
-    <value>開發人員工具</value>
   </data>
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>刪除工作</value>

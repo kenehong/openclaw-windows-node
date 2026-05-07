@@ -1,16 +1,12 @@
-using Microsoft.UI.Composition;
+using ChatSample.Chat.Model;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Hosting;
-using Microsoft.Web.WebView2.Core;
 using OpenClaw.Shared;
+using OpenClawTray.Chat;
 using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using WinUIEx;
 
 namespace OpenClawTray.Windows;
@@ -19,8 +15,8 @@ public sealed partial class ChatWindow : WindowEx
 {
     private readonly string _gatewayUrl;
     private readonly string _token;
-    private string _chatUrl = "";
-    private bool _webViewInitialized;
+    private readonly string _chatUrl;
+    private IDisposable? _reactorHost;
     public bool IsClosed { get; private set; }
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -56,9 +52,9 @@ public sealed partial class ChatWindow : WindowEx
     {
         _gatewayUrl = gatewayUrl;
         _token = token;
+        _chatUrl = BuildChatUrl(gatewayUrl, token);
         InitializeComponent();
 
-        // No system title bar for popup panel — our custom header replaces it
         this.SetWindowSize(480, 640);
         this.SetIcon(IconHelper.GetStatusIconPath(ConnectionStatus.Connected));
 
@@ -76,9 +72,32 @@ public sealed partial class ChatWindow : WindowEx
         // Auto-hide when clicking outside the panel
         Activated += OnWindowActivated;
 
-        // Hide instead of close — preserves WebView2 session for instant reopen
+        // Hide instead of close — preserves Reactor state for instant reopen
         Closed += OnWindowClosing;
-        _ = InitializeWebViewAsync();
+
+        TryMountReactorChat();
+    }
+
+    private void TryMountReactorChat()
+    {
+        var provider = (App.Current as App)?.ChatProvider;
+        if (provider is null)
+        {
+            PlaceholderPanel.Visibility = Visibility.Visible;
+            ChatHost.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PlaceholderPanel.Visibility = Visibility.Collapsed;
+        ChatHost.Visibility = Visibility.Visible;
+        _reactorHost = ((Window)this).MountReactorChat(ChatHost, provider);
+    }
+
+    private static string BuildChatUrl(string gatewayUrl, string token)
+    {
+        return GatewayChatUrlBuilder.TryBuildChatUrl(gatewayUrl, token, out var url, out _)
+            ? url
+            : $"http://127.0.0.1:19001?token={Uri.EscapeDataString(token)}";
     }
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
@@ -99,45 +118,39 @@ public sealed partial class ChatWindow : WindowEx
     {
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
-        // Get cursor position (near tray icon click)
         GetCursorPos(out POINT pt);
 
-        // Get work area of the monitor containing the cursor
         var hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfo(hMon, ref mi);
         var work = mi.rcWork;
 
-        // Get DPI scale for this monitor
         uint dpi = GetDpiForWindow(hwnd);
         double scale = dpi / 96.0;
 
-        // Panel size in physical pixels
         int panelWPx = (int)(480 * scale);
         int panelHPx = (int)(640 * scale);
 
-        // Position: bottom-right of work area, 8px margin from edges
-        // This places the panel just above the taskbar, near the tray
         int margin = 8;
         int x = work.Right - panelWPx - margin;
         int y = work.Bottom - panelHPx - margin;
 
         this.Move(x, y);
-        this.SetWindowSize(480, 640); // DIPs
+        this.SetWindowSize(480, 640);
+
+        // Mount on first show if the gateway only just came online.
+        if (_reactorHost is null) TryMountReactorChat();
 
         this.Show();
         SetForegroundWindow(hwnd);
     }
 
-    /// <summary>Show near tray. No animation — WebView2 doesn't participate in composition animations.</summary>
-    public void ShowNearTrayAnimated()
-    {
-        ShowNearTray();
-    }
+    /// <summary>Show near tray. Reactor renders synchronously so no animation gating needed.</summary>
+    public void ShowNearTrayAnimated() => ShowNearTray();
 
     private void OnWindowClosing(object sender, WindowEventArgs args)
     {
-        // Intercept close → hide instead (keeps WebView2 warm)
+        // Intercept close → hide instead (keeps Reactor state warm).
         args.Handled = true;
         this.Hide();
     }
@@ -147,104 +160,14 @@ public sealed partial class ChatWindow : WindowEx
     {
         Closed -= OnWindowClosing;
         IsClosed = true;
+        try { _reactorHost?.Dispose(); } catch { }
+        _reactorHost = null;
         Close();
-    }
-
-    private async Task InitializeWebViewAsync()
-    {
-        try
-        {
-            PlaceholderPanel.Visibility = Visibility.Collapsed;
-            LoadingRing.IsActive = true;
-            LoadingRing.Visibility = Visibility.Visible;
-
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "OpenClawTray", "WebView2");
-            Directory.CreateDirectory(userDataFolder);
-            Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
-
-            await WebView.EnsureCoreWebView2Async();
-            _webViewInitialized = true;
-
-            WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-            WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
-
-            WebView.CoreWebView2.NavigationCompleted += (s, e) =>
-            {
-                LoadingRing.IsActive = false;
-                LoadingRing.Visibility = Visibility.Collapsed;
-                if (!e.IsSuccess)
-                {
-                    WebView.Visibility = Visibility.Collapsed;
-                    ErrorPanel.Visibility = Visibility.Visible;
-                    ErrorText.Text = e.WebErrorStatus switch
-                    {
-                        CoreWebView2WebErrorStatus.CannotConnect or
-                        CoreWebView2WebErrorStatus.ConnectionReset or
-                        CoreWebView2WebErrorStatus.ServerUnreachable or
-                        CoreWebView2WebErrorStatus.Timeout =>
-                            "The gateway is not reachable. Check that it is running and try again.",
-                        _ => $"Unable to load chat. Please try again. ({e.WebErrorStatus})"
-                    };
-                }
-                else
-                {
-                    // Successful navigation — ensure we're in the right visual state (e.g. after retry)
-                    ErrorPanel.Visibility = Visibility.Collapsed;
-                    WebView.Visibility = Visibility.Visible;
-                }
-            };
-
-            // Build chat URL
-            if (GatewayUrlHelper.TryNormalizeWebSocketUrl(_gatewayUrl, out var normalizedUrl) &&
-                Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri))
-            {
-                var scheme = uri.Scheme == "wss" ? "https" : "http";
-                _chatUrl = $"{scheme}://{uri.Host}:{uri.Port}?token={Uri.EscapeDataString(_token)}";
-            }
-            else
-            {
-                _chatUrl = $"http://127.0.0.1:19001?token={Uri.EscapeDataString(_token)}";
-            }
-
-            WebView.Visibility = Visibility.Visible;
-            WebView.CoreWebView2.Navigate(_chatUrl);
-        }
-        catch (Exception ex)
-        {
-            LoadingRing.IsActive = false;
-            LoadingRing.Visibility = Visibility.Collapsed;
-            PlaceholderPanel.Visibility = Visibility.Collapsed;
-            ErrorPanel.Visibility = Visibility.Visible;
-            ErrorText.Text = $"WebView2 failed: {ex.Message}";
-        }
-    }
-
-    private void OnHome(object sender, RoutedEventArgs e)
-    {
-        if (_webViewInitialized && !string.IsNullOrEmpty(_chatUrl))
-            WebView.CoreWebView2?.Navigate(_chatUrl);
-    }
-
-    private void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_webViewInitialized) WebView.CoreWebView2?.Reload();
-    }
-
-    private void OnRetry(object sender, RoutedEventArgs e)
-    {
-        if (!_webViewInitialized || string.IsNullOrEmpty(_chatUrl)) return;
-        ErrorPanel.Visibility = Visibility.Collapsed;
-        LoadingRing.IsActive = true;
-        LoadingRing.Visibility = Visibility.Visible;
-        WebView.Visibility = Visibility.Visible;
-        WebView.CoreWebView2?.Navigate(_chatUrl);
     }
 
     private void OnPopout(object sender, RoutedEventArgs e)
     {
-        if (!string.IsNullOrEmpty(_chatUrl))
-            try { Process.Start(new ProcessStartInfo(_chatUrl) { UseShellExecute = true }); } catch { }
+        if (string.IsNullOrEmpty(_chatUrl)) return;
+        try { Process.Start(new ProcessStartInfo(_chatUrl) { UseShellExecute = true }); } catch { }
     }
 }

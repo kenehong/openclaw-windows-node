@@ -37,9 +37,18 @@ public partial class App : Application
 
     private TrayIcon? _trayIcon;
     private OpenClawGatewayClient? _gatewayClient;
+    private OpenClawTray.Chat.OpenClawChatDataProvider? _chatProvider;
 
     /// <summary>The persistent gateway client. Used by the onboarding wizard for RPC calls.</summary>
     public OpenClawGatewayClient? GatewayClient => _gatewayClient;
+
+    /// <summary>
+    /// Shared chat data provider that adapts the live gateway client into
+    /// the contract expected by the native Reactor chat surface (Hub Chat
+    /// tab and tray ChatWindow popup). Recreated on every gateway connect
+    /// and disposed on disconnect/shutdown.
+    /// </summary>
+    public OpenClawTray.Chat.OpenClawChatDataProvider? ChatProvider => _chatProvider;
 
     /// <summary>
     /// Ensures the managed SSH tunnel is started using the current settings.
@@ -1535,6 +1544,17 @@ public partial class App : Application
         _gatewayClient.AgentsListUpdated += OnAgentsListUpdated;
         _gatewayClient.AgentFilesListUpdated += OnAgentFilesListUpdated;
         _gatewayClient.AgentFileContentUpdated += OnAgentFileContentUpdated;
+
+        // Build the native chat data provider on top of the new client.
+        // ChatProvider raises Changed/NotificationRequested via the UI
+        // dispatcher captured here so Reactor components observe state on
+        // the UI thread.
+        var chatBridge = new OpenClawTray.Chat.GatewayClientChatBridge(_gatewayClient);
+        var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        _chatProvider = new OpenClawTray.Chat.OpenClawChatDataProvider(
+            chatBridge,
+            post: dispatcher is null ? null : OpenClawTray.Chat.ReactorChatHostExtensions.AsPost(dispatcher));
+
         _ = _gatewayClient.ConnectAsync();
     }
 
@@ -1568,6 +1588,15 @@ public partial class App : Application
             _gatewayClient.AgentsListUpdated -= OnAgentsListUpdated;
             _gatewayClient.AgentFilesListUpdated -= OnAgentFilesListUpdated;
             _gatewayClient.AgentFileContentUpdated -= OnAgentFileContentUpdated;
+        }
+
+        // Tear down the chat data provider whenever we tear down gateway
+        // event subscriptions; recreated in InitializeGatewayClient.
+        if (_chatProvider is not null)
+        {
+            var oldProvider = _chatProvider;
+            _chatProvider = null;
+            _ = oldProvider.DisposeAsync().AsTask();
         }
     }
     

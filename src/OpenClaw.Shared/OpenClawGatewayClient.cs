@@ -173,6 +173,13 @@ public class OpenClawGatewayClient : WebSocketClientBase
     public event EventHandler<JsonElement>? AgentsListUpdated;
     public event EventHandler<JsonElement>? AgentFilesListUpdated;
     public event EventHandler<JsonElement>? AgentFileContentUpdated;
+    /// <summary>
+    /// Raised when the gateway broadcasts a "chat" event (assistant or user
+    /// message echo). Use this to drive a chat-UI timeline; the existing
+    /// <see cref="NotificationReceived"/> path continues to fire toast
+    /// notifications and is unaffected.
+    /// </summary>
+    public event EventHandler<ChatMessageInfo>? ChatMessageReceived;
 
     public string? OperatorDeviceId => _operatorDeviceId;
     public IReadOnlyList<string> GrantedOperatorScopes => _grantedOperatorScopes;
@@ -240,7 +247,7 @@ public class OpenClawGatewayClient : WebSocketClientBase
         }
     }
 
-    public async Task SendChatMessageAsync(string message, string? sessionKey = null)
+    public async Task SendChatMessageAsync(string message, string? sessionKey = null, string? sessionId = null)
     {
         if (!IsConnected)
             throw new InvalidOperationException("Gateway connection is not open");
@@ -255,6 +262,12 @@ public class OpenClawGatewayClient : WebSocketClientBase
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         TrackPendingChatSend(requestId, completion);
 
+        // The gateway's `chat.send` validates strictly on (sessionKey, message,
+        // idempotencyKey). The spec document mentioned `sessionId` and `text`
+        // as Control-UI variants, but the live operator endpoint rejects them
+        // ("unexpected property"). The `sessionId` parameter is therefore only
+        // tracked client-side (used for display correlation) and not forwarded.
+        _ = sessionId; // reserved for future protocol versions
         var req = new
         {
             type = "req",
@@ -279,6 +292,103 @@ public class OpenClawGatewayClient : WebSocketClientBase
 
         await completion.Task;
         _logger.Info($"Sent chat message ({message.Length} chars)");
+    }
+
+    /// <summary>
+    /// Fetches the conversation transcript for a session. The gateway applies
+    /// display normalization (strips delivery directives, tool-call XML, etc.)
+    /// before returning. Throws on RPC failure or timeout.
+    /// </summary>
+    public async Task<ChatHistoryInfo> RequestChatHistoryAsync(string? sessionKey = null, int timeoutMs = 15000)
+    {
+        var effectiveSessionKey = string.IsNullOrWhiteSpace(sessionKey)
+            ? _mainSessionKey
+            : sessionKey.Trim();
+
+        var payload = await SendWizardRequestAsync(
+            "chat.history",
+            new { sessionKey = effectiveSessionKey },
+            timeoutMs);
+
+        return ParseChatHistory(payload, effectiveSessionKey);
+    }
+
+    /// <summary>
+    /// Aborts an in-flight agent run. Per spec, partial assistant output may
+    /// still be visible after the abort and is persisted into the transcript
+    /// with abort metadata.
+    /// </summary>
+    public async Task SendChatAbortAsync(string runId, int timeoutMs = 5000)
+    {
+        if (string.IsNullOrWhiteSpace(runId))
+            throw new ArgumentException("runId is required", nameof(runId));
+        await SendWizardRequestAsync("chat.abort", new { runId }, timeoutMs);
+    }
+
+    private static ChatHistoryInfo ParseChatHistory(JsonElement payload, string sessionKey)
+    {
+        var info = new ChatHistoryInfo { SessionKey = sessionKey };
+        if (payload.ValueKind != JsonValueKind.Object) return info;
+
+        if (payload.TryGetProperty("sessionId", out var sidProp) && sidProp.ValueKind == JsonValueKind.String)
+            info.SessionId = sidProp.GetString();
+
+        if (!payload.TryGetProperty("messages", out var msgs) || msgs.ValueKind != JsonValueKind.Array)
+            return info;
+
+        var list = new List<ChatMessageInfo>(msgs.GetArrayLength());
+        foreach (var m in msgs.EnumerateArray())
+        {
+            var role = m.TryGetProperty("role", out var r) ? r.GetString() ?? "" : "";
+            var ts = m.TryGetProperty("ts", out var tsProp) && tsProp.ValueKind == JsonValueKind.Number
+                ? tsProp.GetInt64() : 0;
+
+            // content can be a plain string OR an array of {type:"text", text:"..."} blocks
+            string text = ExtractMessageText(m);
+            if (string.IsNullOrEmpty(text)) continue;
+            if (string.IsNullOrEmpty(role)) continue;
+
+            list.Add(new ChatMessageInfo
+            {
+                SessionKey = sessionKey,
+                Role = role,
+                Text = text,
+                State = "final",
+                Ts = ts
+            });
+        }
+        info.Messages = list;
+        return info;
+    }
+
+    private static string ExtractMessageText(JsonElement message)
+    {
+        if (!message.TryGetProperty("content", out var content)) return string.Empty;
+
+        if (content.ValueKind == JsonValueKind.String)
+            return content.GetString() ?? string.Empty;
+
+        if (content.ValueKind == JsonValueKind.Array)
+        {
+            var sb = new StringBuilder();
+            foreach (var item in content.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    sb.Append(item.GetString());
+                }
+                else if (item.ValueKind == JsonValueKind.Object &&
+                         item.TryGetProperty("type", out var ty) && ty.GetString() == "text" &&
+                         item.TryGetProperty("text", out var tx) && tx.ValueKind == JsonValueKind.String)
+                {
+                    if (sb.Length > 0) sb.Append('\n');
+                    sb.Append(tx.GetString());
+                }
+            }
+            return sb.ToString();
+        }
+
+        return string.Empty;
     }
 
     /// <summary>
@@ -1676,27 +1786,33 @@ public class OpenClawGatewayClient : WebSocketClientBase
         
         if (!root.TryGetProperty("payload", out var payload)) return;
 
+        // Extract sessionKey for the timeline-driving event.
+        var sessionKey = "main";
+        if (payload.TryGetProperty("sessionKey", out var skProp))
+            sessionKey = skProp.GetString() ?? "main";
+
         // Try new format: payload.message.role + payload.message.content[].text
         if (payload.TryGetProperty("message", out var message))
         {
-            if (message.TryGetProperty("role", out var role) && role.GetString() == "assistant")
+            var role = message.TryGetProperty("role", out var roleProp) ? roleProp.GetString() ?? "" : "";
+            var state = payload.TryGetProperty("state", out var stateProp) ? stateProp.GetString() : null;
+
+            if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
             {
-                // Extract text from content array
-                if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
+                foreach (var item in content.EnumerateArray())
                 {
-                    foreach (var item in content.EnumerateArray())
+                    if (item.TryGetProperty("type", out var type) && type.GetString() == "text" &&
+                        item.TryGetProperty("text", out var textProp))
                     {
-                        if (item.TryGetProperty("type", out var type) && type.GetString() == "text" &&
-                            item.TryGetProperty("text", out var textProp))
+                        var text = textProp.GetString() ?? "";
+                        if (string.IsNullOrEmpty(text)) continue;
+
+                        EmitChatMessageReceived(sessionKey, role, text, state);
+
+                        if (role == "assistant" && string.Equals(state, "final", StringComparison.OrdinalIgnoreCase))
                         {
-                            var text = textProp.GetString() ?? "";
-                            if (!string.IsNullOrEmpty(text) && 
-                                payload.TryGetProperty("state", out var state) && 
-                                state.GetString() == "final")
-                            {
-                                _logger.Info($"Assistant response: {text[..Math.Min(100, text.Length)]}...");
-                                EmitChatNotification(text);
-                            }
+                            _logger.Info($"Assistant response: {text[..Math.Min(100, text.Length)]}...");
+                            EmitChatNotification(text);
                         }
                     }
                 }
@@ -1707,13 +1823,37 @@ public class OpenClawGatewayClient : WebSocketClientBase
         else if (payload.TryGetProperty("text", out var textProp))
         {
             var text = textProp.GetString() ?? "";
-            if (payload.TryGetProperty("role", out var role) &&
-                role.GetString() == "assistant" &&
-                !string.IsNullOrEmpty(text))
+            var role = payload.TryGetProperty("role", out var roleProp) ? roleProp.GetString() ?? "" : "";
+            var state = payload.TryGetProperty("state", out var stateProp) ? stateProp.GetString() : null;
+
+            if (!string.IsNullOrEmpty(text))
             {
-                _logger.Info($"Assistant response (legacy): {text[..Math.Min(100, text.Length)]}");
-                EmitChatNotification(text);
+                EmitChatMessageReceived(sessionKey, role, text, state);
+
+                if (role == "assistant")
+                {
+                    _logger.Info($"Assistant response (legacy): {text[..Math.Min(100, text.Length)]}");
+                    EmitChatNotification(text);
+                }
             }
+        }
+    }
+
+    private void EmitChatMessageReceived(string sessionKey, string role, string text, string? state)
+    {
+        try
+        {
+            ChatMessageReceived?.Invoke(this, new ChatMessageInfo
+            {
+                SessionKey = sessionKey,
+                Role = role,
+                Text = text,
+                State = state
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"ChatMessageReceived handler threw: {ex.Message}");
         }
     }
 

@@ -56,6 +56,16 @@ openclaw-windows-hub/
 │       ├── OpenClawCommandsProvider.cs  # Command provider implementation
 │       └── Pages/                    # XAML pages for command results
 │
+├── external/
+│   └── reactor/                      # Vendored Microsoft.UI.Reactor + chat sample
+│       ├── src/Reactor/              # Reactor functional UI framework (MIT)
+│       ├── src/Reactor.Analyzers/    # Roslyn analyzers (bundled)
+│       ├── src/Reactor.Localization.Generator/
+│       ├── samples/apps/chat/Chat.Model/   # Provider-neutral chat state + reducer
+│       ├── samples/apps/chat/Chat.UI/      # Reusable Reactor chat components
+│       ├── README.md                       # Refresh procedure + local edits log
+│       └── NOTICE.md                       # Third-party attribution
+│
 ├── tests/
 │   ├── OpenClaw.Shared.Tests/        # Unit tests for shared library
 │   └── OpenClaw.Tray.Tests/          # Tests for tray helpers (menu, settings, deep links)
@@ -219,6 +229,48 @@ dotnet publish src/OpenClaw.Tray.WinUI -c Release -r win-x64 --self-contained -o
 This creates a standalone executable with all dependencies bundled.
 
 ## Architecture Overview
+
+### Native chat surface (Reactor + Chat.UI)
+
+The Hub Chat tab (`src/OpenClaw.Tray.WinUI/Pages/ChatPage.xaml`) and the
+tray ChatWindow popup (`src/OpenClaw.Tray.WinUI/Windows/ChatWindow.xaml`)
+render their conversations with native WinUI 3 controls via the vendored
+`Microsoft.UI.Reactor` framework and the `Chat.UI` sample components in
+`external/reactor/`. The previous WebView2-hosted gateway web client is
+gone for those two surfaces (the onboarding overlay still uses WebView2
+and is tracked separately).
+
+**Layering:**
+
+```
+external/reactor/Chat.UI         ChatTimeline · InputBar · SessionHeader · StatusBar
+        ▲ depends on
+external/reactor/Chat.Model      ChatThread · ChatTimelineState · IChatDataProvider · ChatTimelineReducer
+        ▲ implemented by
+src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatDataProvider (adapts OpenClawGatewayClient → IChatDataProvider)
+                                 OpenClawChatRoot         (Reactor Component composing the four UI parts)
+                                 ReactorChatHostExtensions (mounts Reactor into a XAML <Border>)
+                                 IChatGatewayBridge       (testability seam over OpenClawGatewayClient)
+```
+
+**Lifecycle:**
+
+- One `OpenClawChatDataProvider` instance lives on `App` (`App.ChatProvider`),
+  created in `InitializeGatewayClient` and disposed inside
+  `UnsubscribeGatewayEvents`. Both the Hub Chat tab and the tray ChatWindow
+  consume the same provider — opening either surface shows identical state.
+- Each XAML host (`ChatPage`, `ChatWindow`) mounts its own `ReactorHost`
+  with `ContentTarget` pointing at a `<Border x:Name="ChatHost"/>`. The
+  surrounding chrome (NavigationView, popup header) stays XAML.
+- Provider events fire on the WebSocket-receive thread; the provider
+  marshals `Changed` / `NotificationRequested` callbacks through a
+  dispatcher post delegate (`DispatcherQueue.AsPost()`), so Reactor
+  components observe state on the UI thread.
+
+**Adding new chat behavior:** model new events in `Chat.Model`'s
+`ChatEvent` discriminated union (vendored — keep edits minimal; see
+`external/reactor/README.md`), handle them in `ChatTimelineReducer`, and
+emit them from `OpenClawChatDataProvider` in response to gateway signals.
 
 ### Gateway WebSocket Connection
 
