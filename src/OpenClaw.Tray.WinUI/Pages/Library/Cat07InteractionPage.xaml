@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Library.Cat07InteractionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" MaxWidth="980" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="7. Replies / Interaction" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Reply, quoted preview, mentions, buttons, reactions, follow-ups." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Border CornerRadius="10" Padding="8,2" Background="#3328A050"><TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33DC781E"><TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33648CB4"><TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/></Border>
+                </StackPanel>
+            </StackPanel>
+<Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.1 Reply directive" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Reply to a specific message." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Right" Margin="40,4,8,4" MaxWidth="640">
+  <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="10" Padding="12,8">
+    <StackPanel Spacing="6">
+      <Border BorderBrush="White" BorderThickness="3,0,0,0" Padding="8,2,0,2">
+        <StackPanel>
+          <TextBlock Text="Assistant" FontSize="10" Foreground="#FFE6E6FF" FontWeight="SemiBold"/>
+          <TextBlock Text="Use ThemeResource for theme-aware brushes…" FontSize="11" Foreground="#FFE6E6FF" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+      </Border>
+      <TextBlock Text="So should I refactor StaticResource refs in NativeChatThread?" Foreground="White" TextWrapping="Wrap"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — store an in_reply_to id and render a quoted preview." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.2 Quoted context preview" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Source excerpt when replying." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Right" Margin="40,4,8,4" MaxWidth="640">
+  <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="10" Padding="12,8">
+    <StackPanel Spacing="6">
+      <Border BorderBrush="White" BorderThickness="3,0,0,0" Padding="8,2,0,2">
+        <StackPanel>
+          <TextBlock Text="Assistant" FontSize="10" Foreground="#FFE6E6FF" FontWeight="SemiBold"/>
+          <TextBlock Text="Use ThemeResource for theme-aware brushes…" FontSize="11" Foreground="#FFE6E6FF" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+      </Border>
+      <TextBlock Text="So should I refactor StaticResource refs in NativeChatThread?" Foreground="White" TextWrapping="Wrap"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — renders alongside reply directive." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.3 Inline buttons" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Action buttons (channel-supported)." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,2,40,2"><Button Content="Approve" Style="{ThemeResource AccentButtonStyle}"/><Button Content="Reject"/><Button Content="Defer"/></StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — map an actions[] array onto a Button row." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.4 Reactions / Polls" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Reaction chips and poll display." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,2,40,2">
+  <Border CornerRadius="14" Padding="8,3" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+    <StackPanel Orientation="Horizontal" Spacing="4"><TextBlock Text="👍" FontSize="13"/><TextBlock Text="3" FontSize="11"/></StackPanel>
+  </Border>
+  <Border CornerRadius="14" Padding="8,3" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+    <StackPanel Orientation="Horizontal" Spacing="4"><TextBlock Text="🎉" FontSize="13"/><TextBlock Text="1" FontSize="11"/></StackPanel>
+  </Border>
+  <Border CornerRadius="14" Padding="8,3" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+    <TextBlock Text="+ Add" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+  </Border>
+</StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Large — multi-user sync server-side." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.5 Suggested follow-ups" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Clickable follow-up chips." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,2,40,2"><Border CornerRadius="14" Padding="10,4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1"><TextBlock Text="Tell me more" FontSize="12"/></Border><Border CornerRadius="14" Padding="10,4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1"><TextBlock Text="Show example" FontSize="12"/></Border><Border CornerRadius="14" Padding="10,4" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1"><TextBlock Text="Another approach" FontSize="12"/></Border></StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — emit suggestions[] and render as chips." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="7.6 Mentions" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="@user / @bot." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Left" Margin="8,4,40,4" MaxWidth="720">
+  <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="12,8">
+    <TextBlock TextWrapping="Wrap"><Run Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" FontWeight="SemiBold" Text="@kenny"/><Run Text=" please review the latest "/><Run Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" FontWeight="SemiBold" Text="@bot"/><Run Text=" output."/></TextBlock>
+  </Border>
+</Grid>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — simple parser + accent Run." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

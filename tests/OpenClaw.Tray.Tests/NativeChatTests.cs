@@ -14,11 +14,11 @@ public class NativeChatTests
     // ── Feature flag ──
 
     [Fact]
-    public void NativeChatFeature_DefaultsOff()
+    public void NativeChatFeature_DefaultsOn()
     {
         ClearEnv();
         var settings = NewIsolatedSettings();
-        Assert.False(NativeChatFeature.IsEnabled(settings));
+        Assert.True(NativeChatFeature.IsEnabled(settings));
     }
 
     [Theory]

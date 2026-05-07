@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Controls.ChatExplorations.ChatExplorationPreview"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OpenClawTray.Controls.ChatExplorations">
+
+    <UserControl.Resources>
+        <!-- Per-variation visual values. Code-behind picks one of these
+             dictionaries when Variation changes and pushes values into the
+             relevant DPs. We don't use ResourceDictionary swap — keeping
+             values close to the visual tree makes tweaks easier to read. -->
+    </UserControl.Resources>
+
+    <!-- Root is transparent so SystemBackdrop (Mica/Acrylic) can show through
+         when this control is hosted inside ChatExplorationPreviewWindow.
+         Inline (in component library), the parent provides a fallback brush. -->
+    <Grid x:Name="Root" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Thread -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0">
+            <StackPanel x:Name="MessageStack" Padding="0,12,0,12" Spacing="0"/>
+        </ScrollViewer>
+
+        <!-- Composer (mirrors production ChatShell layout) -->
+        <Border x:Name="ComposerBorder" Grid.Row="1"
+                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="14,12">
+            <ContentControl x:Name="ComposerHost"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            IsTabStop="False"/>
+        </Border>
+    </Grid>
+</UserControl>

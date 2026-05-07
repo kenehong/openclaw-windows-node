@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Library.Cat09StructuredPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" MaxWidth="980" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="9. Structured output" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Plans, checklists, session status." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Border CornerRadius="10" Padding="8,2" Background="#3328A050"><TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33DC781E"><TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33648CB4"><TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/></Border>
+                </StackPanel>
+            </StackPanel>
+<Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="9.1 Plan / Todo card" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Step-progress checklist." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="4">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock Text="Implementation plan" FontWeight="SemiBold"/>
+      <TextBlock Grid.Column="1" Text="1 of 3" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    </Grid>
+    <CheckBox Content="Initial setup" IsChecked="true" IsEnabled="False"/><CheckBox Content="API integration" IsChecked="false" IsEnabled="False"/><CheckBox Content="Tests" IsChecked="false" IsEnabled="False"/>
+  </StackPanel>
+</Border>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — define a plan event in the protocol; CheckBox list on render." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="9.2 Session status card" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Model, tokens, time, cost." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="6">
+    <TextBlock Text="Session status" FontWeight="SemiBold"/>
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Model" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <TextBlock Grid.Row="0" Grid.Column="1" Text="claude-opus-4.7" FontSize="12"/>
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Tokens" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <TextBlock Grid.Row="1" Grid.Column="1" Text="12,340 in · 4,120 out" FontSize="12"/>
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="Elapsed" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <TextBlock Grid.Row="2" Grid.Column="1" Text="2 min 14 s" FontSize="12"/>
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="Cost" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <TextBlock Grid.Row="3" Grid.Column="1" Text="$0.12" FontSize="12"/>
+    </Grid>
+  </StackPanel>
+</Border>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — usage data already exists; just needs a card UI." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -85,9 +85,9 @@ public class SettingsManager
 
     // Native chat (M1 migration). When true, ChatWindow / ChatPage host the new
     // NativeChatSurface instead of the WebView2-based ChatSurface. See
-    // docs/NATIVE_CHAT_MIGRATION.md. Default off; OPENCLAW_TRAY_NATIVE_CHAT=1
-    // env var can force-enable for dogfood without flipping the setting.
-    public bool UseNativeChat { get; set; } = false;
+    // docs/NATIVE_CHAT_MIGRATION.md. Default on as of M1 dogfood cutover; the
+    // OPENCLAW_TRAY_NATIVE_CHAT env var (0/false/no/off) can force-disable.
+    public bool UseNativeChat { get; set; } = true;
 
     public SettingsManager() : this(DefaultSettingsDirectory)
     {

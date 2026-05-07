@@ -117,11 +117,6 @@ public sealed partial class ChatWindow : WindowEx
         }
     }
 
-    private void OnCloseClick(object sender, RoutedEventArgs e)
-    {
-        this.Hide();
-    }
-
     /// <summary>Position near the system tray and show with animation.</summary>
     public void ShowNearTray()
     {
@@ -177,10 +172,6 @@ public sealed partial class ChatWindow : WindowEx
         Close();
     }
 
-    private void OnHome(object sender, RoutedEventArgs e)
-    {
-        if (_nativeActive) NativeSurface.NavigateHome(); else Surface.NavigateHome();
-    }
     private void OnRefresh(object sender, RoutedEventArgs e)
     {
         if (_nativeActive) NativeSurface.Reload(); else Surface.Reload();

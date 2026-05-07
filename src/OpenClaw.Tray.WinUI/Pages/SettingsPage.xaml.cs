@@ -35,7 +35,6 @@ public sealed partial class SettingsPage : Page
     {
         AutoStartToggle.IsOn = settings.AutoStart;
         GlobalHotkeyToggle.IsOn = settings.GlobalHotkeyEnabled;
-        UseNativeChatToggle.IsOn = settings.UseNativeChat;
         NotificationsToggle.IsOn = settings.ShowNotifications;
 
         for (int i = 0; i < NotificationSoundComboBox.Items.Count; i++)
@@ -114,10 +113,35 @@ public sealed partial class SettingsPage : Page
         catch { }
     }
 
-    private void OnUseNativeChatToggled(object sender, RoutedEventArgs e)
+    private void OnRestartTrayClicked(object sender, RoutedEventArgs e)
     {
-        if (!_initialized || _hub?.Settings == null) return;
-        _hub.Settings.UseNativeChat = UseNativeChatToggle.IsOn;
-        _hub.Settings.Save();
+        try
+        {
+            // Persist any pending toggles first so the new instance picks them up.
+            _hub?.Settings?.Save();
+        }
+        catch { }
+
+        try
+        {
+            var exe = Environment.ProcessPath
+                ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (string.IsNullOrEmpty(exe))
+                return;
+
+            // Single-instance mutex held by the current process — delay the relaunch
+            // a couple of seconds so the new instance starts cleanly after we exit.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c timeout /t 2 /nobreak >nul && start \"\" \"{exe}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+            });
+        }
+        catch { }
+
+        Application.Current.Exit();
     }
 }

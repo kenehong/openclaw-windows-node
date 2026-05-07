@@ -10,7 +10,7 @@
         <!-- Per-kind data templates. Selector below picks one. -->
 
         <DataTemplate x:Key="UserMessageTemplate" x:DataType="chat:UserMessageItem">
-            <Grid HorizontalAlignment="Right" Margin="40,4,8,4" MaxWidth="640">
+            <Grid HorizontalAlignment="Right" Margin="64,4,8,4" MaxWidth="560">
                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
                         CornerRadius="10" Padding="12,8,12,8">
                     <StackPanel Spacing="2">
@@ -26,7 +26,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="AssistantMessageTemplate" x:DataType="chat:AssistantMessageItem">
-            <Grid HorizontalAlignment="Left" Margin="8,4,40,4" MaxWidth="720">
+            <Grid HorizontalAlignment="Left" Margin="8,4,64,4" MaxWidth="560">
                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                         CornerRadius="10" Padding="12,8,12,8">
                     <StackPanel Spacing="2">

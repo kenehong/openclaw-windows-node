@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Library.Cat14StatusPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" MaxWidth="980" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="14. Status indicators" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Typing, usage, gauge, badges." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Border CornerRadius="10" Padding="8,2" Background="#3328A050"><TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33DC781E"><TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33648CB4"><TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/></Border>
+                </StackPanel>
+            </StackPanel>
+<Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.1 Typing / streaming" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Progress ring while streaming." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#3328A050">
+        <TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Left" Margin="8,4,40,4">
+  <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="12,8">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <ProgressRing IsActive="True" Width="14" Height="14"/>
+      <TextBlock Text="Assistant is thinking…" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.2 Token usage / cost footer" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Composer footer with usage." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="10,4">
+  <StackPanel Orientation="Horizontal" Spacing="14">
+    <TextBlock Text="↑ 12,340" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    <TextBlock Text="↓ 4,120" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    <TextBlock Text="$0.12" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+  </StackPanel>
+</Border>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — usage data exists; just a footer UI." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.3 Context window gauge" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Remaining-percent gauge." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Spacing="4">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBlock Text="Context window" FontSize="12"/>
+    <TextBlock Grid.Column="1" Text="58%" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+  </Grid>
+  <ProgressBar Value="58" Maximum="100" Height="4"/>
+  <TextBlock Text="118k of 200k tokens used" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+</StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — agent must emit context-size metadata." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.4 Model badge" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Current model tag (already in title bar)." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#3328A050">
+        <TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Border CornerRadius="10" Padding="8,3" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" HorizontalAlignment="Left">
+  <StackPanel Orientation="Horizontal" Spacing="6">
+    <TextBlock Text="🤖" FontSize="11"/>
+    <TextBlock Text="claude-opus-4.7" FontSize="11" FontFamily="Consolas"/>
+  </StackPanel>
+</Border>
+    </Border>
+    
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.5 Channel badge" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="webchat / discord / telegram pill." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+  <Border CornerRadius="10" Padding="8,3" Background="#332B6CB4"><TextBlock Text="webchat" FontSize="10" Foreground="#FF7BB6FF"/></Border>
+  <Border CornerRadius="10" Padding="8,3" Background="#33648CB4"><TextBlock Text="discord" FontSize="10" Foreground="#FF9CB4FF"/></Border>
+  <Border CornerRadius="10" Padding="8,3" Background="#3328A0DC"><TextBlock Text="telegram" FontSize="10" Foreground="#FF7BD0FF"/></Border>
+</StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — single channel property." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="14.6 Mode badges" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Elevated / Verbose / Reasoning chips." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+  <Border CornerRadius="10" Padding="8,3" Background="#33C83232"><TextBlock Text="Elevated" FontSize="10" Foreground="#FFFFB4B4"/></Border>
+  <Border CornerRadius="10" Padding="8,3" Background="#33DC781E"><TextBlock Text="Verbose" FontSize="10" Foreground="#FFFFE0B4"/></Border>
+  <Border CornerRadius="10" Padding="8,3" Background="#33648CB4"><TextBlock Text="Reasoning" FontSize="10" Foreground="#FFB4D0FF"/></Border>
+</StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — map mode flags to chip pills." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

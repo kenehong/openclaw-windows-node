@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -156,6 +157,21 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         NativeChatPage.Visibility = Visibility.Collapsed;
         AgentRunCardPage.Visibility = Visibility.Collapsed;
         ComingSoonPage.Visibility = Visibility.Collapsed;
+        Cat01Page.Visibility = Visibility.Collapsed;
+        Cat02Page.Visibility = Visibility.Collapsed;
+        Cat03Page.Visibility = Visibility.Collapsed;
+        Cat04Page.Visibility = Visibility.Collapsed;
+        Cat05Page.Visibility = Visibility.Collapsed;
+        Cat06Page.Visibility = Visibility.Collapsed;
+        Cat07Page.Visibility = Visibility.Collapsed;
+        Cat08Page.Visibility = Visibility.Collapsed;
+        Cat09Page.Visibility = Visibility.Collapsed;
+        Cat10Page.Visibility = Visibility.Collapsed;
+        Cat11Page.Visibility = Visibility.Collapsed;
+        Cat12Page.Visibility = Visibility.Collapsed;
+        Cat13Page.Visibility = Visibility.Collapsed;
+        Cat14Page.Visibility = Visibility.Collapsed;
+        ChatUiExplorationsPage.Visibility = Visibility.Collapsed;
 
         if (tag == "tray-status")
         {
@@ -178,6 +194,25 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         else if (tag == "agent-run-card")
         {
             AgentRunCardPage.Visibility = Visibility.Visible;
+        }
+        else if (tag == "cat-content") { Cat01Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-code") { Cat02Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-reasoning") { Cat03Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-tools") { Cat04Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-media") { Cat05Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-embeds") { Cat06Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-interaction") { Cat07Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-citations") { Cat08Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-structured") { Cat09Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-system") { Cat10Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-collapsible") { Cat11Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-input") { Cat12Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-flow") { Cat13Page.Visibility = Visibility.Visible; }
+        else if (tag == "cat-status") { Cat14Page.Visibility = Visibility.Visible; }
+        else if (tag == "chat-ui")
+        {
+            ChatUiExplorationsPage.Visibility = Visibility.Visible;
+            EnsureChatExplorationInitialized();
         }
         else
         {
@@ -1263,5 +1298,304 @@ public sealed partial class ComponentLibraryWindow : WindowEx
                 TextWrapping = TextWrapping.Wrap
             }
         };
+    }
+
+    // ============================================================
+    // Chat UI explorations
+    // ============================================================
+
+    private bool _chatExplorationInitialized;
+    private bool _chatExplorationSuppressEvents;
+
+    private void EnsureChatExplorationInitialized()
+    {
+        if (_chatExplorationInitialized) return;
+        _chatExplorationInitialized = true;
+
+        _chatExplorationSuppressEvents = true;
+
+        ChatExplorationVariationCombo.ItemsSource = new[] { "Calm (Mica look)", "Compact (Acrylic look)", "Plain Editorial (Solid)" };
+        ChatExplorationBackdropCombo.ItemsSource = new[] { "Mica", "Mica Alt", "Acrylic", "Solid" };
+        ChatExplorationThemeCombo.ItemsSource = new[] { "System", "Light", "Dark" };
+        ChatExplorationDensityCombo.ItemsSource = new[] { "Cozy", "Comfortable", "Compact" };
+        ChatExplorationAvatarCombo.ItemsSource = new[] { "Both (user + agent)", "Agent only", "None" };
+        ChatExplorationComposerLayoutCombo.ItemsSource = new[]
+        {
+            "Three rows (drop-downs · text · actions)",
+            "Inline pill (text · session·model pill · send)",
+            "Minimal (text + send)"
+        };
+        ChatExplorationViewportCombo.ItemsSource = new[]
+        {
+            "Tray (480 × 640)",
+            "Companion (720 × 900)"
+        };
+
+        // Defaults baked from the saved preset (designer-approved).
+        ChatExplorationVariationCombo.SelectedIndex = 0;          // Calm
+        ChatExplorationBackdropCombo.SelectedIndex = 2;           // Acrylic
+        ChatExplorationThemeCombo.SelectedIndex = 0;              // System
+        ChatExplorationDensityCombo.SelectedIndex = 1;            // Comfortable
+        ChatExplorationAvatarCombo.SelectedIndex = 1;             // Agent only
+        ChatExplorationComposerLayoutCombo.SelectedIndex = 1;     // Inline pill
+        ChatExplorationViewportCombo.SelectedIndex = 0;           // Tray
+
+        // Seed sliders to Calm defaults; ApplyVariationDefaults below will resync.
+        ChatExplorationCornerSlider.Value = 13;
+        ChatExplorationComposerCornerSlider.Value = 8;
+        ChatExplorationGutterSlider.Value = 64;
+        ChatExplorationGapSlider.Value = 12;
+
+        _chatExplorationSuppressEvents = false;
+
+        ApplyVariationToSliders(OpenClawTray.Controls.ChatExplorations.ChatVariation.Calm);
+        PushAllPropsToInline();
+    }
+
+    private void ApplyVariationToSliders(OpenClawTray.Controls.ChatExplorations.ChatVariation v)
+    {
+        _chatExplorationSuppressEvents = true;
+        switch (v)
+        {
+            case OpenClawTray.Controls.ChatExplorations.ChatVariation.Calm:
+                ChatExplorationCornerSlider.Value = 13;
+                ChatExplorationComposerCornerSlider.Value = 8;
+                ChatExplorationGutterSlider.Value = 64;
+                ChatExplorationGapSlider.Value = 12;
+                ChatExplorationDensityCombo.SelectedIndex = 1;
+                break;
+            case OpenClawTray.Controls.ChatExplorations.ChatVariation.Compact:
+                ChatExplorationCornerSlider.Value = 8;
+                ChatExplorationComposerCornerSlider.Value = 4;
+                ChatExplorationGutterSlider.Value = 40;
+                ChatExplorationGapSlider.Value = 4;
+                ChatExplorationDensityCombo.SelectedIndex = 2;
+                break;
+            case OpenClawTray.Controls.ChatExplorations.ChatVariation.Plain:
+                ChatExplorationCornerSlider.Value = 0;
+                ChatExplorationComposerCornerSlider.Value = 4;
+                ChatExplorationGutterSlider.Value = 80;
+                ChatExplorationGapSlider.Value = 16;
+                ChatExplorationDensityCombo.SelectedIndex = 1;
+                break;
+        }
+        _chatExplorationSuppressEvents = false;
+    }
+
+    private OpenClawTray.Controls.ChatExplorations.ChatVariation CurrentVariation()
+        => ChatExplorationVariationCombo.SelectedIndex switch
+        {
+            1 => OpenClawTray.Controls.ChatExplorations.ChatVariation.Compact,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatVariation.Plain,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatVariation.Calm,
+        };
+
+    private OpenClawTray.Controls.ChatExplorations.ChatBackdropMode CurrentBackdrop()
+        => ChatExplorationBackdropCombo.SelectedIndex switch
+        {
+            1 => OpenClawTray.Controls.ChatExplorations.ChatBackdropMode.MicaAlt,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatBackdropMode.Acrylic,
+            3 => OpenClawTray.Controls.ChatExplorations.ChatBackdropMode.Solid,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatBackdropMode.Mica,
+        };
+
+    private OpenClawTray.Controls.ChatExplorations.ChatPreviewTheme CurrentTheme()
+        => ChatExplorationThemeCombo.SelectedIndex switch
+        {
+            1 => OpenClawTray.Controls.ChatExplorations.ChatPreviewTheme.Light,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatPreviewTheme.Dark,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatPreviewTheme.System,
+        };
+
+    private OpenClawTray.Controls.ChatExplorations.ChatPaddingDensity CurrentDensity()
+        => ChatExplorationDensityCombo.SelectedIndex switch
+        {
+            0 => OpenClawTray.Controls.ChatExplorations.ChatPaddingDensity.Cozy,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatPaddingDensity.Compact,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatPaddingDensity.Comfortable,
+        };
+
+    private OpenClawTray.Controls.ChatExplorations.ChatAvatarMode CurrentAvatarMode()
+        => ChatExplorationAvatarCombo.SelectedIndex switch
+        {
+            1 => OpenClawTray.Controls.ChatExplorations.ChatAvatarMode.AgentOnly,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatAvatarMode.None,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatAvatarMode.Both,
+        };
+
+    private OpenClawTray.Controls.ChatExplorations.ChatComposerLayout CurrentComposerLayout()
+        => ChatExplorationComposerLayoutCombo.SelectedIndex switch
+        {
+            1 => OpenClawTray.Controls.ChatExplorations.ChatComposerLayout.InlinePill,
+            2 => OpenClawTray.Controls.ChatExplorations.ChatComposerLayout.Minimal,
+            _ => OpenClawTray.Controls.ChatExplorations.ChatComposerLayout.ThreeRow,
+        };
+
+    private void PushAllPropsToInline()
+    {
+        if (ChatExplorationInline == null) return;
+        ChatExplorationInline.Variation = CurrentVariation();
+        ChatExplorationInline.BackdropMode = CurrentBackdrop();
+        ChatExplorationInline.PreviewTheme = CurrentTheme();
+        ChatExplorationInline.PaddingDensity = CurrentDensity();
+        ChatExplorationInline.BubbleCornerRadius = ChatExplorationCornerSlider.Value;
+        ChatExplorationInline.ComposerCornerRadius = ChatExplorationComposerCornerSlider.Value;
+        ChatExplorationInline.Gutter = ChatExplorationGutterSlider.Value;
+        ChatExplorationInline.MessageGap = ChatExplorationGapSlider.Value;
+        ChatExplorationInline.AvatarMode = CurrentAvatarMode();
+        ChatExplorationInline.ComposerLayout = CurrentComposerLayout();
+        ChatExplorationInline.ComposerIconSize = ChatExplorationIconSizeSlider.Value;
+        ChatExplorationInline.SendButtonSize = ChatExplorationSendSizeSlider.Value;
+        ChatExplorationInline.ShowTimestamps = ChatExplorationTimestampsToggle.IsOn;
+    }
+
+    private void OnChatExplorationVariationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ApplyVariationToSliders(CurrentVariation());
+        PushAllPropsToInline();
+    }
+
+    private void OnChatExplorationBackdropChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.BackdropMode = CurrentBackdrop();
+    }
+
+    private void OnChatExplorationThemeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.PreviewTheme = CurrentTheme();
+    }
+
+    private void OnChatExplorationDensityChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.PaddingDensity = CurrentDensity();
+    }
+
+    private void OnChatExplorationSliderChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        if (sender == ChatExplorationCornerSlider) ChatExplorationInline.BubbleCornerRadius = e.NewValue;
+        else if (sender == ChatExplorationComposerCornerSlider) ChatExplorationInline.ComposerCornerRadius = e.NewValue;
+        else if (sender == ChatExplorationGutterSlider) ChatExplorationInline.Gutter = e.NewValue;
+        else if (sender == ChatExplorationGapSlider) ChatExplorationInline.MessageGap = e.NewValue;
+        else if (sender == ChatExplorationIconSizeSlider)
+        {
+            ChatExplorationInline.ComposerIconSize = e.NewValue;
+            if (ChatExplorationIconSizeLabel != null)
+                ChatExplorationIconSizeLabel.Text = $"Composer icon size: {(int)e.NewValue}";
+        }
+        else if (sender == ChatExplorationSendSizeSlider)
+        {
+            ChatExplorationInline.SendButtonSize = e.NewValue;
+            if (ChatExplorationSendSizeLabel != null)
+                ChatExplorationSendSizeLabel.Text = $"Send button size: {(int)e.NewValue}";
+        }
+    }
+
+    private void OnChatExplorationToggleChanged(object sender, RoutedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.ShowTimestamps = ChatExplorationTimestampsToggle.IsOn;
+    }
+
+    private void OnChatExplorationAvatarChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.AvatarMode = CurrentAvatarMode();
+    }
+
+    private void OnChatExplorationComposerLayoutChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInline.ComposerLayout = CurrentComposerLayout();
+    }
+
+    /// <summary>Resize the inline preview frame to mimic the chosen surface.
+    /// 0 = Tray (480×640), 1 = Companion (720×900). Same dimensions are passed
+    /// to the popup window when it is opened.</summary>
+    private (double width, double height) CurrentViewportSize()
+        => ChatExplorationViewportCombo.SelectedIndex == 1
+            ? (720d, 900d)
+            : (480d, 640d);
+
+    private void OnChatExplorationViewportChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        var (w, h) = CurrentViewportSize();
+        ChatExplorationInlineFrame.Width = w;
+        ChatExplorationInlineFrame.Height = h;
+    }
+
+    private void OnChatExplorationHeaderTitleChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        // Empty string falls back to "Chat" so the inline preview never goes blank.
+        var text = string.IsNullOrWhiteSpace(ChatExplorationHeaderTitleBox.Text) ? "Chat" : ChatExplorationHeaderTitleBox.Text;
+        ChatExplorationInlineHeaderTitle.Text = text;
+    }
+
+    private void OnChatExplorationOnlineDotToggled(object sender, RoutedEventArgs e)
+    {
+        if (_chatExplorationSuppressEvents || !_chatExplorationInitialized) return;
+        ChatExplorationInlineOnlineDot.Visibility =
+            ChatExplorationOnlineDotToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnChatExplorationOpenWindow(object sender, RoutedEventArgs e)
+    {
+        var (w, h) = CurrentViewportSize();
+        var window = new ChatExplorationPreviewWindow();
+        window.SetWindowSize((int)w, (int)h);
+        window.SetHeader(
+            string.IsNullOrWhiteSpace(ChatExplorationHeaderTitleBox.Text) ? "Chat" : ChatExplorationHeaderTitleBox.Text,
+            ChatExplorationOnlineDotToggle.IsOn);
+        window.ApplyProps(
+            CurrentVariation(),
+            CurrentBackdrop(),
+            ChatExplorationCornerSlider.Value,
+            ChatExplorationGutterSlider.Value,
+            ChatExplorationGapSlider.Value,
+            CurrentDensity(),
+            CurrentAvatarMode(),
+            ChatExplorationTimestampsToggle.IsOn,
+            CurrentTheme(),
+            ChatExplorationComposerCornerSlider.Value,
+            CurrentComposerLayout(),
+            ChatExplorationIconSizeSlider.Value,
+            ChatExplorationSendSizeSlider.Value);
+        window.Activate();
+    }
+
+    /// <summary>
+    /// Copies a human/agent-readable preset of every chat-exploration prop to
+    /// the clipboard. Designer pastes it into chat; agent bakes the values into
+    /// the code defaults. Round-trip is a one-liner — no disk persistence.
+    /// </summary>
+    private void OnChatExplorationCopyPreset(object sender, RoutedEventArgs e)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("chat-preset:");
+        sb.AppendLine($"  variation: {CurrentVariation()}");
+        sb.AppendLine($"  backdrop: {CurrentBackdrop()}");
+        sb.AppendLine($"  theme: {CurrentTheme()}");
+        sb.AppendLine($"  density: {CurrentDensity()}");
+        sb.AppendLine($"  bubbleCorner: {(int)ChatExplorationCornerSlider.Value}");
+        sb.AppendLine($"  composerCorner: {(int)ChatExplorationComposerCornerSlider.Value}");
+        sb.AppendLine($"  gutter: {(int)ChatExplorationGutterSlider.Value}");
+        sb.AppendLine($"  gap: {(int)ChatExplorationGapSlider.Value}");
+        sb.AppendLine($"  avatar: {CurrentAvatarMode()}");
+        sb.AppendLine($"  composerLayout: {CurrentComposerLayout()}");
+        sb.AppendLine($"  iconSize: {(int)ChatExplorationIconSizeSlider.Value}");
+        sb.AppendLine($"  sendSize: {(int)ChatExplorationSendSizeSlider.Value}");
+        sb.AppendLine($"  timestamps: {ChatExplorationTimestampsToggle.IsOn.ToString().ToLowerInvariant()}");
+
+        var pkg = new global::Windows.ApplicationModel.DataTransfer.DataPackage();
+        pkg.SetText(sb.ToString());
+        global::Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(pkg);
+
+        ChatExplorationCopyStatus.Text = $"Copied at {DateTime.Now:HH:mm:ss} — paste this to the agent to bake as defaults.";
     }
 }

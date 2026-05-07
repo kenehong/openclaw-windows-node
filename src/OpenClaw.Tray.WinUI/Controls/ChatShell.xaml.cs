@@ -130,7 +130,33 @@ public sealed partial class ChatShell : UserControl
             ApplyLeftRail();
             ApplyComposer();
             ApplyHeader();
+            EnsureDropdownDefaults();
         };
+    }
+
+    /// <summary>
+    /// Ensure each of the three composer dropdowns has a visible selection on first paint.
+    /// If a host (ComponentLibraryWindow / future Hub binding) has already populated a
+    /// SelectedX, we leave it alone; otherwise we fall back to the first option of the
+    /// current options list. Suppresses DropdownChanged so the seed value doesn't look
+    /// like a user action.
+    /// </summary>
+    private void EnsureDropdownDefaults()
+    {
+        _suppressDropdownEvents = true;
+        try
+        {
+            if (string.IsNullOrEmpty(SelectedChannel) && ChannelOptions is { Count: > 0 } ch)
+                SelectedChannel = ch[0];
+            if (string.IsNullOrEmpty(SelectedModel) && ModelOptions is { Count: > 0 } md)
+                SelectedModel = md[0];
+            if (string.IsNullOrEmpty(SelectedReasoning) && ReasoningOptions is { Count: > 0 } rs)
+                SelectedReasoning = rs[0];
+        }
+        finally
+        {
+            _suppressDropdownEvents = false;
+        }
     }
 
     /// <summary>Programmatically populate dropdowns without firing DropdownChanged.</summary>

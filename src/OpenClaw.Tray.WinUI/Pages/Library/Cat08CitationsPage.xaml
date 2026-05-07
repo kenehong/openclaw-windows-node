@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Library.Cat08CitationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" MaxWidth="980" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="8. Citations / Sources" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Citations and memory-saved alerts." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Border CornerRadius="10" Padding="8,2" Background="#3328A050"><TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33DC781E"><TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33648CB4"><TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/></Border>
+                </StackPanel>
+            </StackPanel>
+<Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="8.1 Citations" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="[1] inline + source card." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33DC781E">
+        <TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <StackPanel Spacing="8">
+  <Grid HorizontalAlignment="Left" Margin="8,4,40,4" MaxWidth="720">
+    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="10" Padding="12,8">
+      <TextBlock TextWrapping="Wrap"><Run Text="WinUI uses ThemeResource for theme-aware brushes "/><Run Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" FontSize="10" Text="[1]"/><Run Text=", and StaticResource for fixed values "/><Run Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" FontSize="10" Text="[2]"/><Run Text="."/></TextBlock>
+    </Border>
+  </Grid>
+  <Border Margin="8,2,40,2" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6">
+    <StackPanel Spacing="3">
+      <TextBlock FontSize="11" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Text="[1] learn.microsoft.com"/>
+      <TextBlock FontSize="12" Text="ThemeResource markup extension — WinUI"/>
+      <TextBlock FontSize="11" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Margin="0,4,0,0" Text="[2] github.com/microsoft/microsoft-ui-xaml"/>
+      <TextBlock FontSize="12" Text="StaticResource samples"/>
+    </StackPanel>
+  </Border>
+</StackPanel>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🛠" FontSize="11"/>
+            <TextBlock Text="Feasible — agent emits citations; add render + source-list section." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="8.2 Memory saved" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="'I'll remember that' badge." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <InfoBar IsOpen="True" Severity="Success" Title="Memory saved" Message="Kenny prefers replies in English with concise tone." IsClosable="False"/>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — needs a memory.save event in the protocol." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

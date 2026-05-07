@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Library.Cat10SystemPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" MaxWidth="980" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="10. System / Meta" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Heartbeat, events, errors, banners, render fallback." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Border CornerRadius="10" Padding="8,2" Background="#3328A050"><TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33DC781E"><TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/></Border>
+                    <Border CornerRadius="10" Padding="8,2" Background="#33648CB4"><TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/></Border>
+                </StackPanel>
+            </StackPanel>
+<Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.1 Heartbeat" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="HEARTBEAT_OK / probe result." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#3328A050">
+        <TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Center" Margin="0,4">
+  <Border Padding="10,4" CornerRadius="12">
+    <Border.Background><SolidColorBrush Color="#FF28A050" Opacity="0.18"/></Border.Background>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Text="✓" FontSize="12"/>
+      <TextBlock Text="Connected · last heartbeat 14:32:01" FontSize="12"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.2 System events" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Cron, alerts, restarts." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#3328A050">
+        <TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Center" Margin="0,4">
+  <Border Padding="10,4" CornerRadius="12">
+    <Border.Background><SolidColorBrush Color="#FF648CB4" Opacity="0.18"/></Border.Background>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Text="🌅" FontSize="12"/>
+      <TextBlock Text="Session reset — context compacted" FontSize="12"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.3 Continuation" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Follow-up after restart." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Center" Margin="0,4">
+  <Border Padding="10,4" CornerRadius="12">
+    <Border.Background><SolidColorBrush Color="#FF648CB4" Opacity="0.18"/></Border.Background>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Text="↳" FontSize="12"/>
+      <TextBlock Text="Resumed after restart — continuing previous task" FontSize="12"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — extend SystemNoticeKind enum and emit on resume." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.4 Error / Warning" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Tool failure or policy refusal." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#3328A050">
+        <TextBlock Text="Implemented" FontSize="10" Foreground="#FF28A050" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Grid HorizontalAlignment="Center" Margin="0,4">
+  <Border Padding="10,4" CornerRadius="12">
+    <Border.Background><SolidColorBrush Color="#FFC83232" Opacity="0.18"/></Border.Background>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Text="✕" FontSize="12"/>
+      <TextBlock Text="ToolError: timeout exceeded after 30 s" FontSize="12"/>
+    </StackPanel>
+  </Border>
+</Grid>
+    </Border>
+    
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.5 Rate-limit banner" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="Top-of-window throttle notice." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33DC781E">
+        <TextBlock Text="Render gap" FontSize="10" Foreground="#FFDC781E" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <Border Background="#FF332B1E" BorderBrush="#FFDC781E" BorderThickness="0,0,0,1" Padding="14,8">
+  <StackPanel Orientation="Horizontal" Spacing="8">
+    <TextBlock Text="⚠" Foreground="#FFFFE0B4" FontSize="14"/>
+    <TextBlock Text="Per-minute token limit reached — retry in 30 s" Foreground="#FFFFE0B4" FontSize="13"/>
+  </StackPanel>
+</Border>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🛠" FontSize="11"/>
+            <TextBlock Text="Feasible — reuse the ConnectionBanner pattern; just wire the trigger." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border><Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+  <StackPanel Spacing="10">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Spacing="2">
+        <TextBlock Text="10.6 Render-failure fallback" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap"/>
+        <TextBlock Text="'Cannot display — show source'." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border Grid.Column="1" VerticalAlignment="Top" Margin="8,2,0,0" CornerRadius="10" Padding="8,2" Background="#33648CB4">
+        <TextBlock Text="Future" FontSize="10" Foreground="#FF648CB4" FontWeight="SemiBold"/>
+      </Border>
+    </Grid>
+    <Border Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}" CornerRadius="6" Padding="6">
+      <InfoBar IsOpen="True" Severity="Error" Title="Render failed" Message="Diagram block could not be rendered." IsClosable="False">
+  <InfoBar.ActionButton><Button Content="Show source"/></InfoBar.ActionButton>
+</InfoBar>
+    </Border>
+    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="4" Padding="8,5" Margin="0,4,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="🔮" FontSize="11"/>
+            <TextBlock Text="Feasible — wrap render in try/catch with a 'show source' fallback." FontSize="11" FontStyle="Italic" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+  </StackPanel>
+</Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

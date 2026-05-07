@@ -190,6 +190,16 @@ public sealed partial class NativeChatSurface : UserControl
             }
         }
         if (_store == null || string.IsNullOrWhiteSpace(text)) return;
+
+        // Dev-only slash: `/think-demo` synthesizes a fake reasoning trace + assistant
+        // reply locally so we can validate the ThinkingBlock UI without a live agent
+        // that emits `isReasoning` deltas. Does not round-trip the gateway.
+        if (text!.Trim().Equals("/think-demo", StringComparison.OrdinalIgnoreCase))
+        {
+            RunThinkingDemo();
+            return;
+        }
+
         try
         {
             // Stop affordance: if a run is in flight, treat Send as Abort. (Composer flips
@@ -217,6 +227,60 @@ public sealed partial class NativeChatSurface : UserControl
         // (handled inside ChatTranscriptStore.SendAsync) so we don't have to round-trip
         // a hidden command on every selection. No-op here.
         _ = e;
+    }
+
+    /// <summary>
+    /// Dev-only: synthesize a complete reasoning trace + assistant reply by feeding
+    /// the local ChatTranscriptStore the same shape of events the live gateway would.
+    /// Trigger by typing `/think-demo` in the composer. Useful for visually validating
+    /// the ThinkingBlockTemplate without depending on a reasoning-capable agent.
+    /// </summary>
+    private async void RunThinkingDemo()
+    {
+        if (_store == null) return;
+
+        var runId = "demo-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+        AgentEventInfo Evt(string stream, object data) => new()
+        {
+            Stream = stream,
+            RunId = runId,
+            SessionKey = _sessionKey,
+            Data = System.Text.Json.JsonSerializer.SerializeToElement(data),
+        };
+
+        // 1. lifecycle start → opens the run
+        _store.Apply(Evt("lifecycle", new { state = "start" }));
+
+        // 2. streamed thinking deltas → fills the collapsible Thinking expander
+        var thinkingChunks = new[]
+        {
+            "User asked for a thinking-block demo.\n",
+            "I should produce a multi-line reasoning trace so the Expander has visible content.\n",
+            "Plan: emit a couple of `thinking` deltas, then a short assistant reply, then `lifecycle end`.\n",
+        };
+        foreach (var chunk in thinkingChunks)
+        {
+            _store.Apply(Evt("thinking", new { delta = chunk }));
+            await Task.Delay(180);
+        }
+
+        // 3. assistant deltas → the actual chat reply that sits next to the thinking block
+        var replyChunks = new[]
+        {
+            "Here's the demo: ",
+            "the pink brain Expander above is rendered from synthetic `thinking` deltas. ",
+            "In real use, the gateway emits `isReasoning: true` payloads for reasoning-capable models, ",
+            "and `ChatTranscriptStore` routes them into the same `ThinkingBlockItem`.",
+        };
+        foreach (var chunk in replyChunks)
+        {
+            _store.Apply(Evt("assistant", new { delta = chunk }));
+            await Task.Delay(120);
+        }
+
+        // 4. lifecycle end → closes both the assistant bubble and the thinking block
+        _store.Apply(Evt("lifecycle", new { state = "end" }));
     }
 
     private void OnStatusChanged(object? sender, ConnectionStatus status)
