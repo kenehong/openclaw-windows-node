@@ -186,6 +186,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // collapsed" — matches the web's default-collapsed look.
         var expandedToolChips = UseState<HashSet<string>>(new HashSet<string>(), threadSafe: true);
 
+        // Hover state — set of entry ids currently under the pointer. Used to
+        // reveal the trash / speak action icons beside user / assistant
+        // bubbles. Re-renders the whole timeline on hover transitions; that's
+        // fine for the entry counts we deal with (typically <100 visible).
+        var hoveredEntries = UseState<HashSet<string>>(new HashSet<string>(), threadSafe: true);
+
         hasMoreHistoryRef.Current = Props.HasMoreHistory;
         loadMoreHistoryRef.Current = Props.OnLoadMoreHistory;
 
@@ -352,6 +358,59 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .Set(t => t.FontSize = 11)
                 .HAlign(align);
 
+        // Hover-revealed action icon (trash / speak). Hidden (Opacity 0) by
+        // default; shown when the entry id is in hoveredEntries.
+        Element HoverIcon(string entryId, string glyph, string tip, Action onClick)
+        {
+            var visible = hoveredEntries.Value.Contains(entryId);
+            return Button(
+                TextBlock(glyph)
+                    .Set(t =>
+                    {
+                        t.FontFamily = new FontFamily("Segoe MDL2 Assets, Segoe Fluent Icons");
+                        t.FontSize = 12;
+                    }),
+                onClick
+            ).Set(b =>
+            {
+                b.Padding = new Thickness(6, 4, 6, 4);
+                b.MinWidth = 28; b.MinHeight = 24;
+                b.CornerRadius = new CornerRadius(4);
+                b.Opacity = visible ? 1.0 : 0.0;
+                b.IsHitTestVisible = visible;
+            })
+            .Resources(r => r
+                .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
+                .Set("ButtonBackgroundPointerOver", themeBrush("SubtleFillColorSecondaryBrush"))
+                .Set("ButtonBackgroundPressed", themeBrush("SubtleFillColorTertiaryBrush"))
+                .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
+                .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
+                .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)))
+            .AutomationName(tip);
+        }
+
+        // Wrap a row with hover handlers that flip the entry id in
+        // hoveredEntries on PointerEntered/Exited.
+        T WithHoverHandlers<T>(T el, string entryId) where T : Element
+        {
+            return el
+                .OnPointerEntered((_, _) =>
+                {
+                    var current = hoveredEntries.Value;
+                    if (current.Contains(entryId)) return;
+                    var next = new HashSet<string>(current) { entryId };
+                    hoveredEntries.Set(next);
+                })
+                .OnPointerExited((_, _) =>
+                {
+                    var current = hoveredEntries.Value;
+                    if (!current.Contains(entryId)) return;
+                    var next = new HashSet<string>(current);
+                    next.Remove(entryId);
+                    hoveredEntries.Set(next);
+                });
+        }
+
         // Build the WebView-style multi-pill footer:
         //   "Field   7:54 PM   ↑1475   ↓12   R45.4k   23% ctx   gpt-5.5"
         // Each pill is a small caption; missing pieces (e.g. token counts not
@@ -394,6 +453,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         Element RenderUserEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
             // User bubble — Microsoft accent fill with white-on-accent text.
+            // Kenny's Calm variation has no border on the user bubble — the
+            // accent fill is bold enough to read on its own.
             var bubble = Border(
                 TextBlock(entry.Text)
                     .Set(t =>
@@ -406,7 +467,6 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     })
                     .Padding(14, 10, 14, 10)
             ).Background(userBubbleBg).CornerRadius(16)
-             .WithBorder(userBubbleBdr, 1)
              .Set(b => b.MaxWidth = 700);
 
             // Avatar shown only on the LAST entry of a same-sender burst.
@@ -415,7 +475,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ? AvatarBox("🧑", userAvatarBg, userBubbleBdr, userAvatarFg).VAlign(VerticalAlignment.Bottom)
                 : Border(Empty()).Size(36, 36);
 
+            // Trash icon (delete user message) — visible only on hover.
+            var trashIcon = HoverIcon(entry.Id, "\uE74D", "Delete message", () => { /* TODO: wire to provider */ })
+                .VAlign(VerticalAlignment.Center);
+
             var bubbleRow = (FlexRow(
+                trashIcon,
                 bubble,
                 rightSlot
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Right);
@@ -431,9 +496,11 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             var topMargin = startsBurst ? 8.0 : 1.0;
             var bottomMargin = endsBurst ? 8.0 : 1.0;
-            return VStack(2, bubbleRow, footer)
-                .HAlign(HorizontalAlignment.Stretch)
-                .Margin(60, topMargin, 12, bottomMargin);
+            return WithHoverHandlers(
+                VStack(2, bubbleRow, footer)
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .Margin(60, topMargin, 12, bottomMargin),
+                entry.Id);
         }
 
         Element RenderAssistantEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
@@ -447,18 +514,22 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 : Border(Empty()).Size(36, 36);
 
             // Assistant bubble — subtle gray with primary text. Radius 16 to
-            // match Kenny's larger pill shape.
+            // match Kenny's Calm pill shape; no border in Calm.
             var card = Border(
                 Markdown(entry.Text ?? "", _markdownOptions)
                     .Padding(14, 10, 14, 10)
             ).Background(assistantBubbleBg)
              .CornerRadius(16)
-             .WithBorder(assistantBubbleBdr, 1)
              .Set(b => b.MaxWidth = 700);
+
+            // Speak icon (read aloud) — visible only on hover.
+            var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud", () => { /* TODO: wire to TTS */ })
+                .VAlign(VerticalAlignment.Center);
 
             var bubbleRow = (FlexRow(
                 leftSlot,
-                card
+                card,
+                speakIcon
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Left);
 
             Element footer = Empty();
@@ -475,10 +546,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             var topMargin = startsBurst ? 8.0 : 1.0;
             var bottomMargin = endsBurst ? 8.0 : 1.0;
-            return VStack(2, bubbleRow, footer)
-                .HAlign(HorizontalAlignment.Stretch)
-                .Margin(12, topMargin, 60, bottomMargin)
-                .AutomationName(entry.Text ?? "");
+            return WithHoverHandlers(
+                VStack(2, bubbleRow, footer)
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .Margin(12, topMargin, 60, bottomMargin)
+                    .AutomationName(entry.Text ?? ""),
+                entry.Id);
         }
 
         // Tool entry: rendered as TWO compact collapsible chips matching the
@@ -507,9 +580,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // with the web's `chat-tool-card`.
             // Brushes used by the expanded body — match the web's
             // `__block-preview` / `__block-content` palette.
-            var blockBg            = new SolidColorBrush(Color.FromArgb(0xFF, 0xF6, 0xEE, 0xE4));  // --secondary @ ~82%
-            var blockBorder        = new SolidColorBrush(Color.FromArgb(0xFF, 0xD3, 0xC4, 0xB4));
-            var blockHeaderBg      = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xE3, 0xD4));
+            var blockBg            = themeBrush("ControlFillColorTertiaryBrush");
+            var blockBorder        = themeBrush("ControlStrokeColorDefaultBrush");
+            var blockHeaderBg      = themeBrush("SubtleFillColorSecondaryBrush");
 
             Element BuildChip(string token, string label, string sectionLabel, string contentText, bool hasContent)
             {
