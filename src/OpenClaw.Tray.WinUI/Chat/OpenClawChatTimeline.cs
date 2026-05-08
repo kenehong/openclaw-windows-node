@@ -96,8 +96,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         },
     };
 
-    static string FormatToolLabel(ChatTimelineItem e)
-    {
+    static string FormatToolLabel(ChatTimelineItem e)    {
         var text = e.Text ?? "";
         return e.ToolName switch
         {
@@ -112,6 +111,42 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             "report_intent" => text,
             _ => text == e.ToolName || string.IsNullOrEmpty(text) ? e.ToolName ?? "tool" : $"{e.ToolName}: {text}"
         };
+    }
+
+    /// <summary>
+    /// Title-case a single token: <c>"exec"</c> → <c>"Exec"</c>. Used by the
+    /// tool-chip inner header to mirror the web's <c>Exec</c>/<c>Process</c>
+    /// styling. Returns the empty string for null/empty input.
+    /// </summary>
+    static string CapitalizeFirst(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+        return char.ToUpperInvariant(s[0]) + (s.Length > 1 ? s[1..] : string.Empty);
+    }
+
+    /// <summary>
+    /// If <paramref name="text"/> looks like a JSON object/array, pretty-print
+    /// it with 2-space indentation. Otherwise return the string verbatim.
+    /// Used so tool chips render gateway action blobs (<c>{"action":"poll"…}</c>)
+    /// the same way the web does, without affecting plain shell output.
+    /// </summary>
+    static string TryFormatJsonForDisplay(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var trimmed = text.TrimStart();
+        if (trimmed.Length == 0) return text;
+        var first = trimmed[0];
+        if (first != '{' && first != '[') return text;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(trimmed);
+            return System.Text.Json.JsonSerializer.Serialize(doc.RootElement,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return text;
+        }
     }
 
     static bool ContainsEntryId(IReadOnlyList<ChatTimelineItem> entries, string id)
@@ -422,7 +457,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             // Tone matches dash-light --bg-muted/--border for visual parity
             // with the web's `chat-tool-card`.
-            Element BuildChip(string token, string label, string contentText, bool hasContent)
+            // Brushes used by the expanded body — match the web's
+            // `__block-preview` / `__block-content` palette.
+            var blockBg            = new SolidColorBrush(Color.FromArgb(0xFF, 0xF6, 0xEE, 0xE4));  // --secondary @ ~82%
+            var blockBorder        = new SolidColorBrush(Color.FromArgb(0xFF, 0xD3, 0xC4, 0xB4));
+            var blockHeaderBg      = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xE3, 0xD4));
+
+            Element BuildChip(string token, string label, string sectionLabel, string contentText, bool hasContent)
             {
                 var isExpanded = expandedToolChips.Value.Contains(token);
                 var chevron = isExpanded ? "▾" : "▸";
@@ -459,25 +500,72 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 Element body;
                 if (isExpanded && hasContent)
                 {
-                    body = Border(
+                    // Pretty-print JSON content — gateway often delivers
+                    // `{ "action": "poll", ... }` blobs; matching the web's
+                    // syntax-highlighted formatting.
+                    var displayText = TryFormatJsonForDisplay(contentText);
+
+                    // Inner header: ⚙ <CapitalizedKind>  — mirrors the
+                    // `Exec` / `Process` mini-header inside the web chip.
+                    var innerHeader = (FlexRow(
+                        Caption("\uD83D\uDD27").Foreground(SecondaryText)  // 🔧 wrench
+                            .Set(t => { t.FontSize = 12; })
+                            .VAlign(VerticalAlignment.Center),
+                        Caption(CapitalizeFirst(kindLabel)).Foreground(SecondaryText)
+                            .Set(t =>
+                            {
+                                t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
+                                t.FontSize = 13;
+                                t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                            })
+                            .VAlign(VerticalAlignment.Center)
+                    ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8);
+
+                    // Section label — uppercase 11px muted, like
+                    // `.chat-tool-card__block-label` in the web CSS.
+                    var sectionRow = (FlexRow(
+                        Caption("⚡").Foreground(TertiaryText)
+                            .Set(t => { t.FontSize = 11; })
+                            .VAlign(VerticalAlignment.Center),
+                        Caption(sectionLabel.ToUpperInvariant())
+                            .Foreground(TertiaryText)
+                            .Set(t =>
+                            {
+                                t.FontSize = 11;
+                                t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                                t.CharacterSpacing = 60; // ~0.04em letter-spacing
+                            })
+                            .VAlign(VerticalAlignment.Center)
+                    ) with { ColumnGap = 6 }).Padding(12, 0, 12, 6);
+
+                    // Code-styled monospace content panel.
+                    var codeBlock = Border(
                         ScrollView(
-                            TextBlock(contentText)
+                            TextBlock(displayText)
                                 .Set(t =>
                                 {
                                     t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
                                     t.FontSize = 11;
                                     t.TextWrapping = TextWrapping.Wrap;
                                     t.IsTextSelectionEnabled = true;
+                                    t.LineHeight = 16;
                                 })
                                 .Foreground(SecondaryText)
-                                .Padding(10, 6, 10, 8)
+                                .Padding(11, 8, 11, 10)
                         ).Set(sv =>
                         {
-                            sv.MaxHeight = 240;
+                            sv.MaxHeight = 280;
                             sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
                             sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
                         })
-                    ).Background(toolCardBgBrush);
+                    ).Background(blockBg)
+                     .CornerRadius(6)
+                     .WithBorder(blockBorder, 1)
+                     .Margin(12, 0, 12, 10);
+
+                    body = Border(
+                        VStack(0, innerHeader, sectionRow, codeBlock)
+                    ).Background(blockHeaderBg);
                 }
                 else
                 {
@@ -519,6 +607,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var callChip = BuildChip(
                 token: $"{entry.Id}:call",
                 label: "Tool call",
+                sectionLabel: "Tool input",
                 contentText: callContent,
                 hasContent: !string.IsNullOrEmpty(callContent));
 
@@ -528,6 +617,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ? BuildChip(
                     token: $"{entry.Id}:out",
                     label: entry.ToolResult == ChatToolCallStatus.Error ? "Tool error" : "Tool output",
+                    sectionLabel: entry.ToolResult == ChatToolCallStatus.Error ? "Tool error" : "Tool output",
                     contentText: entry.ToolOutput!,
                     hasContent: true)
                 : Empty();
