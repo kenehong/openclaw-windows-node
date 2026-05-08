@@ -416,7 +416,7 @@ On first run, Molty launches a guided onboarding wizard that walks you through s
 5. **Chat** — meet your agent in a live chat powered by the gateway's web UI.
 6. **Ready** — summary of available features, option to launch at startup, and a Finish button.
 
-For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md). For the full onboarding architecture, see [docs/ONBOARDING_WIZARD.md](docs/ONBOARDING_WIZARD.md).
+For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md). For the full onboarding architecture, see [docs/ONBOARDING_WIZARD.md](docs/ONBOARDING_WIZARD.md). For the post-onboarding agent setup POC (run with `--post-onboarding`), see [docs/POST_ONBOARDING.md](docs/POST_ONBOARDING.md).
 
 ## License
 
