@@ -15,9 +15,9 @@ namespace OpenClawTray.Windows;
 
 public sealed partial class ChatWindow : WindowEx
 {
-    private readonly string _gatewayUrl;
-    private readonly string _token;
-    private readonly string _chatUrl;
+    private string _gatewayUrl;
+    private string _token;
+    private string _chatUrl;
     private IDisposable? _reactorHost;
     private bool _webViewInitialized;
     private bool _webViewMode;
@@ -133,6 +133,58 @@ public sealed partial class ChatWindow : WindowEx
         _ = InitializeWebViewAsync();
     }
 
+    /// <summary>
+    /// Re-resolve the gateway URL and token, and reload the WebView2 if either changed.
+    /// Bug 2 fix: ChatWindow caches credentials at construction. When the pre-warmed window
+    /// is created before pairing completes, its cached token is empty/stale. App calls this
+    /// before re-activating the cached window so the freshest credentials are used.
+    /// </summary>
+    public void RefreshCredentials(string gatewayUrl, string token)
+    {
+        gatewayUrl ??= string.Empty;
+        token ??= string.Empty;
+
+        _gatewayUrl = gatewayUrl;
+        _token = token;
+        _chatUrl = BuildChatUrl(_gatewayUrl, _token);
+
+        Logger.Info($"[ChatWindow] Refreshing to {_chatUrl}");
+
+        // If WebView2 is already up, navigate it to the refreshed URL so the user gets a
+        // working chat instead of the pre-warmed (auth-failed) view.
+        if (_webViewInitialized && WebView?.CoreWebView2 != null)
+        {
+            try
+            {
+                ErrorPanel.Visibility = Visibility.Collapsed;
+                WebView.Visibility = Visibility.Visible;
+                LoadingRing.IsActive = true;
+                LoadingRing.Visibility = Visibility.Visible;
+                WebView.CoreWebView2.Navigate(_chatUrl);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ChatWindow.RefreshCredentials navigate failed: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Bug 4 (PR #274): exposes a script executor wrapping CoreWebView2.ExecuteScriptAsync
+    /// so callers (e.g. App.ShowChatWindow) can invoke BootstrapMessageInjector without
+    /// the WebView2 control field leaking out of this window. Returns null if the
+    /// CoreWebView2 isn't ready yet.
+    /// </summary>
+    public Func<string, Task<string>>? TryGetScriptExecutor()
+    {
+        if (!_webViewInitialized || WebView?.CoreWebView2 == null)
+        {
+            return null;
+        }
+        var core = WebView.CoreWebView2;
+        return script => core.ExecuteScriptAsync(script).AsTask();
+    }
+
     private async Task InitializeWebViewAsync()
     {
         try
@@ -166,6 +218,9 @@ public sealed partial class ChatWindow : WindowEx
                 {
                     ErrorPanel.Visibility = Visibility.Collapsed;
                     WebView.Visibility = Visibility.Visible;
+                    RequestChatInputFocus();
+                    OpenClawTray.Services.BootstrapMessageInjector.ScriptExecutor exec = script => WebView.CoreWebView2.ExecuteScriptAsync(script).AsTask();
+                    _ = OpenClawTray.Services.BootstrapMessageInjector.InjectAsync(exec, ((App)Microsoft.UI.Xaml.Application.Current).Settings, initialDelayMs: 500);
                 }
             };
 
@@ -181,6 +236,17 @@ public sealed partial class ChatWindow : WindowEx
             ErrorPanel.Visibility = Visibility.Visible;
             ErrorText.Text = $"WebView2 failed: {ex.Message}";
         }
+    }
+
+    private void OnHome(object sender, RoutedEventArgs e)
+    {
+        if (_webViewInitialized && !string.IsNullOrEmpty(_chatUrl))
+            WebView.CoreWebView2?.Navigate(_chatUrl);
+    }
+
+    private void OnRefresh(object sender, RoutedEventArgs e)
+    {
+        if (_webViewInitialized) WebView.CoreWebView2?.Reload();
     }
 
     private void OnRetry(object sender, RoutedEventArgs e)
@@ -266,6 +332,7 @@ public sealed partial class ChatWindow : WindowEx
 
         this.Show();
         SetForegroundWindow(hwnd);
+        RequestChatInputFocus();
     }
 
     /// <summary>Show near tray. Reactor renders synchronously so no animation gating needed.</summary>
@@ -294,5 +361,57 @@ public sealed partial class ChatWindow : WindowEx
     {
         if (string.IsNullOrEmpty(_chatUrl)) return;
         try { Process.Start(new ProcessStartInfo(_chatUrl) { UseShellExecute = true }); } catch { }
+    }
+
+    private void RequestChatInputFocus()
+    {
+        WebView.Focus(FocusState.Programmatic);
+
+        if (!_webViewInitialized || WebView.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        _ = FocusChatInputAsync();
+    }
+
+    private async Task FocusChatInputAsync()
+    {
+        try
+        {
+            await WebView.CoreWebView2.ExecuteScriptAsync("""
+                (() => {
+                    const selectors = [
+                        'textarea:not([disabled])',
+                        'input[type="text"]:not([disabled])',
+                        'input:not([type]):not([disabled])',
+                        '[contenteditable="true"]',
+                        '[role="textbox"]'
+                    ];
+                    const isVisible = element =>
+                        !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+                    const target = selectors
+                        .flatMap(selector => Array.from(document.querySelectorAll(selector)))
+                        .find(isVisible);
+                    if (!target) {
+                        return false;
+                    }
+                    target.focus({ preventScroll: true });
+                    return document.activeElement === target || target.contains(document.activeElement);
+                })();
+                """);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Logger.Warn($"Failed to focus chat input: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn($"Failed to focus chat input: {ex.Message}");
+        }
+        catch (COMException ex)
+        {
+            Logger.Warn($"Failed to focus chat input: {ex.Message}");
+        }
     }
 }

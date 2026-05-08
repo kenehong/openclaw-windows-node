@@ -60,6 +60,28 @@ public class TrayMenuWindowMarkupTests
     }
 
     [Fact]
+    public void CanvasWindow_BridgeValidatesOriginAndPostsOnDispatcher()
+    {
+        var sourcePath = Path.Combine(
+            GetRepositoryRoot(),
+            "src",
+            "OpenClaw.Tray.WinUI",
+            "Windows",
+            "CanvasWindow.xaml.cs");
+
+        var source = File.ReadAllText(sourcePath);
+
+        Assert.Contains("BridgeMessageReceived", source);
+        Assert.Contains("IsTrustedBridgeSource(e.Source)", source);
+        Assert.Contains("openclaw-canvas.local", source);
+        Assert.Contains("DispatcherQueue", source);
+        Assert.Contains("TryEnqueue(() => PostBridgeMessageOnUiThread", source);
+        Assert.Contains("PostWebMessageAsJson(json)", source);
+        Assert.Contains("SanitizeBridgeLogValue", source);
+        Assert.Contains("WebMessageReceived -= _webMessageReceivedHandler", source);
+    }
+
+    [Fact]
     public void CommandPalette_HasCommandCenterEntryPoint()
     {
         var sourcePath = Path.Combine(
@@ -430,6 +452,37 @@ public class TrayMenuWindowMarkupTests
         Assert.Contains(@"""SetupNodeModeSecurityWarning""", source);
         Assert.Contains("Setup_NodeModeSecurityTitle", source);
         Assert.Contains("Setup_NodeModeSecurityMessage", source);
+    }
+
+    [Fact]
+    public void ChatWindow_RequestsChatInputFocusWhenShownAndLoaded()
+    {
+        var sourcePath = Path.Combine(
+            GetRepositoryRoot(),
+            "src",
+            "OpenClaw.Tray.WinUI",
+            "Windows",
+            "ChatWindow.xaml.cs");
+
+        var source = File.ReadAllText(sourcePath);
+
+        Assert.Contains("RequestChatInputFocus();", source);
+        Assert.Contains("WebView.Focus(FocusState.Programmatic)", source);
+        Assert.Contains("ExecuteScriptAsync", source);
+        Assert.Contains("textarea:not([disabled])", source);
+        Assert.Contains("[contenteditable=\"true\"]", source);
+
+        var showMethod = Regex.Match(
+            source,
+            @"public void ShowNearTray\(\).*?SetForegroundWindow\(hwnd\);\s*RequestChatInputFocus\(\);",
+            RegexOptions.Singleline);
+        Assert.True(showMethod.Success);
+
+        var navigationCompleted = Regex.Match(
+            source,
+            @"NavigationCompleted \+= .*?WebView\.Visibility = Visibility\.Visible;\s*RequestChatInputFocus\(\);",
+            RegexOptions.Singleline);
+        Assert.True(navigationCompleted.Success);
     }
 
     private static string GetRepositoryRoot()

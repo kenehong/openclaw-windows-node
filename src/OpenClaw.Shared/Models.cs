@@ -762,7 +762,7 @@ public static class PermissionDiagnostics
             {
                 Name = "Microphone",
                 Status = "review",
-                Detail = "Required only for camera clips with audio or future voice features.",
+                Detail = "Required for camera clips with audio and for stt.transcribe speech-to-text capture.",
                 SettingsUri = "ms-settings:privacy-microphone"
             },
             new()
@@ -1019,12 +1019,20 @@ public static class CommandCenterCommandGroups
     public static readonly FrozenSet<string> SafeCompanionCommandSet =
         SafeCompanionCommands.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
-    public static readonly string[] DangerousCommands =
+    public static readonly string[] CommonDangerousCommands =
     [
         "camera.snap",
         "camera.clip",
         "screen.record",
         "tts.speak"
+    ];
+
+    public static readonly string[] DangerousCommands =
+    [
+        .. CommonDangerousCommands,
+        "stt.transcribe",
+        "stt.listen",
+        "stt.status"
     ];
 
     public static readonly FrozenSet<string> DangerousCommandSet =
@@ -1235,7 +1243,7 @@ public static class CommandCenterDiagnostics
                 Severity = GatewayDiagnosticSeverity.Info,
                 Category = "allowlist",
                 Title = "Privacy-sensitive commands are currently blocked",
-                Detail = $"{blocked} {(node.MissingDangerousAllowlistCommands.Count == 1 ? "is" : "are")} declared but filtered by gateway policy. Leave blocked unless you explicitly want camera or screen recording access for this node.",
+                Detail = $"{blocked} {(node.MissingDangerousAllowlistCommands.Count == 1 ? "is" : "are")} declared but filtered by gateway policy. Leave blocked unless you explicitly want camera, microphone, or screen recording access for this node.",
                 RepairAction = "Copy opt-in guidance",
                 CopyText = BuildDangerousCommandOptInGuidance(node.MissingDangerousAllowlistCommands)
             });
@@ -1594,12 +1602,27 @@ public class AgentEventInfo
 
     public string FormattedTime => Timestamp.ToString("HH:mm:ss.fff");
 
-    public string StreamUpper => Stream.ToUpperInvariant();
+    /// <summary>Resolved event kind — for "item" stream events, uses data.kind instead.</summary>
+    public string ResolvedStream
+    {
+        get
+        {
+            var s = Stream.ToLowerInvariant();
+            if (s == "item" && Data.ValueKind == JsonValueKind.Object &&
+                Data.TryGetProperty("kind", out var k))
+            {
+                return k.GetString()?.ToLowerInvariant() ?? s;
+            }
+            return s;
+        }
+    }
+
+    public string StreamUpper => ResolvedStream.ToUpperInvariant();
 
     /// <summary>Color hex for stream badge (used by UI to create brush).</summary>
-    public string BadgeColorHex => Stream.ToLowerInvariant() switch
+    public string BadgeColorHex => ResolvedStream switch
     {
-        "tool" => "#FFDC781E",       // Orange
+        "tool" => "#FFB45D3A",       // Burnt sienna
         "assistant" => "#FF28A050",   // Green
         "error" => "#FFC83232",       // Red
         "lifecycle" => "#FF3C78C8",   // Blue
@@ -1618,17 +1641,23 @@ public class AgentEventInfo
             if (!string.IsNullOrEmpty(Summary)) return Summary;
             try
             {
-                var s = Stream.ToLowerInvariant();
+                var s = ResolvedStream;
                 if (s == "tool" && Data.ValueKind == JsonValueKind.Object)
                 {
                     var name = Data.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    var title = Data.TryGetProperty("title", out var ti) ? ti.GetString() : null;
                     var phase = Data.TryGetProperty("phase", out var p) ? p.GetString() : null;
-                    if (name != null) return phase != null ? $"🔧 {name} ({phase})" : $"🔧 {name}";
+                    var status = Data.TryGetProperty("status", out var st) ? st.GetString() : null;
+                    // Prefer title (richer) over just name
+                    if (title != null)
+                        return phase != null ? $"🔧 {title} ({phase})" : $"🔧 {title}";
+                    if (name != null)
+                        return phase != null ? $"🔧 {name} ({phase})" : $"🔧 {name}";
                 }
                 if (s == "assistant" && Data.ValueKind == JsonValueKind.Object)
                 {
                     var text = Data.TryGetProperty("text", out var t) ? t.GetString() : null;
-                    if (text != null) return text.Length > 120 ? text[..120] + "…" : text;
+                    if (text != null) return text.Length > 300 ? text[..300] + "…" : text;
                 }
                 if (s == "error" && Data.ValueKind == JsonValueKind.Object)
                 {
@@ -1638,8 +1667,11 @@ public class AgentEventInfo
                 }
                 if (s == "lifecycle" && Data.ValueKind == JsonValueKind.Object)
                 {
-                    var state = Data.TryGetProperty("state", out var st) ? st.GetString() : null;
-                    if (state != null) return $"⚡ {state}";
+                    var state = Data.TryGetProperty("state", out var st) ? st.GetString()
+                        : Data.TryGetProperty("livenessState", out var ls) ? ls.GetString() : null;
+                    var phase = Data.TryGetProperty("phase", out var ph) ? ph.GetString() : null;
+                    if (state != null)
+                        return phase != null ? $"⚡ {state} ({phase})" : $"⚡ {state}";
                 }
             }
             catch { }
@@ -1649,18 +1681,51 @@ public class AgentEventInfo
 
     public bool HasSummary => !string.IsNullOrEmpty(SummaryLine);
 
+    /// <summary>Full assistant message text (no truncation), for expanded view.</summary>
+    public string? FullAssistantText
+    {
+        get
+        {
+            if (ResolvedStream != "assistant" || Data.ValueKind != JsonValueKind.Object) return null;
+            try { return Data.TryGetProperty("text", out var t) ? t.GetString() : null; }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>Whether this event is an assistant stream (expanded view shows full text instead of JSON).</summary>
+    public bool IsAssistantStream => ResolvedStream == "assistant";
+
+    /// <summary>Whether to show the raw DataJson section. Hidden for streams where SummaryLine is sufficient.</summary>
+    public bool ShowDataJson
+    {
+        get
+        {
+            var s = ResolvedStream;
+            if (s is "assistant" or "error" or "lifecycle") return false;
+            return true;
+        }
+    }
+
+    // UI-only state for expand/collapse (not serialized)
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsExpanded { get; set; }
+
+    private string? _cachedDataJson;
+
     public string DataJson
     {
         get
         {
+            if (_cachedDataJson != null) return _cachedDataJson;
             try
             {
-                return JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true });
+                _cachedDataJson = JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true });
             }
             catch
             {
-                return Data.ToString() ?? "{}";
+                _cachedDataJson = Data.ToString() ?? "{}";
             }
+            return _cachedDataJson;
         }
     }
 }

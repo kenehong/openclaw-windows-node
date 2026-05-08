@@ -446,6 +446,9 @@
   <data name="Menu_SetupGuide" xml:space="preserve">
     <value>Setup Guide...</value>
   </data>
+  <data name="Menu_Reconfigure" xml:space="preserve">
+    <value>Reconfigure…</value>
+  </data>
   <data name="Menu_SupportDebugHeader" xml:space="preserve">
     <value>🧰 Support &amp; Debug</value>
   </data>
@@ -732,6 +735,115 @@ Use one of these options:
   <data name="Toast_CameraBlockedDetail" xml:space="preserve">
     <value>Enable camera access in Windows Privacy settings for OpenClaw Tray</value>
   </data>
+
+  <!-- ==================== Toast: Recording ==================== -->
+
+  <data name="Toast_ScreenRecordingStarted" xml:space="preserve">
+    <value>🔴 Screen Recording Started</value>
+  </data>
+  <data name="Toast_ScreenRecordingStartedDetail" xml:space="preserve">
+    <value>OpenClaw agent is recording your screen</value>
+  </data>
+  <data name="Toast_ScreenRecordingComplete" xml:space="preserve">
+    <value>✅ Screen Recording Complete</value>
+  </data>
+  <data name="Toast_ScreenRecordingCompleteDetail" xml:space="preserve">
+    <value>Screen recording has been sent to the agent</value>
+  </data>
+  <data name="Toast_ScreenRecordingFailed" xml:space="preserve">
+    <value>❌ Screen Recording Failed</value>
+  </data>
+  <data name="Toast_ScreenRecordingFailedDetail" xml:space="preserve">
+    <value>An error occurred while recording the screen</value>
+  </data>
+  <data name="Toast_CameraRecordingStarted" xml:space="preserve">
+    <value>🔴 Camera Recording Started</value>
+  </data>
+  <data name="Toast_CameraRecordingStartedDetail" xml:space="preserve">
+    <value>OpenClaw agent is recording from your camera</value>
+  </data>
+  <data name="Toast_CameraRecordingComplete" xml:space="preserve">
+    <value>✅ Camera Recording Complete</value>
+  </data>
+  <data name="Toast_CameraRecordingCompleteDetail" xml:space="preserve">
+    <value>Camera clip has been sent to the agent</value>
+  </data>
+
+  <!-- ==================== Recording Consent Dialog ==================== -->
+
+  <data name="RecordingConsent_WindowTitle" xml:space="preserve">
+    <value>OpenClaw · Permission Request</value>
+  </data>
+  <data name="RecordingConsent_ScreenTitle" xml:space="preserve">
+    <value>Allow screen recording?</value>
+  </data>
+  <data name="RecordingConsent_CameraTitle" xml:space="preserve">
+    <value>Allow camera recording?</value>
+  </data>
+  <data name="RecordingConsent_ScreenDescription" xml:space="preserve">
+    <value>An agent is requesting to record your screen. This will capture video from your display and send it to the agent. Your choice will be remembered for future requests until you change it in Settings.</value>
+  </data>
+  <data name="RecordingConsent_CameraDescription" xml:space="preserve">
+    <value>An agent is requesting to record from your camera. This will capture video from your webcam and send it to the agent. Your choice will be remembered for future requests until you change it in Settings.</value>
+  </data>
+  <data name="RecordingConsent_Privacy" xml:space="preserve">
+    <value>You can change this later in Settings.</value>
+  </data>
+  <data name="RecordingConsent_Allow" xml:space="preserve">
+    <value>Allow recording</value>
+  </data>
+  <data name="RecordingConsent_Deny" xml:space="preserve">
+    <value>Deny</value>
+  </data>
+
+  <!-- ==================== Settings: Privacy ==================== -->
+
+  <data name="Settings_PrivacyHeader" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="Settings_PrivacyDescription" xml:space="preserve">
+    <value>Control which capabilities agents can use on this device.</value>
+  </data>
+  <data name="Settings_AllowScreenRecording" xml:space="preserve">
+    <value>Allow screen recording</value>
+  </data>
+  <data name="Settings_AllowCameraRecording" xml:space="preserve">
+    <value>Allow camera recording</value>
+  </data>
+  <data name="SettingsPrivacyHeader.Text" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="SettingsPrivacyDescription.Text" xml:space="preserve">
+    <value>Pre-approve capabilities so agents can use them without a permission prompt each time. You'll still see a countdown before recording starts.</value>
+  </data>
+  <data name="ScreenRecordingToggle.Header" xml:space="preserve">
+    <value>Allow screen recording</value>
+  </data>
+  <data name="CameraRecordingToggle.Header" xml:space="preserve">
+    <value>Allow camera recording</value>
+  </data>
+
+  <!-- ==================== Activity Stream: Recording ==================== -->
+
+  <data name="Activity_ScreenRecordingStarted" xml:space="preserve">
+    <value>Screen recording started</value>
+  </data>
+  <data name="Activity_ScreenRecordingComplete" xml:space="preserve">
+    <value>Screen recording complete</value>
+  </data>
+  <data name="Activity_CameraRecordingStarted" xml:space="preserve">
+    <value>Camera recording started</value>
+  </data>
+  <data name="Activity_CameraRecordingComplete" xml:space="preserve">
+    <value>Camera recording complete</value>
+  </data>
+  <data name="Activity_RecordingRequestedByAgent" xml:space="preserve">
+    <value>{0} recording requested by agent</value>
+  </data>
+  <data name="Activity_RecordingSentToAgent" xml:space="preserve">
+    <value>{0} recording sent to agent</value>
+  </data>
+
   <!-- ==================== Toast: Activity Stream Tip ==================== -->
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ New: Activity Stream</value>
@@ -901,7 +1013,7 @@ On your gateway host (Mac/Linux), run:
     <value>Enable Local MCP Server</value>
   </data>
   <data name="SettingsMcpDescription.Text" xml:space="preserve">
-    <value>Exposes the same node capabilities (system, screen, camera, canvas) to local MCP clients (Claude Desktop, Cursor, Claude Code).</value>
+    <value>Exposes the same node capabilities (system, screen, camera, microphone, speakers, canvas) to local MCP clients (Claude Desktop, Cursor, Claude Code).</value>
   </data>
   <data name="SettingsMcpEndpointLabel.Text" xml:space="preserve">
     <value>Endpoint:</value>
@@ -1023,30 +1135,6 @@ On your gateway host (Mac/Linux), run:
   <data name="Onboarding_Finish" xml:space="preserve">
     <value>Finish</value>
   </data>
-  <data name="Onboarding_Welcome_Title" xml:space="preserve">
-    <value>Welcome to OpenClaw</value>
-  </data>
-  <data name="Onboarding_Welcome_Subtitle" xml:space="preserve">
-    <value>Your AI assistant, right from the system tray</value>
-  </data>
-  <data name="Onboarding_Welcome_SecurityTitle" xml:space="preserve">
-    <value>Security Notice</value>
-  </data>
-  <data name="Onboarding_Welcome_SecurityBody" xml:space="preserve">
-    <value>OpenClaw runs an AI agent that can execute commands, read and write files, and interact with your system on your behalf.</value>
-  </data>
-  <data name="Onboarding_Welcome_TrustTitle" xml:space="preserve">
-    <value>Your agent can:</value>
-  </data>
-  <data name="Onboarding_Welcome_Trust_Commands" xml:space="preserve">
-    <value>Run commands on your computer</value>
-  </data>
-  <data name="Onboarding_Welcome_Trust_Files" xml:space="preserve">
-    <value>Read and write files</value>
-  </data>
-  <data name="Onboarding_Welcome_Trust_Screen" xml:space="preserve">
-    <value>Capture screenshots</value>
-  </data>
   <data name="Onboarding_Connection_Title" xml:space="preserve">
     <value>Choose your Gateway</value>
   </data>
@@ -1091,9 +1179,6 @@ On your gateway host (Mac/Linux), run:
   </data>
   <data name="Onboarding_Ready_RemoteInfo" xml:space="preserve">
     <value>Make sure your remote gateway is running and accessible.</value>
-  </data>
-  <data name="Onboarding_Welcome_GetConnected" xml:space="preserve">
-    <value>Let's get you connected in just a few steps.</value>
   </data>
   <data name="Onboarding_Connection_SetupCode" xml:space="preserve">
     <value>Setup Code</value>
@@ -1346,6 +1431,95 @@ On your gateway host (Mac/Linux), run:
   </data>
   <data name="Onboarding_Connection_LaterStatus" xml:space="preserve">
     <value>You can configure the gateway later in Settings.</value>
+  </data>
+  <data name="Onboarding_SetupWarning_Title" xml:space="preserve">
+    <value>Set up OpenClaw</value>
+  </data>
+  <data name="Onboarding_SetupWarning_Body" xml:space="preserve">
+    <value>OpenClaw lets agents run commands, read and write files, and capture screenshots on this PC. Only set it up on a computer you trust.
+
+⚠️ The local setup installs a small WSL Linux instance dedicated to OpenClaw. If you'd rather connect to an existing or remote gateway, choose Advanced setup.</value>
+  </data>
+  <data name="Onboarding_SetupWarning_SetupLocally" xml:space="preserve">
+    <value>Set up locally</value>
+  </data>
+  <data name="Onboarding_SetupWarning_Advanced" xml:space="preserve">
+    <value>Advanced setup</value>
+  </data>
+  <data name="Onboarding_SetupWarning_ReplaceHeading" xml:space="preserve">
+    <value>⚠️ Replace existing configuration?</value>
+  </data>
+  <data name="Onboarding_SetupWarning_ReplaceBody" xml:space="preserve">
+    <value>Moving forward will disconnect from the current gateway and lose all settings.</value>
+  </data>
+  <data name="Onboarding_SetupWarning_ReplaceConfirm" xml:space="preserve">
+    <value>Replace my setup</value>
+  </data>
+  <data name="Onboarding_SetupWarning_ReplaceCancel" xml:space="preserve">
+    <value>Keep my setup</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Title" xml:space="preserve">
+    <value>Setting up locally</value>
+  </data>
+  <data name="Onboarding_LocalSetup_SubtitleIdle" xml:space="preserve">
+    <value>Setting up your local OpenClaw gateway.</value>
+  </data>
+  <data name="Onboarding_LocalSetup_SubtitleSuccess" xml:space="preserve">
+    <value>Local gateway is ready.</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Retry" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="Onboarding_LocalSetup_TerminalFailure" xml:space="preserve">
+    <value>Setup did not complete.</value>
+  </data>
+  <data name="Onboarding_LocalSetup_DiagnosticsHint" xml:space="preserve">
+    <value>Diagnostics: aka.ms/wsllogs</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_Preflight" xml:space="preserve">
+    <value>Checking system</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_CreateInstance" xml:space="preserve">
+    <value>Installing Ubuntu</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_Configure" xml:space="preserve">
+    <value>Configuring instance</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_InstallCli" xml:space="preserve">
+    <value>Installing OpenClaw</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_PrepareConfig" xml:space="preserve">
+    <value>Preparing gateway</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_StartGateway" xml:space="preserve">
+    <value>Starting gateway</value>
+  </data>
+  <data name="Onboarding_LocalSetup_Phase_MintToken" xml:space="preserve">
+    <value>Generating setup code</value>
+  </data>
+  <data name="Onboarding_Welcome_Title" xml:space="preserve">
+    <value>Welcome to OpenClaw</value>
+  </data>
+  <data name="Onboarding_Welcome_Subtitle" xml:space="preserve">
+    <value>Your AI assistant, in the system tray</value>
+  </data>
+  <data name="Onboarding_Welcome_SecurityTitle" xml:space="preserve">
+    <value>Security notice</value>
+  </data>
+  <data name="Onboarding_Welcome_SecurityBody" xml:space="preserve">
+    <value>OpenClaw runs an AI agent that can execute commands, read and write files, and interact with your system on your behalf.</value>
+  </data>
+  <data name="Onboarding_Welcome_TrustTitle" xml:space="preserve">
+    <value>Your agent can:</value>
+  </data>
+  <data name="Onboarding_Welcome_Trust_Commands" xml:space="preserve">
+    <value>Run commands on your computer</value>
+  </data>
+  <data name="Onboarding_Welcome_Trust_Files" xml:space="preserve">
+    <value>Read and write files</value>
+  </data>
+  <data name="Onboarding_Welcome_Trust_Screen" xml:space="preserve">
+    <value>Capture screenshots</value>
   </data>
   <data name="AboutPage_TextBlock_10.Text" xml:space="preserve">
     <value>About</value>
@@ -2223,6 +2397,9 @@ On your gateway host (Mac/Linux), run:
   <data name="CanvasWindowReloadToolTip.Content" xml:space="preserve">
     <value>Reload</value>
   </data>
+  <data name="CanvasReloadButton_AutomationName" xml:space="preserve">
+    <value>Reload Canvas</value>
+  </data>
   <data name="TrayMenuWindow_winexWindowEx_2.Title" xml:space="preserve">
     <value>OpenClaw Menu</value>
   </data>
@@ -2240,5 +2417,353 @@ On your gateway host (Mac/Linux), run:
   </data>
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Remove job</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
+    <value>Recognizes microphone audio locally on this PC using Whisper. The model is downloaded once on first use.</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
+    <value>🎤 Speech-to-Text</value>
+  </data>
+  <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
+    <value>More voice settings…</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardDescription.Text" xml:space="preserve">
+    <value>Default provider for tts.speak. Per-call provider/voiceId/model overrides this default.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardHeader.Text" xml:space="preserve">
+    <value>🔊 Text-to-Speech</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsApiKey.Header" xml:space="preserve">
+    <value>ElevenLabs API key</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsHelp.Text" xml:space="preserve">
+    <value>API key is encrypted at rest with Windows DPAPI. Leave blank to keep the previously saved value when you change other fields.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.Header" xml:space="preserve">
+    <value>ElevenLabs model</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.PlaceholderText" xml:space="preserve">
+    <value>eleven_multilingual_v2</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsVoiceId.Header" xml:space="preserve">
+    <value>ElevenLabs voice ID</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderComboBox.Header" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderPiper.Content" xml:space="preserve">
+    <value>Piper (local ML, recommended)</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
+    <value>Windows built-in speech</value>
+  </data>
+  <data name="VoiceSettingsPage_PageTitle.Text" xml:space="preserve">
+    <value>🎙️ Voice &amp; Audio</value>
+  </data>
+  <data name="VoiceSettingsPage_PageDescription.Text" xml:space="preserve">
+    <value>Configure speech-to-text and voice interaction settings. All speech processing runs locally on your device.</value>
+  </data>
+  <data name="VoiceSettingsPage_SttHeader.Text" xml:space="preserve">
+    <value>Speech-to-Text</value>
+  </data>
+  <data name="VoiceSettingsPage_SttDescription.Text" xml:space="preserve">
+    <value>Enable voice input via microphone. Requires a Whisper model download.</value>
+  </data>
+  <data name="VoiceSettingsPage_SttEnabledToggle.Header" xml:space="preserve">
+    <value>Enable Voice Input</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelHeader.Text" xml:space="preserve">
+    <value>Speech Model</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelCombo.Header" xml:space="preserve">
+    <value>Model Size</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelTiny.Content" xml:space="preserve">
+    <value>Tiny (~75 MB) — Fast, basic accuracy</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelBase.Content" xml:space="preserve">
+    <value>Base (~142 MB) — Good balance</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelSmall.Content" xml:space="preserve">
+    <value>Small (~466 MB) — High accuracy</value>
+  </data>
+  <data name="VoiceSettingsPage_DownloadButtonText.Text" xml:space="preserve">
+    <value>Download Model</value>
+  </data>
+  <data name="VoiceSettingsPage_LanguageHeader.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="VoiceSettingsPage_LangAuto.Content" xml:space="preserve">
+    <value>Auto-detect</value>
+  </data>
+  <data name="VoiceSettingsPage_LangEn.Content" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="VoiceSettingsPage_LangEs.Content" xml:space="preserve">
+    <value>Spanish</value>
+  </data>
+  <data name="VoiceSettingsPage_LangFr.Content" xml:space="preserve">
+    <value>French</value>
+  </data>
+  <data name="VoiceSettingsPage_LangDe.Content" xml:space="preserve">
+    <value>German</value>
+  </data>
+  <data name="VoiceSettingsPage_LangJa.Content" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangZh.Content" xml:space="preserve">
+    <value>Chinese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangKo.Content" xml:space="preserve">
+    <value>Korean</value>
+  </data>
+  <data name="VoiceSettingsPage_LangPt.Content" xml:space="preserve">
+    <value>Portuguese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangIt.Content" xml:space="preserve">
+    <value>Italian</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceChatHeader.Text" xml:space="preserve">
+    <value>Voice Chat</value>
+  </data>
+  <data name="VoiceSettingsPage_SilenceSlider.Header" xml:space="preserve">
+    <value>Silence timeout (seconds)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsResponseToggle.Header" xml:space="preserve">
+    <value>Read responses aloud</value>
+  </data>
+  <data name="VoiceSettingsPage_AudioFeedbackToggle.Header" xml:space="preserve">
+    <value>Audio feedback sounds</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceHeader.Text" xml:space="preserve">
+    <value>🔊 Companion Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceDescription.Text" xml:space="preserve">
+    <value>Choose the voice used when reading responses aloud.</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsProviderCombo.Header" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsPiper.Content" xml:space="preserve">
+    <value>Piper (local neural voices)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsWindows.Content" xml:space="preserve">
+    <value>Windows (built-in neural voices)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs (cloud, requires API key)</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceCombo.Header" xml:space="preserve">
+    <value>Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadButtonText.Text" xml:space="preserve">
+    <value>Download Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperPreviewButton.Content" xml:space="preserve">
+    <value>▶ Preview</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperInfoText.Text" xml:space="preserve">
+    <value>Voices download from the sherpa-onnx project's GitHub releases (~25 MB low quality, up to ~150 MB high quality). They run fully on this PC; no audio leaves your device.</value>
+  </data>
+  <data name="VoiceSettingsPage_WindowsVoiceCombo.Header" xml:space="preserve">
+    <value>Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewVoiceButton.Content" xml:space="preserve">
+    <value>▶ Preview Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsApiKeyBox.Header" xml:space="preserve">
+    <value>API Key</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsVoiceIdBox.Header" xml:space="preserve">
+    <value>Voice ID</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsModelBox.Header" xml:space="preserve">
+    <value>Model (optional)</value>
+  </data>
+  <data name="VoiceSettingsPage_PrivacyNote.Text" xml:space="preserve">
+    <value>All speech processing runs entirely on your device. No audio data is sent to any cloud service.</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusModelReady" xml:space="preserve">
+    <value>✅ Model ready</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadRequired" xml:space="preserve">
+    <value>⬇️ Download required</value>
+  </data>
+  <data name="VoiceSettingsPage_ButtonReDownload" xml:space="preserve">
+    <value>Re-download</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadingPct" xml:space="preserve">
+    <value>Downloading... {0}%</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadCanceled" xml:space="preserve">
+    <value>Download canceled</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusError" xml:space="preserve">
+    <value>❌ Operation failed (see Debug log)</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloaded" xml:space="preserve">
+    <value>Downloaded</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceReady" xml:space="preserve">
+    <value>Voice ready on this PC ({0} MB).</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceNotDownloaded" xml:space="preserve">
+    <value>Voice not downloaded yet. Click Download to fetch the model (~25–150 MB depending on quality).</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloading" xml:space="preserve">
+    <value>Downloading…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperConnecting" xml:space="preserve">
+    <value>Connecting to sherpa-onnx releases…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperProgressIndeterminate" xml:space="preserve">
+    <value>Downloading… {0} MB so far</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperProgressBytes" xml:space="preserve">
+    <value>Downloading… {0} / {1} MB</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperExtracting" xml:space="preserve">
+    <value>Download complete. Extracting…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadCanceled" xml:space="preserve">
+    <value>Download canceled.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadFailed" xml:space="preserve">
+    <value>Download failed (see Debug log).</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonRetry" xml:space="preserve">
+    <value>Retry Download</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleted" xml:space="preserve">
+    <value>Voice deleted.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleteFailed" xml:space="preserve">
+    <value>Delete failed (see Debug log).</value>
+  </data>
+  <data name="VoiceSettingsPage_CompanionPreviewText" xml:space="preserve">
+    <value>Hello! This is your Companion speaking.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperPreviewFailed" xml:space="preserve">
+    <value>Preview failed (see Debug log).</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceErrorLoading" xml:space="preserve">
+    <value>Error loading voices (see Debug log).</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewButtonPlaying" xml:space="preserve">
+    <value>▶ Playing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_HeaderText.Text" xml:space="preserve">
+    <value>Companion Voice</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusBadge.Text" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="VoiceOverlayWindow_EmptyStateText.Text" xml:space="preserve">
+    <value>Press Start and begin speaking</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusText.Text" xml:space="preserve">
+    <value>Press Start to begin</value>
+  </data>
+  <data name="VoiceOverlayWindow_StartStopText.Text" xml:space="preserve">
+    <value>Start Listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_MuteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="VoiceOverlayWindow_SettingsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Voice Settings</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusListening" xml:space="preserve">
+    <value>🗣️ Listening...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusSpeakNow" xml:space="preserve">
+    <value>Speak now — I'm listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateInitializing" xml:space="preserve">
+    <value>Initializing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStarting" xml:space="preserve">
+    <value>Starting</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateDownloadingModel" xml:space="preserve">
+    <value>Downloading speech model...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateDownloadingPct" xml:space="preserve">
+    <value>Downloading model... {0}%</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateLoadingModel" xml:space="preserve">
+    <value>Loading speech model...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStartingMic" xml:space="preserve">
+    <value>Starting microphone...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStopping" xml:space="preserve">
+    <value>Stopping...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateError" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusError" xml:space="preserve">
+    <value>Error encountered (see Debug log)</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusMuted" xml:space="preserve">
+    <value>Muted</value>
+  </data>
+  <data name="VoiceOverlayWindow_StopText" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeStopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeStartingDots" xml:space="preserve">
+    <value>Starting...</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeListening" xml:space="preserve">
+    <value>Listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeProcessing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusInitMic" xml:space="preserve">
+    <value>Initializing microphone...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusTranscribing" xml:space="preserve">
+    <value>Transcribing your speech...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusErrorOccurred" xml:space="preserve">
+    <value>An error occurred</value>
+  </data>
+  <data name="VoiceOverlayWindow_winexWindowEx_2.Title" xml:space="preserve">
+    <value>Companion Voice</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusReadyMessage" xml:space="preserve">
+    <value>Press Start to begin</value>
+  </data>
+  <data name="VoiceOverlayWindow_ButtonStartListening" xml:space="preserve">
+    <value>Start Listening</value>
+  </data>
+  <data name="VoiceSettingsPage_ButtonDownloadModel" xml:space="preserve">
+    <value>Download Model</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloadVoice" xml:space="preserve">
+    <value>Download Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewVoiceButtonContent" xml:space="preserve">
+    <value>▶ Preview Voice</value>
   </data>
 </root>
