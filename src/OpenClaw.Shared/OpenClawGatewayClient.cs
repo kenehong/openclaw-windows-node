@@ -1031,7 +1031,7 @@ public class OpenClawGatewayClient : WebSocketClientBase
             else if (root.TryGetProperty("payload", out var wizPayload))
             {
                 // Log the payload kind for debugging
-                _logger.Info($"Wizard response payload kind={wizPayload.ValueKind}, raw={wizPayload.ToString()?.Substring(0, Math.Min(200, wizPayload.ToString()?.Length ?? 0))}");
+                _logger.Info($"Wizard response payload kind={wizPayload.ValueKind}, raw={wizPayload.ToString()?.Substring(0, Math.Min(8000, wizPayload.ToString()?.Length ?? 0))}");
                 wizardCompletion.TrySetResult(wizPayload.Clone());
             }
             else

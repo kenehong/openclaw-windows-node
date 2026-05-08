@@ -963,7 +963,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
     /// dim Status entry instead of a full assistant bubble so the
     /// conversation flow doesn't get overwhelmed by transcript scaffolding.
     /// </summary>
-    private static bool LooksLikeSystemControlNote(string text)
+    internal static bool LooksLikeSystemControlNote(string text)
     {
         if (string.IsNullOrEmpty(text)) return false;
         var t = text.TrimStart();
@@ -972,45 +972,97 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
     }
 
     /// <summary>
+    /// Pre-compiled regex that matches a CLI option flag (e.g. <c>--help</c>,
+    /// <c>--idempotency-key</c>, <c>-h</c>). Used by
+    /// <see cref="LooksLikeFlattenedToolOutput"/> as a strong signal that an
+    /// assistant message is verbatim CLI <c>--help</c> output.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex s_cliFlagRegex =
+        new(@"(?:^|\s)(?:--[a-z][\w-]*|-[a-zA-Z])(?=\s|=|$)",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
     /// True when an assistant-role <c>chat.history</c> message is almost
     /// certainly the verbatim output of an exec tool that the gateway
     /// flattened into plain text on the way out (the spec confirms it
     /// strips ``<tool_call>`` / ``<function_call>`` XML and tool blocks
-    /// before serving history). Detected via well-known terminator
-    /// markers and shell-output-shaped openings.
+    /// before serving history).
+    ///
+    /// Detection strategy (any one match → flattened tool output):
+    /// <list type="bullet">
+    ///   <item>Verbatim exec terminator markers ("Process exited with code",
+    ///     "Command still running (session", "Exec completed (").</item>
+    ///   <item>Opens with a UNC / POSIX system path that's almost always a
+    ///     tool result (e.g. <c>\\wsl.localhost\</c>, <c>/usr/</c>).</item>
+    ///   <item>Opens with the OpenClaw CLI version banner
+    ///     (<c>"OpenClaw 2026.4.23 ..."</c>) — these are <c>--help</c>
+    ///     dumps captured by an exec tool.</item>
+    ///   <item>Contains both <c>Usage:</c> AND any of <c>Options:</c> /
+    ///     <c>Commands:</c> / <c>Examples:</c> / <c>Aliases:</c> —
+    ///     classic CLI help layout.</item>
+    ///   <item>Has ≥ 5 CLI flag tokens (matches <c>s_cliFlagRegex</c>) —
+    ///     dense flag listings only show up in <c>--help</c> output.</item>
+    /// </list>
     /// </summary>
-    private static bool LooksLikeFlattenedToolOutput(string text)
+    internal static bool LooksLikeFlattenedToolOutput(string text)
     {
         if (string.IsNullOrEmpty(text) || text.Length < 40) return false;
 
-        // Strong terminator markers — the gateway emits these verbatim
-        // around exec results.
+        // ── Strong terminator markers (exec wrappers).
         if (text.Contains("Process exited with code", StringComparison.Ordinal)) return true;
         if (text.Contains("Command still running (session", StringComparison.Ordinal)) return true;
         if (text.Contains("Exec completed (", StringComparison.Ordinal)) return true;
 
-        // Opening looks like a UNC / POSIX path — common shape for ``ls``
-        // / ``file`` / ``stat`` style tools.
+        // ── System-path openings.
         var head = text.AsSpan(0, Math.Min(80, text.Length));
         if (head.StartsWith("\\\\wsl.localhost\\")) return true;
         if (head.StartsWith("/usr/") || head.StartsWith("/home/") || head.StartsWith("/var/") ||
             head.StartsWith("/etc/") || head.StartsWith("/tmp/")) return true;
+
+        // ── OpenClaw / common CLI tool version banner. Catches ``openclaw
+        // help``, ``openclaw nodes invoke --help``, etc.
+        var trimmed = text.AsSpan().TrimStart();
+        if (trimmed.StartsWith("OpenClaw 20") ||
+            trimmed.StartsWith("OpenClaw v") ||
+            trimmed.StartsWith("openclaw ")) return true;
+
+        // ── Usage: + (Options:|Commands:|Examples:|Aliases:) — generic CLI
+        // help layout regardless of which tool emitted it.
+        if (text.Contains("Usage:", StringComparison.Ordinal) &&
+            (text.Contains("Options:", StringComparison.Ordinal) ||
+             text.Contains("Commands:", StringComparison.Ordinal) ||
+             text.Contains("Examples:", StringComparison.Ordinal) ||
+             text.Contains("Aliases:", StringComparison.Ordinal)))
+            return true;
+
+        // ── Dense ``--flag`` presence (≥ 5 matches is well above false-
+        // positive rate for normal prose). Only run the regex when text is
+        // long enough to potentially carry that many tokens.
+        if (text.Length >= 200)
+        {
+            int flagCount = 0;
+            foreach (System.Text.RegularExpressions.Match _ in s_cliFlagRegex.Matches(text))
+            {
+                if (++flagCount >= 5) return true;
+            }
+        }
 
         return false;
     }
 
     /// <summary>
     /// Best-guess kind label for a flattened-tool-output assistant
-    /// message. Used to populate the tool chip's monospace
-    /// kind suffix (matches the live ``stream:"item"`` extraction).
+    /// message. Used to populate the tool chip's monospace kind suffix.
     /// </summary>
-    private static string ClassifyFlattenedToolOutput(string text)
+    internal static string ClassifyFlattenedToolOutput(string text)
     {
         if (text.Contains("Command still running", StringComparison.Ordinal) ||
             text.Contains("Process exited with code", StringComparison.Ordinal))
             return "process";
         if (text.Contains("Exec completed (", StringComparison.Ordinal))
             return "exec";
+        // Anything matching the CLI-help heuristics is also a shell exec
+        // result — give it the same chip kind as live exec calls.
         return "exec";
     }
 
