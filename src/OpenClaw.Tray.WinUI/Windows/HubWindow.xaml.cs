@@ -508,13 +508,15 @@ public sealed partial class HubWindow : WindowEx
 
     private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (args.InvokedItemContainer?.Tag is string tag && tag == "componentlibrary")
+        if (args.InvokedItemContainer?.Tag is string tag)
         {
-            OpenComponentLibrary();
+            if (tag == "componentlibrary") OpenComponentLibrary();
+            else if (tag == "postonboarding") OpenPostOnboarding();
         }
     }
 
     private ComponentLibraryWindow? _componentLibraryWindow;
+    private OpenClawTray.PostOnboarding.PostOnboardingWindow? _postOnboardingWindow;
 
     internal void OpenComponentLibrary()
     {
@@ -525,6 +527,17 @@ public sealed partial class HubWindow : WindowEx
         _componentLibraryWindow = new ComponentLibraryWindow();
         _componentLibraryWindow.Closed += (_, _) => _componentLibraryWindow = null;
         _componentLibraryWindow.Activate();
+    }
+
+    internal void OpenPostOnboarding()
+    {
+        if (_postOnboardingWindow != null)
+        {
+            try { _postOnboardingWindow.Activate(); return; } catch { _postOnboardingWindow = null; }
+        }
+        _postOnboardingWindow = new OpenClawTray.PostOnboarding.PostOnboardingWindow();
+        _postOnboardingWindow.Closed += (_, _) => _postOnboardingWindow = null;
+        _postOnboardingWindow.Activate();
     }
 
     private void InitializeCurrentPage()

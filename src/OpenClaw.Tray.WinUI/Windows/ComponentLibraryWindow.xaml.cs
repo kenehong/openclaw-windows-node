@@ -172,6 +172,7 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         Cat13Page.Visibility = Visibility.Collapsed;
         Cat14Page.Visibility = Visibility.Collapsed;
         ChatUiExplorationsPage.Visibility = Visibility.Collapsed;
+        PostOnboardingPage.Visibility = Visibility.Collapsed;
 
         if (tag == "tray-status")
         {
@@ -214,6 +215,11 @@ public sealed partial class ComponentLibraryWindow : WindowEx
             ChatUiExplorationsPage.Visibility = Visibility.Visible;
             EnsureChatExplorationInitialized();
         }
+        else if (tag == "post-onboarding")
+        {
+            PostOnboardingPage.Visibility = Visibility.Visible;
+            EnsurePostOnboardingInitialized();
+        }
         else
         {
             ComingSoonPage.Visibility = Visibility.Visible;
@@ -222,6 +228,27 @@ public sealed partial class ComponentLibraryWindow : WindowEx
     }
 
     // Chat hamburger + agent run card toggle are handled inside the ChatShell / AgentRunCard UserControls.
+
+    private OpenClawTray.PostOnboarding.PostOnboardingShell? _postOnboardingShell;
+    private OpenClawTray.PostOnboarding.PostOnboardingWindow? _postOnboardingWindow;
+
+    private void EnsurePostOnboardingInitialized()
+    {
+        if (_postOnboardingShell != null) return;
+        _postOnboardingShell = new OpenClawTray.PostOnboarding.PostOnboardingShell();
+        PostOnboardingShellHost.Content = _postOnboardingShell;
+    }
+
+    private void OnOpenPostOnboardingWindow(object sender, RoutedEventArgs e)
+    {
+        if (_postOnboardingWindow != null)
+        {
+            try { _postOnboardingWindow.Activate(); return; } catch { _postOnboardingWindow = null; }
+        }
+        _postOnboardingWindow = new OpenClawTray.PostOnboarding.PostOnboardingWindow();
+        _postOnboardingWindow.Closed += (_, _) => _postOnboardingWindow = null;
+        _postOnboardingWindow.Activate();
+    }
 
     private void OnAgentRunCardStateChanged(object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
     {

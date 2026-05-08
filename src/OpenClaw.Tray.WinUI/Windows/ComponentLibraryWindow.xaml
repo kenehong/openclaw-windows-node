@@ -55,6 +55,7 @@
                 <NavigationViewItem x:Name="NavNativeChat" Tag="native-chat" Content="Native chat (M1)"/>
                 <NavigationViewItem x:Name="NavChatUiExplorations" Tag="chat-ui" Content="Chat UI explorations"/>
                 <NavigationViewItem x:Name="NavAgentRunCard" Tag="agent-run-card" Content="Agent run card"/>
+                <NavigationViewItem x:Name="NavPostOnboarding" Tag="post-onboarding" Content="Post-Onboarding flow"/>
 
 
             </NavigationView.MenuItems>
@@ -991,6 +992,32 @@
                 <lib:Cat12InputPage x:Name="Cat12Page" Visibility="Collapsed"/>
                 <lib:Cat13FlowPage x:Name="Cat13Page" Visibility="Collapsed"/>
                 <lib:Cat14StatusPage x:Name="Cat14Page" Visibility="Collapsed"/>
+
+                <ScrollViewer x:Name="PostOnboardingPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="16">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Post-Onboarding (POC)" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="A standalone-feeling 4-step wizard cloned from native-chat-v2: name → custom agent → multi-select team → chat with suggested prompts."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                            <Button x:Name="PostOnboardingOpenWindowBtn"
+                                    Content="Open in standalone window"
+                                    Click="OnOpenPostOnboardingWindow"
+                                    Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="0"
+                                Height="900">
+                            <ContentControl x:Name="PostOnboardingShellHost"
+                                            HorizontalContentAlignment="Stretch"
+                                            VerticalContentAlignment="Stretch"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Grid>
         </NavigationView>
     </Grid>

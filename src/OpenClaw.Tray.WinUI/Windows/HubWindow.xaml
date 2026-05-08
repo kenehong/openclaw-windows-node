@@ -140,6 +140,10 @@
             <NavigationViewItem Tag="activity" Content="Activity">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xEA95;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItemSeparator/>
+            <NavigationViewItem Tag="postonboarding" Content="Post-Onboarding (POC)" SelectsOnInvoked="False">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE716;"/></NavigationViewItem.Icon>
+            </NavigationViewItem>
         </NavigationView.MenuItems>
 
         <NavigationView.FooterMenuItems>

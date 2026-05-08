@@ -76,6 +76,7 @@ public sealed record StackElement(Orientation Orientation, double Spacing, IRead
 public sealed record GridElement(string[] Columns, string[] Rows, IReadOnlyList<Element?> Children) : Element;
 public sealed record ScrollViewElement(Element? Child) : Element;
 public sealed record ComponentElement(Type ComponentType, object? Props) : Element;
+public sealed record NativeXamlElement(Func<FrameworkElement> Factory, Action<FrameworkElement>? OnMount = null) : Element;
 internal interface INavigationHostElement
 {
     Element RenderCurrentRoute();
@@ -334,6 +335,8 @@ public static class Factories
     public static StackElement HStack(double spacing, params Element?[] children) => new(Orientation.Horizontal, spacing, children);
     public static GridElement Grid(string[] columns, string[] rows, params Element?[] children) => new(columns, rows, children);
     public static ScrollViewElement ScrollView(Element? child) => new(child);
+    public static NativeXamlElement NativeXaml(Func<FrameworkElement> factory, Action<FrameworkElement>? onMount = null) =>
+        new(factory, onMount);
     public static ComponentElement Component<TComponent>() where TComponent : Component, new() =>
         new(typeof(TComponent), null);
     public static ComponentElement Component<TComponent, TProps>(TProps props) where TComponent : Component<TProps>, new() =>
@@ -564,6 +567,7 @@ internal sealed class UiRenderer(Action requestRender)
             StackElement e => ConfigureStack(GetOrCreate<Border>(path), e, path, effects),
             GridElement e => ConfigureGrid(GetOrCreate<Border>(path), e, path, effects),
             ScrollViewElement e => ConfigureScrollView(GetOrCreate<ScrollViewer>(path), e, path, effects),
+            NativeXamlElement e => ConfigureNativeXaml(e, path),
             ComponentElement e => RenderComponent(e, path, effects),
             INavigationHostElement e => RenderElement(e.RenderCurrentRoute(), path + ".route", effects),
             _ => throw new NotSupportedException($"Unsupported functional UI element: {element.GetType().Name}")
@@ -784,6 +788,25 @@ internal sealed class UiRenderer(Action requestRender)
         control.HorizontalScrollMode = element.Modifiers.HorizontalScrollMode ?? ScrollMode.Auto;
         ApplyModifiers(control, element);
         ApplySetters(control, element);
+        return control;
+    }
+
+    private FrameworkElement ConfigureNativeXaml(NativeXamlElement element, string path)
+    {
+        if (_controls.TryGetValue(path, out var existing) && existing is FrameworkElement fe)
+        {
+            return fe;
+        }
+
+        if (existing is not null)
+        {
+            DetachChildren(existing);
+            RemoveFromParent(existing);
+        }
+
+        var control = element.Factory();
+        _controls[path] = control;
+        element.OnMount?.Invoke(control);
         return control;
     }
 

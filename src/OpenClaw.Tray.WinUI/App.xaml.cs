@@ -38,6 +38,7 @@ public partial class App : Application
     private TrayIcon? _trayIcon;
     private OpenClawGatewayClient? _gatewayClient;
     private ComponentLibraryWindow? _componentLibraryWindow;
+    private OpenClawTray.PostOnboarding.PostOnboardingWindow? _postOnboardingWindow;
 
     /// <summary>The persistent gateway client. Used by the onboarding wizard for RPC calls.</summary>
     public OpenClawGatewayClient? GatewayClient => _gatewayClient;
@@ -284,6 +285,9 @@ public partial class App : Application
             string.Equals(arg, "--component-library", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(arg, "--component-preview", StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsPostOnboardingMode(string[] args) =>
+        args.Any(arg => string.Equals(arg, "--post-onboarding", StringComparison.OrdinalIgnoreCase));
+
     private void ShowComponentLibrary()
     {
         _componentLibraryWindow = new ComponentLibraryWindow();
@@ -295,11 +299,23 @@ public partial class App : Application
         _componentLibraryWindow.Activate();
     }
 
+    private void ShowPostOnboarding()
+    {
+        _postOnboardingWindow = new OpenClawTray.PostOnboarding.PostOnboardingWindow();
+        _postOnboardingWindow.Closed += (_, _) =>
+        {
+            _postOnboardingWindow = null;
+            Exit();
+        };
+        _postOnboardingWindow.Activate();
+    }
+
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         _startupArgs = Environment.GetCommandLineArgs();
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         var componentLibraryMode = IsComponentLibraryMode(_startupArgs);
+        var postOnboardingMode = IsPostOnboardingMode(_startupArgs);
 
         // Check for protocol activation (MSIX packaged apps receive deep links this way)
         string? protocolUri = GetProtocolActivationUri();
@@ -324,6 +340,10 @@ public partial class App : Application
             // run alongside the regular tray instance.
             mutexName = "OpenClawTray-ComponentLibrary";
         }
+        else if (postOnboardingMode)
+        {
+            mutexName = "OpenClawTray-PostOnboarding";
+        }
         _mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
@@ -346,6 +366,13 @@ public partial class App : Application
         {
             // Standalone preview surface — do not initialize tray, settings, gateway, etc.
             ShowComponentLibrary();
+            return;
+        }
+
+        if (postOnboardingMode)
+        {
+            // Standalone POC — bypass tray/gateway/settings, show only the wizard.
+            ShowPostOnboarding();
             return;
         }
 
