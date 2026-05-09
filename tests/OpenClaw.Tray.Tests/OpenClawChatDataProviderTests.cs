@@ -1027,4 +1027,224 @@ public class OpenClawChatDataProviderTests
         var snapshot2 = provider.GetEntryMetadata("main");
         Assert.Equal(initialCount, snapshot2.Count);
     }
+
+    [Fact]
+    public async Task LoadHistoryAsync_AfterLiveActivity_DoesNotDuplicateEntries()
+    {
+        // Regression for HIGH 2: prior to the dedup fix, a live assistant
+        // message that was later included in chat.history would appear twice
+        // in the rebuilt timeline (once from the rebuild, once from the
+        // append-prior step), and ID collisions could occur because both
+        // sequences reused e1, e2, …
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user",      Text = "Hi",     State = "final", Ts = nowMs },
+                new ChatMessageInfo { Role = "assistant", Text = "Hello!", State = "final", Ts = nowMs + 1000 }
+            }
+        });
+        await provider.LoadAsync();
+
+        // Simulate live activity arriving before history finishes loading:
+        // a live assistant frame for the same content (within 5s of the
+        // history timestamp). After history loads, this should be deduped.
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "Hello!",
+            State = "final",
+            Ts = nowMs + 1000
+        });
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Equal(2, timeline.Entries.Count);
+        Assert.Equal("Hi", timeline.Entries[0].Text);
+        Assert.Equal("Hello!", timeline.Entries[1].Text);
+
+        // IDs must be unique even after the append step.
+        var ids = timeline.Entries.Select(e => e.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_AfterLiveActivity_PreservesNonDuplicateLiveEntries()
+    {
+        // Live status entries (e.g. an "Aborted" warning) that the gateway
+        // doesn't replay in history should be preserved after history load,
+        // and re-IDed when their original IDs collide with the rebuilt set.
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user",      Text = "Hi",     State = "final", Ts = nowMs },
+                new ChatMessageInfo { Role = "assistant", Text = "Hello!", State = "final", Ts = nowMs + 1000 }
+            }
+        });
+        await provider.LoadAsync();
+
+        // A live event the history will NOT carry — must survive the rebuild.
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", "{\"phase\":\"error\",\"message\":\"net glitch\"}"));
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Status && e.Text.Contains("net glitch"));
+
+        // All entry IDs unique post-rebuild.
+        var ids = timeline.Entries.Select(e => e.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_WithMissingTimestamps_PreservesAllLiveEntries()
+    {
+        // Rubber-duck round 2: when the rebuilt history entry has no
+        // timestamp (msg.Ts == 0), we must NOT dedupe a live entry against
+        // it on text alone — silent transcript loss is worse than visible
+        // duplication. The previous fingerprint logic collapsed all such
+        // entries into a single bucket=0 slot and dropped the second.
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                // Ts deliberately omitted (= 0) on both rebuilt entries.
+                new ChatMessageInfo { Role = "user",      Text = "ok", State = "final" },
+                new ChatMessageInfo { Role = "assistant", Text = "ok", State = "final" }
+            }
+        });
+        await provider.LoadAsync();
+
+        // A live assistant frame for "ok" arrives before history loads.
+        // Live entries always carry a non-zero Now timestamp, but the
+        // rebuilt side has Ts=0 → dedup must NOT match.
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "ok",
+            State = "final"
+            // Ts not set
+        });
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        // Two assistant "ok" entries must survive: one from history, one live.
+        var oks = timeline.Entries.Count(e =>
+            e.Kind == ChatTimelineItemKind.Assistant && e.Text == "ok");
+        Assert.Equal(2, oks);
+
+        var ids = timeline.Entries.Select(e => e.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_WithSameTextDifferentTimestamps_PreservesBoth()
+    {
+        // Rubber-duck round 2: even with valid timestamps, two genuinely
+        // distinct events with the same text should NOT collide once the
+        // gap exceeds the 2-second tolerance window.
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "assistant", Text = "ok", State = "final", Ts = nowMs }
+            }
+        });
+        await provider.LoadAsync();
+
+        // Live assistant message with the same text but 10 s later.
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "ok",
+            State = "final",
+            Ts = nowMs + 10_000
+        });
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var oks = timeline.Entries.Count(e =>
+            e.Kind == ChatTimelineItemKind.Assistant && e.Text == "ok");
+        Assert.Equal(2, oks);
+
+        var ids = timeline.Entries.Select(e => e.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Disconnect_DuringActiveTurn_InjectsInterruptionAndEndsTurn()
+    {
+        // Rubber-duck round 2 / MEDIUM 5: when the connection drops while
+        // a turn is in flight we must synthesize a Status entry +
+        // ChatTurnEndEvent so the UI doesn't sit "thinking" forever.
+        var sendGate = new TaskCompletionSource();
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.SendBehavior = (_, _, _) => sendGate.Task;
+        await provider.LoadAsync();
+
+        // Establish Connected baseline so the next status change registers
+        // as a Connected → Disconnected transition.
+        bridge.RaiseStatus(ConnectionStatus.Connected);
+
+        // Start a turn that never completes.
+        var sendTask = provider.SendMessageAsync("main", "hi");
+        Assert.True(snapshots[^1].Timelines["main"].TurnActive);
+
+        snapshots.Clear();
+
+        // Connection drops while turn is active.
+        bridge.RaiseStatus(ConnectionStatus.Disconnected);
+
+        var timeline = snapshots[^1].Timelines["main"];
+        Assert.False(timeline.TurnActive);
+        Assert.Contains(timeline.Entries, e =>
+            e.Kind == ChatTimelineItemKind.Status &&
+            e.Text.Contains("Chat_Notification_ConnectionInterrupted"));
+
+        // Count interruption entries before any further events.
+        var beforeCount = timeline.Entries.Count(e =>
+            e.Kind == ChatTimelineItemKind.Status &&
+            e.Text.Contains("Chat_Notification_ConnectionInterrupted"));
+        Assert.Equal(1, beforeCount);
+
+        // Subsequent unrelated events on the thread must not re-trigger
+        // the interruption (status is already Disconnected, no transition).
+        bridge.RaiseStatus(ConnectionStatus.Disconnected);
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "late frame",
+            State = "final"
+        });
+
+        var afterTimeline = snapshots[^1].Timelines["main"];
+        var afterCount = afterTimeline.Entries.Count(e =>
+            e.Kind == ChatTimelineItemKind.Status &&
+            e.Text.Contains("Chat_Notification_ConnectionInterrupted"));
+        Assert.Equal(1, afterCount);
+
+        // Allow the in-flight send to complete so the test can finish.
+        sendGate.SetResult();
+        await sendTask;
+    }
 }

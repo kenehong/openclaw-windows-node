@@ -2847,4 +2847,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="Chat_Notification_AssistantReplied" xml:space="preserve">
     <value>Assistent heeft geantwoord</value>
   </data>
+  <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
+    <value>Verbinding verbroken — antwoord onderbroken.</value>
+  </data>
 </root>

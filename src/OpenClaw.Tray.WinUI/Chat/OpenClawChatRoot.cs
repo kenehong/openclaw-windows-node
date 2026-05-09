@@ -76,7 +76,7 @@ public sealed class OpenClawChatRoot : Component
             ? tl
             : ChatTimelineState.Initial();
 
-        var entries = (IReadOnlyList<ChatTimelineItem>)timeline.Entries.AsReadOnly();
+        var entries = (IReadOnlyList<ChatTimelineItem>)timeline.Entries;
         var connectedRaw = snapshot.ConnectionStatus;
         var hostConnected = connectedRaw is not null
             && connectedRaw.StartsWith("Connected", StringComparison.OrdinalIgnoreCase);

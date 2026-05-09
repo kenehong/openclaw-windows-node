@@ -2894,4 +2894,7 @@ On your gateway host (Mac/Linux), run:
   <data name="Chat_Notification_AssistantReplied" xml:space="preserve">
     <value>Assistant replied</value>
   </data>
+  <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
+    <value>Connection lost — response interrupted.</value>
+  </data>
 </root>

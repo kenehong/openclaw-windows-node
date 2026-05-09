@@ -2846,4 +2846,7 @@
   <data name="Chat_Notification_AssistantReplied" xml:space="preserve">
     <value>助手已回复</value>
   </data>
+  <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
+    <value>连接已断开 — 回复已中断。</value>
+  </data>
 </root>

@@ -2846,4 +2846,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="Chat_Notification_AssistantReplied" xml:space="preserve">
     <value>L'assistant a répondu</value>
   </data>
+  <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
+    <value>Connexion perdue — réponse interrompue.</value>
+  </data>
 </root>

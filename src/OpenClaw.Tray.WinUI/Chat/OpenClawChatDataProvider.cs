@@ -300,12 +300,11 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
 
                     var roleLower = msg.Role?.ToLowerInvariant() ?? "";
 
-                    // Diagnostic: log every history message so we can see why
-                    // a particular item didn't get routed to a tool chip.
-                    var preview = msg.Text.Length > 120 ? msg.Text[..120].Replace("\n", "\\n") + "…" : msg.Text.Replace("\n", "\\n");
+                    // Diagnostic: log shape (role + length + heuristic flags) only.
+                    // Never log the message text — see HIGH 4 logging audit.
                     var isFlat = LooksLikeFlattenedToolOutput(msg.Text);
                     var isSys  = LooksLikeSystemControlNote(msg.Text);
-                    Logger.Debug($"[ChatHistory] role='{roleLower}' len={msg.Text.Length} flat={isFlat} sys={isSys} preview='{preview}'");
+                    Logger.Debug($"[ChatHistory] role='{roleLower}' len={msg.Text.Length} flat={isFlat} sys={isSys}");
 
                     switch (roleLower)
                     {
@@ -418,19 +417,119 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
                 rebuilt = rebuilt with { TurnActive = false, ActiveAssistantId = null, ActiveReasoningId = null };
 
                 // Append any prior live entries that weren't part of history.
-                // Preserve the metadata we already captured for those IDs.
+                // Dedup rules (HIGH 2 / rubber-duck round 2):
+                //   1. ID-only dedup is a no-op here because both rebuilt and
+                //      prior assign sequential e{n} IDs that always collide;
+                //      treat collisions as coincidences and re-id them.
+                //   2. Content+timestamp dedup: only when BOTH sides have a
+                //      non-zero timestamp AND they agree within 2 seconds.
+                //   3. If either side's timestamp is missing/zero, KEEP the
+                //      live entry — visible duplication beats silent loss.
                 if (prior.Entries.Count > 0)
                 {
                     var priorMeta = _entryMeta.TryGetValue(threadId, out var pm)
                         ? pm
                         : new Dictionary<string, ChatEntryMetadata>();
+
+                    static string ContentKey(ChatTimelineItemKind kind, string text) => $"{kind}|{text}";
+
+                    // (kind|text) → list of unix-second timestamps for rebuilt
+                    // entries that have a real timestamp. Only these can match.
+                    var rebuiltContentTimestamps = new Dictionary<string, List<long>>(StringComparer.Ordinal);
+                    foreach (var entry in rebuilt.Entries)
+                    {
+                        rebuiltMeta.TryGetValue(entry.Id, out var em);
+                        if (em?.Timestamp is { } rts && rts != default)
+                        {
+                            var key = ContentKey(entry.Kind, entry.Text);
+                            if (!rebuiltContentTimestamps.TryGetValue(key, out var list))
+                                rebuiltContentTimestamps[key] = list = new List<long>();
+                            list.Add(rts.ToUnixTimeSeconds());
+                        }
+                    }
+
+                    var existingIds = new HashSet<string>(StringComparer.Ordinal);
+                    var maxSuffix = 0;
+                    foreach (var entry in rebuilt.Entries)
+                    {
+                        existingIds.Add(entry.Id);
+                        if (entry.Id.Length > 1 && entry.Id[0] == 'e' &&
+                            int.TryParse(entry.Id.AsSpan(1), out var n) && n > maxSuffix)
+                            maxSuffix = n;
+                    }
+
+                    var nextId = Math.Max(rebuilt.NextId, maxSuffix + 1);
+                    var newEntries = rebuilt.Entries.ToBuilder();
+                    var skippedDup = 0;
+                    var reidCount = 0;
+
                     foreach (var entry in prior.Entries)
                     {
-                        rebuilt.Entries.Add(entry);
-                        if (priorMeta.TryGetValue(entry.Id, out var existing) && !rebuiltMeta.ContainsKey(entry.Id))
-                            rebuiltMeta[entry.Id] = existing;
+                        priorMeta.TryGetValue(entry.Id, out var em);
+                        var priorTs = em?.Timestamp;
+
+                        // Rule 2: content+timestamp dedup only when BOTH sides
+                        // have valid timestamps within 2 seconds. Otherwise
+                        // (Rule 3) fall through and keep the entry — silent
+                        // data loss is worse than visible duplicates.
+                        if (priorTs is { } pts && pts != default &&
+                            rebuiltContentTimestamps.TryGetValue(ContentKey(entry.Kind, entry.Text), out var rebuiltTimes))
+                        {
+                            var priorSec = pts.ToUnixTimeSeconds();
+                            var matched = false;
+                            foreach (var rebSec in rebuiltTimes)
+                            {
+                                if (Math.Abs(rebSec - priorSec) <= 2)
+                                {
+                                    matched = true;
+                                    break;
+                                }
+                            }
+                            if (matched)
+                            {
+                                skippedDup++;
+                                continue;
+                            }
+                        }
+
+                        // Re-id on collision (sequential IDs always collide
+                        // between rebuilt and prior).
+                        var entryToAdd = entry;
+                        if (existingIds.Contains(entry.Id))
+                        {
+                            var newId = $"e{nextId++}";
+                            entryToAdd = entry with { Id = newId };
+                            reidCount++;
+                        }
+                        else if (entry.Id.Length > 1 && entry.Id[0] == 'e' &&
+                                 int.TryParse(entry.Id.AsSpan(1), out var nn) && nn >= nextId)
+                        {
+                            // Bump nextId past this entry's suffix to avoid future collisions.
+                            nextId = nn + 1;
+                        }
+
+                        newEntries.Add(entryToAdd);
+                        existingIds.Add(entryToAdd.Id);
+                        if (em?.Timestamp is { } addTs && addTs != default)
+                        {
+                            var key = ContentKey(entryToAdd.Kind, entryToAdd.Text);
+                            if (!rebuiltContentTimestamps.TryGetValue(key, out var list))
+                                rebuiltContentTimestamps[key] = list = new List<long>();
+                            list.Add(addTs.ToUnixTimeSeconds());
+                        }
+                        if (em is not null && !rebuiltMeta.ContainsKey(entryToAdd.Id))
+                            rebuiltMeta[entryToAdd.Id] = em;
                     }
-                    rebuilt = rebuilt with { TurnActive = prior.TurnActive };
+
+                    if (skippedDup > 0 || reidCount > 0)
+                        Logger.Debug($"[ChatHistory] dedup: skipped={skippedDup} reid={reidCount} prior={prior.Entries.Count}");
+
+                    rebuilt = rebuilt with
+                    {
+                        Entries = newEntries.ToImmutable(),
+                        NextId = nextId,
+                        TurnActive = prior.TurnActive
+                    };
                 }
 
                 _timelines[threadId] = rebuilt;
@@ -515,10 +614,16 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         ChatDataSnapshot snapshot;
         bool justReconnected;
         string[] threadsToReload;
+        string[] threadsToInterrupt;
         lock (_gate)
         {
             justReconnected = status == ConnectionStatus.Connected
                               && _status != ConnectionStatus.Connected;
+            // MEDIUM 5: detect Connected → Disconnected/Error transitions so
+            // we can synthesise a turn-end + status entry on every thread that
+            // had an in-flight turn (otherwise the UI sits "thinking" forever).
+            var justDisconnected = (status == ConnectionStatus.Disconnected || status == ConnectionStatus.Error)
+                                   && _status == ConnectionStatus.Connected;
             _status = status;
 
             // On reconnect we may have missed streamed events for the active
@@ -534,9 +639,33 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             {
                 threadsToReload = Array.Empty<string>();
             }
+
+            if (justDisconnected)
+            {
+                var list = new List<string>();
+                foreach (var (key, tl) in _timelines)
+                {
+                    if (tl.TurnActive) list.Add(key);
+                }
+                threadsToInterrupt = list.ToArray();
+            }
+            else
+            {
+                threadsToInterrupt = Array.Empty<string>();
+            }
+
             snapshot = BuildSnapshotLocked();
         }
         Publish(snapshot);
+
+        // MEDIUM 5: synthesize the turn-end + status note for any threads
+        // that were mid-turn when the connection dropped.
+        var interruptedMsg = LocalizationHelper.GetString("Chat_Notification_ConnectionInterrupted");
+        foreach (var threadId in threadsToInterrupt)
+        {
+            ApplyEventAndPublish(threadId, new ChatStatusEvent(interruptedMsg, ChatTone.Warning));
+            ApplyEventAndPublish(threadId, new ChatTurnEndEvent());
+        }
 
         // Eagerly re-issue history loads off the lock so the UI sees fresh
         // transcripts without waiting for the user to re-select the thread.
