@@ -606,6 +606,78 @@ public class OpenClawChatDataProviderTests
         Assert.Equal("Hi back", timeline.Entries[2].Text);
     }
 
+    [Theory]
+    [InlineData("toolresult")]
+    [InlineData("tool_result")]
+    public async Task LoadHistoryAsync_ToolResultRole_RendersAsToolChipEvenWithoutHeuristicMatch(string role)
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = role, Text = "(no output)", State = "final", Ts = 1 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var entry = Assert.Single(snapshots[^1].Timelines["main"].Entries);
+        Assert.Equal(ChatTimelineItemKind.ToolCall, entry.Kind);
+        Assert.Equal(ChatToolCallStatus.Success, entry.ToolResult);
+        Assert.Equal("(no output)", entry.ToolOutput);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_ToolRole_RendersAsDimStatusEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "tool", Text = "tool transcript note", State = "final", Ts = 1 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var entry = Assert.Single(snapshots[^1].Timelines["main"].Entries);
+        Assert.Equal(ChatTimelineItemKind.Status, entry.Kind);
+        Assert.Equal(ChatTone.Dim, entry.Tone);
+        Assert.Equal("tool transcript note", entry.Text);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_UnknownRole_FallsBackToVisibleAssistantEntry()
+    {
+        var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "function", Text = "fallback text", State = "final", Ts = 1 },
+            }
+        });
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        var timeline = snapshots[^1].Timelines["main"];
+        var entry = Assert.Single(timeline.Entries);
+        Assert.Equal(ChatTimelineItemKind.Assistant, entry.Kind);
+        Assert.Equal("fallback text", entry.Text);
+        Assert.False(timeline.TurnActive);
+    }
+
     [Fact]
     public async Task LoadHistoryAsync_OutOfOrderTimestamps_AreSortedAscending()
     {
@@ -644,6 +716,43 @@ public class OpenClawChatDataProviderTests
         await provider.LoadHistoryAsync("main");
 
         Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_WhenRequestFails_NotifiesAndAllowsRetry()
+    {
+        var calls = 0;
+        var (bridge, provider, snapshots, notifications) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ =>
+        {
+            calls++;
+            if (calls == 1)
+                throw new InvalidOperationException("history down");
+
+            return Task.FromResult(new ChatHistoryInfo
+            {
+                SessionKey = "main",
+                Messages = new[]
+                {
+                    new ChatMessageInfo { Role = "assistant", Text = "recovered", State = "final", Ts = 1 },
+                }
+            });
+        };
+        await provider.LoadAsync();
+        snapshots.Clear();
+
+        await provider.LoadHistoryAsync("main");
+
+        Assert.Contains(notifications, n =>
+            n.Kind == ChatProviderNotificationKind.Error &&
+            n.Message?.Contains("history down") == true);
+        Assert.Empty(snapshots);
+
+        await provider.LoadHistoryAsync("main");
+
+        Assert.Equal(2, calls);
+        Assert.Contains(snapshots[^1].Timelines["main"].Entries, e =>
+            e.Kind == ChatTimelineItemKind.Assistant && e.Text == "recovered");
     }
 
     [Fact]
@@ -999,6 +1108,49 @@ public class OpenClawChatDataProviderTests
         Assert.True(meta.TryGetValue(entry.Id, out var m));
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1714600005000).ToLocalTime(), m!.Timestamp);
         Assert.Equal("claude-sonnet-4.6", m.Model);
+    }
+
+    [Fact]
+    public async Task ChatMessageReceived_AssistantFinal_MergesUsageMetadataOntoStreamingEntry()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "partial",
+            State = "delta",
+            Ts = 1714600005000
+        });
+
+        var firstSnap = await provider.LoadAsync();
+        var entryId = Assert.Single(firstSnap.Timelines["main"].Entries).Id;
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "final",
+            State = "final",
+            Ts = 1714600006000,
+            InputTokens = 12,
+            OutputTokens = 34,
+            ResponseTokens = 46,
+            ContextPercent = 7
+        });
+
+        var snap = await provider.LoadAsync();
+        var entry = Assert.Single(snap.Timelines["main"].Entries);
+        Assert.Equal(entryId, entry.Id);
+        Assert.Equal("final", entry.Text);
+
+        var meta = provider.GetEntryMetadata("main");
+        Assert.Equal(12, meta[entry.Id].InputTokens);
+        Assert.Equal(34, meta[entry.Id].OutputTokens);
+        Assert.Equal(46, meta[entry.Id].ResponseTokens);
+        Assert.Equal(7, meta[entry.Id].ContextPercent);
     }
 
     [Fact]

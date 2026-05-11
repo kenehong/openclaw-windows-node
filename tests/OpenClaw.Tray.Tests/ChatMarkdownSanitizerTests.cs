@@ -259,13 +259,31 @@ public class ChatMarkdownSanitizerTests
     [Fact]
     public void Sanitize_RawHtmlImg_TreatedAsText()
     {
-        // Raw HTML is passed through to Reactor as-is and rendered by
-        // the md4c HTML-block path (which OpenClawChatTimeline does NOT
-        // override to fetch). Sanitizer must not crash on HTML and must
-        // not synthesize any [Image: ...] placeholder for raw HTML.
+        // Raw HTML is passed through as text for the timeline's explicit
+        // inert HtmlBlock renderer. Sanitizer must not crash on HTML and
+        // must not synthesize any [Image: ...] placeholder for raw HTML.
         var input = "<img src=\"https://attacker.example/p.png\" alt=\"x\">";
         var result = ChatMarkdownSanitizer.Sanitize(input);
         Assert.Equal(input, result);
         Assert.DoesNotContain("[Image", result);
+    }
+
+    [Theory]
+    [InlineData("<script>fetch('https://attacker.example')</script>")]
+    [InlineData("<a href=\"https://attacker.example\">click</a>")]
+    [InlineData("<iframe src=\"https://attacker.example\"></iframe>")]
+    [InlineData("<svg><image href=\"https://attacker.example/p.png\" /></svg>")]
+    [InlineData("<img src=\"https://attacker.example/p.png\" onerror=\"alert(1)\">")]
+    public void FlattenRawHtmlBlockToInertText_PreservesDangerousHtmlAsLiteralText(string html)
+    {
+        var result = ChatMarkdownSanitizer.FlattenRawHtmlBlockToInertText(html);
+
+        Assert.Equal(html, result);
+    }
+
+    [Fact]
+    public void FlattenRawHtmlBlockToInertText_Null_ReturnsEmpty()
+    {
+        Assert.Equal(string.Empty, ChatMarkdownSanitizer.FlattenRawHtmlBlockToInertText(null));
     }
 }

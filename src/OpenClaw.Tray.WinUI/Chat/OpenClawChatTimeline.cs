@@ -75,9 +75,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
     //      collapse any link the parser DOES emit — bare URLs and
     //      ``<https://…>`` autolinks that the sanitizer can't strip
     //      without breaking prose — into an inert ``RichTextRun`` carrying
-    //      visible URL text but no NavigateUri. Net effect: no
-    //      click-to-navigate hyperlink can be manufactured by untrusted
-    //      Markdown inside a chat bubble.
+    //      visible URL text but no NavigateUri.
+    //   4. Renders raw HTML blocks as selectable plain text. Reactor's default
+    //      behavior is currently also text-only, but keep the chat surface's
+    //      trust boundary explicit so a future vendored update cannot turn
+    //      ``<img>``, ``<a>``, ``<script>``, SVG, or iframe blocks into active UI.
+    //      Net effect: no click-to-navigate hyperlink or network-fetching
+    //      image can be manufactured by untrusted Markdown inside a chat bubble.
     internal static readonly Microsoft.UI.Reactor.Markdown.MarkdownOptions _markdownOptions = new()
     {
         CodeFontFamily = "Cascadia Code, Cascadia Mono, Consolas",
@@ -132,6 +136,17 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             ).WithBorder(Theme.DividerStroke, 1)
              .CornerRadius(4).Margin(0, 4, 0, 4);
         },
+        // Raw HTML from the gateway is not trusted markup. Display it as
+        // literal selectable text rather than delegating to Reactor defaults
+        // or any HTML-capable renderer.
+        HtmlBlock = rawHtml =>
+            TextBlock(ChatMarkdownSanitizer.FlattenRawHtmlBlockToInertText(rawHtml))
+                .Set(t =>
+                {
+                    t.TextWrapping = TextWrapping.Wrap;
+                    t.IsTextSelectionEnabled = true;
+                })
+                .Foreground(Theme.TertiaryText),
         // Defense-in-depth for any image syntax that survives sanitization
         // (e.g. reference-style images): render an inert caption-styled
         // placeholder; never instantiate a Uri-bound BitmapImage.

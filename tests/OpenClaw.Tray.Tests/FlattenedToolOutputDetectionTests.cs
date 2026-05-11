@@ -167,6 +167,62 @@ public class FlattenedToolOutputDetectionTests
         Assert.Equal("req-1", truncated.RequestId);
     }
 
+    [Fact]
+    public void TruncateChatEvent_ChatToolStartEvent_TruncatesLabelAndToolName()
+    {
+        var hugeLabel = new string('l', 400_000);
+        var hugeName = new string('n', 400_000);
+
+        var truncated = (ChatToolStartEvent)OpenClawChatDataProvider.TruncateChatEvent(
+            new ChatToolStartEvent(hugeLabel, hugeName));
+
+        Assert.True(truncated.Text.Length < hugeLabel.Length);
+        Assert.True(truncated.ToolName.Length < hugeName.Length);
+        Assert.EndsWith("bytes truncated]", truncated.Text);
+        Assert.EndsWith("bytes truncated]", truncated.ToolName);
+    }
+
+    [Fact]
+    public void TruncateChatEvent_AllRenderedTextFieldsRespectByteCap()
+    {
+        var huge = new string('x', 400_000);
+
+        AssertCapped(((ChatUserMessageEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatUserMessageEvent(huge))).Text);
+        AssertCapped(((ChatThinkingEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatThinkingEvent(huge))).Text);
+        AssertCapped(((ChatReasoningEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatReasoningEvent(huge))).Text);
+        AssertCapped(((ChatReasoningDeltaEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatReasoningDeltaEvent(huge))).Text);
+
+        var message = (ChatMessageEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatMessageEvent(huge, huge));
+        AssertCapped(message.Text);
+        AssertCapped(message.ReasoningText!);
+
+        AssertCapped(((ChatMessageDeltaEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatMessageDeltaEvent(huge))).Text);
+        AssertCapped(((ChatToolStartEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatToolStartEvent(huge, huge))).Text);
+        AssertCapped(((ChatToolStartEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatToolStartEvent(huge, huge))).ToolName);
+        AssertCapped(((ChatToolOutputEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatToolOutputEvent(huge))).Text);
+        AssertCapped(((ChatToolErrorEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatToolErrorEvent(huge))).Text);
+        AssertCapped(((ChatStatusEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatStatusEvent(huge, ChatTone.Dim))).Text);
+        AssertCapped(((ChatErrorEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatErrorEvent(huge))).Text);
+        AssertCapped(((ChatRestoredEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatRestoredEvent(huge))).Text);
+        AssertCapped(((ChatRawEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatRawEvent("raw", huge))).Text!);
+        AssertCapped(((ChatModelChangedEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatModelChangedEvent(huge))).Model);
+        AssertCapped(((ChatIntentEvent)OpenClawChatDataProvider.TruncateChatEvent(new ChatIntentEvent(huge))).Intent);
+
+        var permission = (ChatPermissionRequestEvent)OpenClawChatDataProvider.TruncateChatEvent(
+            new ChatPermissionRequestEvent("req-1", huge, huge, huge));
+        AssertCapped(permission.PermissionKind);
+        AssertCapped(permission.ToolName);
+        AssertCapped(permission.Detail);
+
+        static void AssertCapped(string text)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetByteCount(text);
+            Assert.True(bytes <= OpenClawChatDataProvider.MaxEntryTextBytes,
+                $"Expected <= {OpenClawChatDataProvider.MaxEntryTextBytes} bytes but got {bytes}.");
+            Assert.EndsWith("bytes truncated]", text);
+        }
+    }
+
     [Theory]
     [InlineData("Command still running (session foo, pid 1)", "process")]
     [InlineData("Process exited with code 0", "process")]

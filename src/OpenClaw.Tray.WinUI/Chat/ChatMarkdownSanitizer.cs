@@ -61,6 +61,13 @@ internal static class ChatMarkdownSanitizer
     }
 
     /// <summary>
+    /// Convert a raw Markdown HTML block into inert display text. The caller
+    /// must render the returned string with a plain text control, not an HTML
+    /// or WebView renderer.
+    /// </summary>
+    public static string FlattenRawHtmlBlockToInertText(string? rawHtml) => rawHtml ?? string.Empty;
+
+    /// <summary>
     /// Sanitize a chat-bubble markdown string.
     /// </summary>
     public static string Sanitize(string? text)

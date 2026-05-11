@@ -1278,11 +1278,12 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             t.StartsWith("System:", StringComparison.Ordinal);
         if (!hasPrefix) return false;
 
-        // Structural markers actually emitted by the gateway in real
-        // system control notes. The gateway-side templates that produce
-        // these strings have stable wording; if they change, this list
-        // is the single point of update. NOT a substring match against
-        // common user prose.
+        // We do not control the gateway protocol, and these frames currently
+        // arrive as plain role=user text rather than structured provenance.
+        // Keep this intentionally narrow: prefix + gateway-emitted structural
+        // marker. If gateway wording changes, update this list and tests rather
+        // than loosening to generic "System:" substring matches that could
+        // misclassify ordinary user prose.
         return t.Contains("Exec completed (", StringComparison.Ordinal)
             || t.Contains("Process exited with code", StringComparison.Ordinal)
             || t.Contains("Command still running (session", StringComparison.Ordinal)
@@ -1422,7 +1423,11 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             ReasoningText = e.ReasoningText is null ? null : TruncateForChatEntry(e.ReasoningText)
         },
         ChatMessageDeltaEvent e => e with { Text = TruncateForChatEntry(e.Text) },
-        ChatToolStartEvent e => e with { Text = TruncateForChatEntry(e.Text) },
+        ChatToolStartEvent e => e with
+        {
+            Text = TruncateForChatEntry(e.Text),
+            ToolName = TruncateForChatEntry(e.ToolName)
+        },
         ChatToolOutputEvent e => e with { Text = TruncateForChatEntry(e.Text) },
         ChatToolErrorEvent e => e with { Text = TruncateForChatEntry(e.Text) },
         ChatStatusEvent e => e with { Text = TruncateForChatEntry(e.Text) },
