@@ -205,10 +205,26 @@ public class ChatExplorationsPanel : Component
                 v => ChatExplorationState.PreviewState = v,
                 ChatPreviewState.Live,
                 ChatPreviewState.Loading,
-                ChatPreviewState.EmptyZero,
-                ChatPreviewState.EmptyThread,
+                ChatPreviewState.Empty,
                 ChatPreviewState.Thinking,
                 ChatPreviewState.PendingPermission)
+        );
+
+        // ── H. Tool burst (multi-step task framing) ──────────────────
+        // Variants explored here mirror competitor patterns:
+        //   Plain          — current Cursor-lite (no task framing)
+        //   TaskHeader     — Cursor's "Tool calls (N steps)" + per-row list
+        //   CompactSummary — single collapsed "Task · 3 steps" row, expands
+        //   FooterReframe  — plain rows, just reframe the footer text
+        var toolBurstSection = Section("H. Tool burst style",
+            EnumCombo("Burst style", ChatExplorationState.ToolBurstStyle,
+                v => ChatExplorationState.ToolBurstStyle = v,
+                ToolBurstStyle.Plain,
+                ToolBurstStyle.TaskHeader,
+                ToolBurstStyle.CompactSummary,
+                ToolBurstStyle.FooterReframe),
+            Toggle("Show step numbers (1./2./3.)", ChatExplorationState.ShowStepNumbers,
+                v => ChatExplorationState.ShowStepNumbers = v)
         );
 
         var resetBtn = Button("Reset all", () =>
@@ -248,6 +264,7 @@ public class ChatExplorationsPanel : Component
             composerSection, iconsSection,
             brushSection,
             previewStateSection,
+            toolBurstSection,
             (FlexRow(resetBtn, pinBtn) with { ColumnGap = 8 })
         ).Padding(16, 16, 16, 16);
 

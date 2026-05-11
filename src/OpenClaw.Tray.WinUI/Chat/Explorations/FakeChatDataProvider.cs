@@ -32,11 +32,23 @@ public sealed class FakeChatDataProvider : IChatDataProvider
         {
             new("d1", ChatTimelineItemKind.User,      "Hi! Show me how the chat looks with all the toggles applied."),
             new("d2", ChatTimelineItemKind.Assistant, "Hi there! This is an assistant bubble. **Markdown** is supported, and long lines wrap automatically inside the bubble so you can see how the layout breathes."),
+            // d3 / d3b / d3c form a 3-entry tool burst to exercise burst grouping
+            // (single trailing "Tool · <time>" footer, tight inner margins).
             new("d3", ChatTimelineItemKind.ToolCall,
                 Text: "search files",
                 ToolName: "FileSearch",
                 ToolResult: ChatToolCallStatus.Success,
                 ToolOutput: "Found 12 matches in 3 files."),
+            new("d3b", ChatTimelineItemKind.ToolCall,
+                Text: "read file",
+                ToolName: "ReadFile",
+                ToolResult: ChatToolCallStatus.Success,
+                ToolOutput: "Read 248 lines from src/foo.cs."),
+            new("d3c", ChatTimelineItemKind.ToolCall,
+                Text: "exec",
+                ToolName: "Exec",
+                ToolResult: ChatToolCallStatus.Success,
+                ToolOutput: "Exit code 0 (build succeeded)."),
             new("d4", ChatTimelineItemKind.User,      "Nice — the tool card looks great."),
             new("d5", ChatTimelineItemKind.Assistant, "Thanks! Toggle bubbles, tool cards, and avatars on and off in the panel to compare side by side."),
             new("d6", ChatTimelineItemKind.Assistant, "This is a second assistant bubble in the same burst — handy for testing avatar alignment and burst spacing."),

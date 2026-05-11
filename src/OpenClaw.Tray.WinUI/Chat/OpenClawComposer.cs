@@ -305,25 +305,34 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         }
 
         // ── Optional working / permission banners above the composer ──
-        Element workingBanner = Props.TurnActive
-            ? (FlexRow(
-                ProgressRing().Size(16, 16),
-                Caption(LocalizationHelper.GetString("Chat_Composer_AssistantWorking")).Foreground(SecondaryText)
-              ) with { ColumnGap = 8 }).Padding(16, 8, 16, 0)
-            : Empty();
+        // The "assistant is working" indicator is now rendered exclusively in
+        // the timeline (see OpenClawChatTimeline thinkingIndicator) so the
+        // user sees a single source of truth for in-flight turns. Composer
+        // keeps the Stop button (separate code path below) as the action
+        // affordance.
+        Element workingBanner = Empty();
 
         Element permissionBanner = Props.PendingPermission is { } perm
             ? Border(
-                HStack(8,
+                Grid([GridSize.Star(), GridSize.Auto, GridSize.Auto], [GridSize.Auto],
                     TextBlock($"⚠ {perm.ToolName}: {perm.Detail}")
                         .Set(t => { t.TextWrapping = TextWrapping.Wrap; t.TextTrimming = TextTrimming.CharacterEllipsis; })
-                        .HAlign(HorizontalAlignment.Stretch),
+                        .HAlign(HorizontalAlignment.Stretch)
+                        .VAlign(VerticalAlignment.Center)
+                        .Grid(row: 0, column: 0),
                     Button(LocalizationHelper.GetString("Chat_Permission_Allow"), () => Props.OnPermissionResponse(perm.RequestId, true))
-                        .Background(Accent).Set(b => { b.CornerRadius = new CornerRadius(4); b.Padding = new Thickness(12, 4, 12, 4); b.MinWidth = 0; b.MinHeight = 0; }),
+                        .Set(b => { b.CornerRadius = new CornerRadius(4); b.Padding = new Thickness(12, 4, 12, 4); b.MinWidth = 0; b.MinHeight = 0; })
+                        .VAlign(VerticalAlignment.Center)
+                        .Margin(8, 0, 0, 0)
+                        .Grid(row: 0, column: 1),
                     Button(LocalizationHelper.GetString("Chat_Permission_Deny"), () => Props.OnPermissionResponse(perm.RequestId, false))
                         .Set(b => { b.CornerRadius = new CornerRadius(4); b.Padding = new Thickness(12, 4, 12, 4); b.MinWidth = 0; b.MinHeight = 0; })
-                ).Padding(12, 8, 12, 8)
-              ).Background(SubtleFill).CornerRadius(8).WithBorder(DividerStroke, 1).Margin(12, 4, 12, 4)
+                        .VAlign(VerticalAlignment.Center)
+                        .Margin(8, 0, 0, 0)
+                        .Grid(row: 0, column: 2)
+                ).Padding(12, 16, 12, 16)
+              ).CornerRadius(8).Margin(24, 16, 24, 16)
+               .Set(b => { b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Stretch; })
             : Empty();
 
         // ── ComposerLayout 분기 ───────────────────────────────────────

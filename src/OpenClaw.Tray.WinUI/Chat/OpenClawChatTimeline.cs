@@ -285,6 +285,29 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // fine for the entry counts we deal with (typically <100 visible).
         var hoveredEntries = UseState<HashSet<string>>(new HashSet<string>(), threadSafe: true);
 
+        // Thinking-row dot animation. Cycles 0→1→2→3→0 every 400ms while the
+        // ShowThinkingIndicator prop is true; drives the trailing "." / ".." /
+        // "..." in the "<name> is thinking" caption so the row visibly pulses
+        // without needing a ProgressRing (which renders awkwardly at small
+        // sizes). DispatcherTimer fires on the UI thread so the reducer call
+        // is safe. UseReducer (not UseState) because the timer-tick closure
+        // re-reads on each fire — UseState.Value is a render-time snapshot,
+        // so a long-lived timer would forever advance from the same stale
+        // value. (Same reason as the AckAction reducer below.)
+        var (thinkingDotPhase, thinkingDotPhaseUpdate) = UseReducer<int>(0, threadSafe: true);
+        UseEffect((Func<Action>)(() =>
+        {
+            if (!Props.ShowThinkingIndicator)
+                return () => { };
+            var timer = new Microsoft.UI.Xaml.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(400)
+            };
+            timer.Tick += (_, _) => thinkingDotPhaseUpdate(prev => (prev + 1) % 4);
+            timer.Start();
+            return () => timer.Stop();
+        }), Props.ShowThinkingIndicator);
+
         // Acknowledged actions — set of "entryId|actionKey" strings briefly
         // marked after a click so the icon can swap to a checkmark for ~1.2s
         // before reverting. Gives the user immediate "done" feedback for
@@ -843,245 +866,390 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 entry.Id);
         }
 
-        // Tool entry: rendered as TWO compact collapsible chips matching the
-        // web Control UI's `chat-tool-card` blocks — a "Tool call" chip with
-        // the args, and a "Tool output" chip with the result. Each chip is a
-        // clickable button: collapsed shows just `▸ ⚡ Tool call <kind>`;
-        // expanded reveals a monospace content panel below the header.
-        Element RenderToolEntry(ChatTimelineItem entry)
+        // Tool burst: a *contiguous* run of ToolCall entries (one assistant
+        // turn may chain multiple tool invocations) is rendered as a SINGLE
+        // unified card with one row per tool. Each row collapses call+output
+        // into `▸ ⚡ <ToolName> · <summary>  [Done]`; click expands the row
+        // to reveal the original args + raw output (the previous chip body).
+        // A single trailing `Tool · <time>` footer sits below the card.
+        Element RenderToolBurst(System.Collections.Generic.IReadOnlyList<ChatTimelineItem> entries)
         {
-            var kindLabel = entry.ToolName ?? "tool";
+            // Status pill / glyph color resolved per entry (each row has its
+            // own status). The body styling (block bg/border) is shared across
+            // the burst.
+            var blockBg     = themeBrush("ControlFillColorTertiaryBrush");
+            var blockBorder = themeBrush("ControlStrokeColorDefaultBrush");
+            var blockHeaderBg = themeBrush("SubtleFillColorSecondaryBrush");
 
-            // Status pill colors — adopted from Kenny's ComponentLibrary
-            // Cat04 tool cards. Same palette as the web Control UI.
-            //   Running #FFDC781E (orange)
-            //   Done    #FF28A050 (green)
-            //   Yielded #FF8888AA (gray)        — not yet emitted by us
-            //   Error   SystemFillColorCriticalBrush
-            string statusText;
-            Brush statusBg;
-            switch (entry.ToolResult)
+            (string text, Brush bg, Brush fg) ResolveStatus(ChatTimelineItem entry)
             {
-                case ChatToolCallStatus.Success:
-                    statusText = LocalizationHelper.GetString("Chat_Status_Done");
-                    statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0x28, 0xA0, 0x50));
-                    break;
-                case ChatToolCallStatus.Error:
-                    statusText = LocalizationHelper.GetString("Chat_Status_Error");
-                    statusBg = themeBrush("SystemFillColorCriticalBrush");
-                    break;
-                default:
-                    statusText = LocalizationHelper.GetString("Chat_Status_Running");
-                    statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0x78, 0x1E));
-                    break;
+                // Same palette as the previous chip — keeps continuity with
+                // Kenny's Cat04 tool cards. Running orange / Done green /
+                // Error critical.
+                switch (entry.ToolResult)
+                {
+                    case ChatToolCallStatus.Success:
+                        var ok = new SolidColorBrush(Color.FromArgb(0xFF, 0x28, 0xA0, 0x50));
+                        return (LocalizationHelper.GetString("Chat_Status_Done"), ok, ok);
+                    case ChatToolCallStatus.Error:
+                        var err = themeBrush("SystemFillColorCriticalBrush");
+                        return (LocalizationHelper.GetString("Chat_Status_Error"), err, err);
+                    default:
+                        var run = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0x78, 0x1E));
+                        return (LocalizationHelper.GetString("Chat_Status_Running"), run, themeBrush("TextFillColorTertiaryBrush"));
+                }
             }
 
-            // Lightning glyph color follows pill status so the header reads
-            // at a glance even before the pill is in view.
-            Brush statusFg = entry.ToolResult switch
+            // Brief one-line summary for the collapsed row. Prefer the output
+            // (truncated first line) so users see the *result* at a glance;
+            // fall back to the args / tool kind when output isn't in yet.
+            static string ShortSummary(ChatTimelineItem entry)
             {
-                ChatToolCallStatus.Success => statusBg,
-                ChatToolCallStatus.Error => statusBg,
-                _ => themeBrush("TextFillColorTertiaryBrush")
-            };
+                string Truncate(string s, int max)
+                {
+                    s = s.Replace('\r', ' ').Replace('\n', ' ').Trim();
+                    return s.Length > max ? s.Substring(0, max - 1) + "…" : s;
+                }
+                if (!string.IsNullOrWhiteSpace(entry.ToolOutput)) return Truncate(entry.ToolOutput!, 80);
+                if (!string.IsNullOrWhiteSpace(entry.Text) && entry.Text != entry.ToolName) return Truncate(entry.Text!, 80);
+                return string.Empty;
+            }
 
-            // Brushes used by the expanded body — match the web's
-            // `__block-preview` / `__block-content` palette.
-            var blockBg            = themeBrush("ControlFillColorTertiaryBrush");
-            var blockBorder        = themeBrush("ControlStrokeColorDefaultBrush");
-            var blockHeaderBg      = themeBrush("SubtleFillColorSecondaryBrush");
-
-            Element BuildChip(string token, string label, string sectionLabel, string contentText, bool hasContent)
+            Element BuildRow(ChatTimelineItem entry, bool isFirst, bool isLast, string? stepPrefix)
             {
+                var kindLabel = entry.ToolName ?? "tool";
+                var (statusText, statusBg, statusFg) = ResolveStatus(entry);
+                var summary = ShortSummary(entry);
+
+                var token = $"{entry.Id}:burst";
                 var isExpanded = expandedToolChips.Value.Contains(token);
                 var chevron = isExpanded ? "▾" : "▸";
 
-                var headerRow = (FlexRow(
-                    Caption(chevron).Foreground(TertiaryText)
-                        .Set(t => { t.FontSize = 11; })
-                        .VAlign(VerticalAlignment.Center),
-                    Caption("⚡").Foreground(statusFg)
-                        .Set(t => { t.FontSize = 12; })
-                        .VAlign(VerticalAlignment.Center),
-                    Caption(label).Foreground(SecondaryText)
-                        .Set(t =>
-                        {
-                            t.FontSize = 12;
-                            t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                        })
-                        .VAlign(VerticalAlignment.Center),
-                    Caption(kindLabel).Foreground(TertiaryText)
-                        .Set(t =>
-                        {
-                            t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
-                            t.FontSize = 12;
-                            t.TextTrimming = TextTrimming.CharacterEllipsis;
-                            t.MaxLines = 1;
-                        })
-                        .VAlign(VerticalAlignment.Center).Flex(grow: 1),
-                    // Status pill — Kenny's CornerRadius 10 / Padding 6,1
-                    // colored capsule with white text. Only on the output
-                    // chip (the call chip's status is implicit in "Tool call").
-                    When(token.EndsWith(":out"),
-                        () => Border(
-                            Caption(statusText)
-                                .Foreground(new SolidColorBrush(Colors.White))
-                                .Set(t => { t.FontSize = 10; })
-                                .VAlign(VerticalAlignment.Center)
-                        ).Background(statusBg)
-                         .CornerRadius(10)
-                         .Padding(6, 1, 6, 1)
-                         .VAlign(VerticalAlignment.Center))
-                ) with { ColumnGap = 6 }).Padding(10, 6, 10, 6);
+                // Optional step prefix ("1.", "2.", …) — surfaced when the
+                // explorations panel asks for explicit numbering and the burst
+                // contains more than one tool.
+                var labelText = string.IsNullOrEmpty(stepPrefix)
+                    ? kindLabel
+                    : $"{stepPrefix} {kindLabel}";
 
-                Element body;
-                if (isExpanded && hasContent)
-                {
-                    // Pretty-print JSON content — gateway often delivers
-                    // `{ "action": "poll", ... }` blobs; matching the web's
-                    // syntax-highlighted formatting.
-                    var displayText = TryFormatJsonForDisplay(contentText);
-
-                    // Inner header: ⚙ <CapitalizedKind>  — mirrors the
-                    // `Exec` / `Process` mini-header inside the web chip.
-                    var innerHeader = (FlexRow(
-                        Caption("\uD83D\uDD27").Foreground(SecondaryText)  // 🔧 wrench
+                var headerRow = Border(
+                    (FlexRow(
+                        Caption(chevron).Foreground(TertiaryText)
                             .Set(t => { t.FontSize = 12; })
                             .VAlign(VerticalAlignment.Center),
-                        Caption(CapitalizeFirst(kindLabel)).Foreground(SecondaryText)
+                        Caption("⚡").Foreground(statusFg)
+                            .Set(t => { t.FontSize = 12; })
+                            .VAlign(VerticalAlignment.Center),
+                        Caption(labelText).Foreground(SecondaryText)
                             .Set(t =>
                             {
                                 t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
-                                t.FontSize = 13;
+                                t.FontSize = 12;
                                 t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
                             })
-                            .VAlign(VerticalAlignment.Center)
-                    ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8);
-
-                    // Section label — uppercase 11px muted, like
-                    // `.chat-tool-card__block-label` in the web CSS.
-                    var sectionRow = (FlexRow(
-                        Caption("⚡").Foreground(TertiaryText)
-                            .Set(t => { t.FontSize = 11; })
                             .VAlign(VerticalAlignment.Center),
-                        Caption(sectionLabel.ToUpperInvariant())
+                        Caption(string.IsNullOrEmpty(summary) ? string.Empty : "· " + summary)
                             .Foreground(TertiaryText)
                             .Set(t =>
                             {
-                                t.FontSize = 11;
-                                t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
-                                t.CharacterSpacing = 60; // ~0.04em letter-spacing
+                                t.FontSize = 12;
+                                t.TextTrimming = TextTrimming.CharacterEllipsis;
+                                t.MaxLines = 1;
                             })
-                            .VAlign(VerticalAlignment.Center)
-                    ) with { ColumnGap = 6 }).Padding(12, 0, 12, 6);
+                            .VAlign(VerticalAlignment.Center).Flex(grow: 1),
+                        Border(
+                            Caption(statusText)
+                                .Foreground(new SolidColorBrush(Colors.White))
+                                .Set(t => { t.FontSize = 10; t.LineHeight = 16; })
+                                .VAlign(VerticalAlignment.Center)
+                        ).Background(statusBg)
+                         .CornerRadius(10)
+                         .Padding(8, 0, 8, 0)
+                         .Set(b => b.MinHeight = 18)
+                         .VAlign(VerticalAlignment.Center)
+                    ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8)
+                ).Set(b => b.MinHeight = 22);
 
-                    // Code-styled monospace content panel.
-                    var codeBlock = Border(
-                        ScrollView(
-                            TextBlock(displayText)
+                Element body = Empty();
+                if (isExpanded)
+                {
+                    var sections = new System.Collections.Generic.List<Element>();
+                    Element BuildSection(string sectionLabel, string contentText)
+                    {
+                        var displayText = TryFormatJsonForDisplay(contentText);
+                        var sectionRow = (FlexRow(
+                            Caption("⚡").Foreground(TertiaryText)
+                                .Set(t => { t.FontSize = 11; })
+                                .VAlign(VerticalAlignment.Center),
+                            Caption(sectionLabel.ToUpperInvariant())
+                                .Foreground(TertiaryText)
                                 .Set(t =>
                                 {
-                                    t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
                                     t.FontSize = 11;
-                                    t.TextWrapping = TextWrapping.Wrap;
-                                    t.IsTextSelectionEnabled = true;
-                                    t.LineHeight = 16;
+                                    t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                                    t.CharacterSpacing = 60;
                                 })
-                                .Foreground(SecondaryText)
-                                .Padding(11, 8, 11, 10)
-                        ).Set(sv =>
-                        {
-                            sv.MaxHeight = 280;
-                            sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-                            sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-                        })
-                    ).Background(blockBg)
-                     .CornerRadius(6)
-                     .WithBorder(blockBorder, 1)
-                     .Margin(12, 0, 12, 10);
+                                .VAlign(VerticalAlignment.Center)
+                        ) with { ColumnGap = 6 }).Padding(12, 6, 12, 6);
 
-                    body = Border(
-                        VStack(0, innerHeader, sectionRow, codeBlock)
-                    ).Background(blockHeaderBg);
-                }
-                else
-                {
-                    body = Empty();
+                        var codeBlock = Border(
+                            ScrollView(
+                                TextBlock(displayText)
+                                    .Set(t =>
+                                    {
+                                        t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
+                                        t.FontSize = 11;
+                                        t.TextWrapping = TextWrapping.Wrap;
+                                        t.IsTextSelectionEnabled = true;
+                                        t.LineHeight = 16;
+                                    })
+                                    .Foreground(SecondaryText)
+                                    .Padding(11, 8, 11, 10)
+                            ).Set(sv =>
+                            {
+                                sv.MaxHeight = 240;
+                                sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                                sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+                            })
+                        ).Background(blockBg)
+                         .CornerRadius(6)
+                         .WithBorder(blockBorder, 1)
+                         .Margin(12, 0, 12, 8);
+
+                        return VStack(0, sectionRow, codeBlock);
+                    }
+
+                    var callContent = !string.IsNullOrEmpty(entry.Text) && entry.Text != entry.ToolName
+                        ? entry.Text!
+                        : kindLabel;
+                    if (!string.IsNullOrEmpty(callContent))
+                        sections.Add(BuildSection(LocalizationHelper.GetString("Chat_Tool_InputSection"), callContent));
+                    if (!string.IsNullOrEmpty(entry.ToolOutput))
+                    {
+                        var outLabel = entry.ToolResult == ChatToolCallStatus.Error
+                            ? LocalizationHelper.GetString("Chat_Tool_ErrorLabel")
+                            : LocalizationHelper.GetString("Chat_Tool_OutputLabel");
+                        sections.Add(BuildSection(outLabel, entry.ToolOutput!));
+                    }
+
+                    body = Border(VStack(0, sections.ToArray())).Background(blockHeaderBg);
                 }
 
-                // Whole chip is one Button so the entire card surface toggles
-                // expansion (matches the web `.chat-tool-card--clickable`).
                 Action toggle = () =>
                 {
                     var next = new HashSet<string>(expandedToolChips.Value);
                     if (!next.Add(token)) next.Remove(token);
                     expandedToolChips.Set(next);
                 };
-                return Button(
-                    VStack(0, headerRow, body),
-                    toggle
-                ).Set(b =>
+
+                // 1px separator between rows (skipped on the first row). The
+                // separator lives inside the row so collapsed/expanded heights
+                // both keep continuity with the next row above.
+                var rowContent = VStack(0, headerRow, body);
+                var rowWithSeparator = isFirst
+                    ? (Element)rowContent
+                    : Border(rowContent)
+                        .Set(b =>
+                        {
+                            b.BorderThickness = new Thickness(0, 1, 0, 0);
+                            b.BorderBrush = toolCardBorderBrush;
+                        });
+
+                return Button(rowWithSeparator, toggle)
+                    .Set(b =>
+                    {
+                        b.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                        b.Padding = new Thickness(0);
+                        // Round only the outer corners so rows blend into the
+                        // wrapping card without leaving gaps.
+                        b.CornerRadius = new CornerRadius(
+                            isFirst ? 8 : 0,
+                            isFirst ? 8 : 0,
+                            isLast ? 8 : 0,
+                            isLast ? 8 : 0);
+                    })
+                    .Resources(r => r
+                        .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
+                        .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
+                        .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                        .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
+                        .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
+                        .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
+            }
+
+            // ── Style-aware composition ──────────────────────────────
+            // Read the live exploration state for the burst variant.
+            // Defaults to Plain when not explicitly toggled.
+            var style = ChatExplorationState.ToolBurstStyle;
+            var showStepNumbers = ChatExplorationState.ShowStepNumbers && entries.Count > 1;
+            var stepCount = entries.Count;
+
+            // Aggregate burst status: Error if any errored, Running if any
+            // not-yet-finished, otherwise Done. Drives the task header pill.
+            ChatToolCallStatus aggregateStatus = ChatToolCallStatus.Success;
+            foreach (var e in entries)
+            {
+                if (e.ToolResult == ChatToolCallStatus.Error) { aggregateStatus = ChatToolCallStatus.Error; break; }
+                if (e.ToolResult != ChatToolCallStatus.Success) aggregateStatus = ChatToolCallStatus.InProgress;
+            }
+            var (taskStatusText, taskStatusBg, _) = ResolveStatus(new ChatTimelineItem(
+                Id: "agg", Kind: ChatTimelineItemKind.ToolCall, Text: null,
+                ToolName: null, ToolResult: aggregateStatus, ToolOutput: null));
+
+            string? StepPrefix(int i) => showStepNumbers ? $"{i + 1}." : null;
+
+            // Footer reflects the *last* entry's timestamp — that's when the
+            // burst finished from the user's POV.
+            var lastEntry = entries[entries.Count - 1];
+            var entryMeta = MetaFor(lastEntry.Id);
+            var timeStr = FormatTime(entryMeta?.Timestamp);
+            var plainFooter = string.IsNullOrEmpty(timeStr)
+                ? LocalizationHelper.GetString("Chat_Tool_FooterLabel")
+                : string.Format(LocalizationHelper.GetString("Chat_Tool_FooterWithTimeFormat"), timeStr);
+            // "Task · 3 steps · 8:16 PM" — used by FooterReframe + as the
+            // companion line under the TaskHeader card. Keeps the time so
+            // users still get the chronology.
+            string TaskFooter()
+            {
+                var stepsLabel = $"Task · {stepCount} step{(stepCount == 1 ? "" : "s")}";
+                return string.IsNullOrEmpty(timeStr) ? stepsLabel : $"{stepsLabel} · {timeStr}";
+            }
+
+            Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
+                .Background(toolCardBgBrush)
+                .WithBorder(toolCardBorderBrush, 1)
+                .CornerRadius(8);
+
+            // Build the per-step rows once — used by Plain, TaskHeader, and
+            // CompactSummary (when expanded).
+            var rows = new Element[entries.Count];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                rows[i] = BuildRow(entries[i],
+                    isFirst: i == 0,
+                    isLast: i == entries.Count - 1,
+                    stepPrefix: StepPrefix(i));
+            }
+
+            // CompactSummary: a single collapsed-by-default row showing the
+            // task summary; clicking expands the per-step list. Only worth it
+            // for multi-step bursts — single-step falls back to plain.
+            if (style == ToolBurstStyle.CompactSummary && entries.Count > 1)
+            {
+                var summaryToken = $"{entries[0].Id}:burst-summary";
+                var summaryExpanded = expandedToolChips.Value.Contains(summaryToken);
+                var summaryChevron = summaryExpanded ? "▾" : "▸";
+                var toolList = string.Join(", ", entries.Select(e => e.ToolName ?? "tool"));
+
+                Action toggleSummary = () =>
+                {
+                    var next = new HashSet<string>(expandedToolChips.Value);
+                    if (!next.Add(summaryToken)) next.Remove(summaryToken);
+                    expandedToolChips.Set(next);
+                };
+
+                var summaryHeader = Border(
+                    (FlexRow(
+                        Caption(summaryChevron).Foreground(TertiaryText)
+                            .Set(t => { t.FontSize = 12; }).VAlign(VerticalAlignment.Center),
+                        Caption("⚡").Foreground(taskStatusBg)
+                            .Set(t => { t.FontSize = 12; }).VAlign(VerticalAlignment.Center),
+                        Caption($"Task · {stepCount} steps").Foreground(SecondaryText)
+                            .Set(t => { t.FontSize = 12; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
+                            .VAlign(VerticalAlignment.Center),
+                        Caption("· " + toolList).Foreground(TertiaryText)
+                            .Set(t => { t.FontSize = 12; t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxLines = 1; })
+                            .VAlign(VerticalAlignment.Center).Flex(grow: 1),
+                        Border(
+                            Caption(taskStatusText).Foreground(new SolidColorBrush(Colors.White))
+                                .Set(t => { t.FontSize = 10; t.LineHeight = 16; })
+                                .VAlign(VerticalAlignment.Center)
+                        ).Background(taskStatusBg).CornerRadius(10).Padding(8, 0, 8, 0)
+                         .Set(b => b.MinHeight = 18).VAlign(VerticalAlignment.Center)
+                    ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8)
+                ).Set(b => b.MinHeight = 22);
+
+                var summaryButton = Button(summaryHeader, toggleSummary).Set(b =>
                 {
                     b.HorizontalAlignment = HorizontalAlignment.Stretch;
                     b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                     b.Padding = new Thickness(0);
-                    b.CornerRadius = new CornerRadius(8);
-                })
-                .Resources(r => r
-                    .Set("ButtonBackground", toolCardBgBrush)
-                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0xFF, 0xE3, 0xD6, 0xC8)))
-                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0xFF, 0xDA, 0xCB, 0xBB)))
-                    .Set("ButtonBorderBrush", toolCardBorderBrush)
-                    .Set("ButtonBorderBrushPointerOver", toolCardBorderBrush)
-                    .Set("ButtonBorderBrushPressed", toolCardBorderBrush));
+                    b.CornerRadius = new CornerRadius(8, 8, summaryExpanded ? 0 : 8, summaryExpanded ? 0 : 8);
+                }).Resources(r => r
+                    .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
+
+                var pieces = new System.Collections.Generic.List<Element> { summaryButton };
+                if (summaryExpanded)
+                {
+                    // Mark each row with a top separator since they sit below
+                    // the summary header inside the same card.
+                    pieces.AddRange(rows);
+                }
+                return VStack(2,
+                    CardOf(pieces.ToArray()),
+                    FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
+                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, 24, 6);
             }
 
-            // "Tool call" chip is always shown; args/intent come from
-            // `entry.Text` (built by ExtractToolLabel from data.args).
-            var callContent = !string.IsNullOrEmpty(entry.Text) && entry.Text != entry.ToolName
-                ? entry.Text!
-                : kindLabel;
-            var callChip = BuildChip(
-                token: $"{entry.Id}:call",
-                label: LocalizationHelper.GetString("Chat_Tool_CallLabel"),
-                sectionLabel: LocalizationHelper.GetString("Chat_Tool_InputSection"),
-                contentText: callContent,
-                hasContent: !string.IsNullOrEmpty(callContent));
+            // TaskHeader: prepend a non-clickable header row to the card.
+            if (style == ToolBurstStyle.TaskHeader && entries.Count > 1)
+            {
+                var taskHeader = Border(
+                    Border(
+                        (FlexRow(
+                            Caption("⚡").Foreground(taskStatusBg)
+                                .Set(t => { t.FontSize = 12; }).VAlign(VerticalAlignment.Center),
+                            Caption($"Task · {stepCount} steps").Foreground(SecondaryText)
+                                .Set(t => { t.FontSize = 12; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
+                                .VAlign(VerticalAlignment.Center),
+                            Caption(string.Empty).Flex(grow: 1),
+                            Border(
+                                Caption(taskStatusText).Foreground(new SolidColorBrush(Colors.White))
+                                    .Set(t => { t.FontSize = 10; t.LineHeight = 16; })
+                                    .VAlign(VerticalAlignment.Center)
+                            ).Background(taskStatusBg).CornerRadius(10).Padding(8, 0, 8, 0)
+                             .Set(b => b.MinHeight = 18).VAlign(VerticalAlignment.Center)
+                        ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8)
+                    ).Set(b => b.MinHeight = 22)
+                ).Background(themeBrush("SubtleFillColorSecondaryBrush"));
 
-            // "Tool output" chip only shown once result/error has arrived.
-            var hasOutput = !string.IsNullOrEmpty(entry.ToolOutput);
-            Element outputChip = hasOutput
-                ? BuildChip(
-                    token: $"{entry.Id}:out",
-                    label: entry.ToolResult == ChatToolCallStatus.Error
-                        ? LocalizationHelper.GetString("Chat_Tool_ErrorLabel")
-                        : LocalizationHelper.GetString("Chat_Tool_OutputLabel"),
-                    sectionLabel: entry.ToolResult == ChatToolCallStatus.Error
-                        ? LocalizationHelper.GetString("Chat_Tool_ErrorLabel")
-                        : LocalizationHelper.GetString("Chat_Tool_OutputLabel"),
-                    contentText: entry.ToolOutput!,
-                    hasContent: true)
-                : Empty();
+                var combined = new Element[entries.Count + 1];
+                combined[0] = taskHeader;
+                Array.Copy(rows, 0, combined, 1, rows.Length);
 
-            var entryMeta = MetaFor(entry.Id);
-            var timeStr = FormatTime(entryMeta?.Timestamp);
-            var footerText = string.IsNullOrEmpty(timeStr)
-                ? LocalizationHelper.GetString("Chat_Tool_FooterLabel")
-                : string.Format(LocalizationHelper.GetString("Chat_Tool_FooterWithTimeFormat"), timeStr);
+                return VStack(2,
+                    CardOf(combined),
+                    FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
+                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, 24, 6);
+            }
 
-            return VStack(4,
-                callChip,
-                outputChip,
+            // FooterReframe: rows unchanged, footer becomes "Task · N steps · time".
+            // Plain: original — "Tool · time".
+            var footerText = style == ToolBurstStyle.FooterReframe ? TaskFooter() : plainFooter;
+
+            return VStack(2,
+                CardOf(rows),
                 FooterCaption(footerText, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
             ).HAlign(HorizontalAlignment.Stretch)
              .Margin(36, 6, 24, 6);
         }
 
+        // Legacy single-entry RenderToolEntry removed — all ToolCall rendering
+        // goes through RenderToolBurst from the outer loop. The RenderEntry
+        // switch returns Empty() for ToolCall since the outer loop coalesces
+        // the burst itself.
+
         Element RenderEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst) => entry.Kind switch
         {
             ChatTimelineItemKind.User => RenderUserEntry(entry, startsBurst, endsBurst),
             ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry, startsBurst, endsBurst),
-            ChatTimelineItemKind.ToolCall => showToolCalls ? RenderToolEntry(entry) : Empty(),
+            ChatTimelineItemKind.ToolCall => Empty(),
 
             // Reasoning — use a WinUI Expander with a "🧠 Thinking" header,
             // matching Kenny's ComponentLibrary Cat03/NativeChatThread design.
@@ -1166,7 +1334,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // A burst is delimited by a Kind change (User↔Assistant, or any
         // Tool/Status/Reasoning entry breaks both).
         static bool SameBurstKind(ChatTimelineItemKind a, ChatTimelineItemKind b) =>
-            a == b && (a == ChatTimelineItemKind.User || a == ChatTimelineItemKind.Assistant);
+            a == b && (a == ChatTimelineItemKind.User
+                       || a == ChatTimelineItemKind.Assistant
+                       || a == ChatTimelineItemKind.ToolCall);
 
         var renderedEntries = new Element[Props.Entries.Count];
         for (int i = 0; i < Props.Entries.Count; i++)
@@ -1176,6 +1346,35 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var nextKind = i < Props.Entries.Count - 1 ? Props.Entries[i + 1].Kind : (ChatTimelineItemKind?)null;
             var startsBurst = prevKind is null || !SameBurstKind(prevKind.Value, entry.Kind);
             var endsBurst = nextKind is null || !SameBurstKind(entry.Kind, nextKind.Value);
+
+            // Coalesce contiguous ToolCall entries into a single unified
+            // burst card so a multi-step assistant turn reads as one tidy
+            // block instead of N separate chips with repeated footers.
+            if (entry.Kind == ChatTimelineItemKind.ToolCall)
+            {
+                if (!showToolCalls)
+                {
+                    renderedEntries[i] = Empty().WithKey(entry.Id);
+                    continue;
+                }
+                if (!startsBurst)
+                {
+                    // Non-start tool entries collapsed into the burst rendered
+                    // at startsBurst; render Empty here to avoid duplication.
+                    renderedEntries[i] = Empty().WithKey(entry.Id);
+                    continue;
+                }
+                var burst = new System.Collections.Generic.List<ChatTimelineItem> { entry };
+                int j = i + 1;
+                while (j < Props.Entries.Count && Props.Entries[j].Kind == ChatTimelineItemKind.ToolCall)
+                {
+                    burst.Add(Props.Entries[j]);
+                    j++;
+                }
+                renderedEntries[i] = RenderToolBurst(burst).WithKey(entry.Id);
+                continue;
+            }
+
             renderedEntries[i] = RenderEntry(entry, startsBurst, endsBurst).WithKey(entry.Id);
         }
 
@@ -1184,10 +1383,19 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         Element thinkingIndicator = Empty();
         if (Props.ShowThinkingIndicator)
         {
+            // Format string typically ends in "…" (or "..."); strip the trailing
+            // ellipsis chars so we can append our own animated dots that grow
+            // 0→3 in lockstep with the DispatcherTimer above. Pad the suffix
+            // with NBSPs to a fixed 3-char width so the caption doesn't jitter
+            // horizontally as the dots cycle.
+            var rawText = string.Format(LocalizationHelper.GetString("Chat_Timeline_AssistantThinkingFormat"), assistantSender);
+            var trimmed = rawText.TrimEnd('…', '.', ' ');
+            var dots = thinkingDotPhase;
+            var animatedSuffix = new string('.', dots) + new string('\u00A0', 3 - dots);
             thinkingIndicator = Border(
                 (FlexRow(
                     AssistantAvatar().VAlign(VerticalAlignment.Center),
-                    Caption(string.Format(LocalizationHelper.GetString("Chat_Timeline_AssistantThinkingFormat"), assistantSender))
+                    Caption(trimmed + animatedSuffix)
                         .Foreground(chatStampFg)
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 13; })
                         .VAlign(VerticalAlignment.Center)

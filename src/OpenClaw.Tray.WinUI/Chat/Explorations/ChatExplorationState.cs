@@ -58,10 +58,13 @@ public enum ChatPreviewState
     Live,
     /// <summary>Force the "Connecting to gateway…" ProgressRing screen.</summary>
     Loading,
-    /// <summary>Force the 💬 "Select a session" placeholder (no thread selected).</summary>
-    EmptyZero,
-    /// <summary>Thread exists but has zero messages.</summary>
-    EmptyThread,
+    /// <summary>
+    /// Force the unified zero-state (welcome screen with app icon + prompt
+    /// suggestions). Covers both "no thread selected" and "thread with zero
+    /// messages" — they intentionally render identically because the
+    /// distinction is a backend implementation detail, not a user-facing one.
+    /// </summary>
+    Empty,
     /// <summary>Timeline + inline "thinking" indicator (turn started, no assistant delta yet).</summary>
     Thinking,
     /// <summary>Composer shows the tool-permission banner with Allow/Deny.</summary>
@@ -77,6 +80,27 @@ public enum ChatComposerLayout
     InlinePill,
     /// <summary>Single row: textbox + Send. Everything else hides under a More menu.</summary>
     Minimal,
+}
+
+/// <summary>
+/// Visual treatment for a contiguous run of <c>ToolCall</c> entries (a
+/// "tool burst") that all belong to the same assistant turn. The burst is
+/// rendered as a single unified card in <see cref="OpenClaw.Tray.WinUI.Chat.OpenClawChatTimeline"/>;
+/// this enum controls how that card is framed at the *task* level.
+/// </summary>
+public enum ToolBurstStyle
+{
+    /// <summary>No task framing. Just rows + a single trailing "Tool · time" footer.</summary>
+    Plain,
+    /// <summary>Card-top header row "⚡ Task · N steps   [overall status]".
+    /// Mirrors Cursor's "Tool calls (N steps)" treatment.</summary>
+    TaskHeader,
+    /// <summary>Single collapsed summary row "▸ ⚡ Task · N steps (a, b, c) [Done]".
+    /// Click to expand the per-step list. Highest information density.</summary>
+    CompactSummary,
+    /// <summary>Plain rows but the trailing footer is reframed as
+    /// "Task · N steps · time" so the task semantics are still surfaced.</summary>
+    FooterReframe,
 }
 
 /// <summary>
@@ -362,4 +386,29 @@ public static class ChatExplorationState
     public static bool   MoreIconShow    { get => _moreIconShow;    set { if (_moreIconShow    != value) { _moreIconShow    = value;     RaiseChanged(); } } }
     public static string StopIconGlyph   { get => _stopIconGlyph;   set { if (_stopIconGlyph   != value) { _stopIconGlyph   = value ?? ""; RaiseChanged(); } } }
     public static bool   StopIconShow    { get => _stopIconShow;    set { if (_stopIconShow    != value) { _stopIconShow    = value;     RaiseChanged(); } } }
+
+    // ---- Tool burst (H) ----
+
+    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Plain;
+    private static bool _showStepNumbers;
+
+    /// <summary>
+    /// Visual framing for a run of consecutive ToolCall entries (multi-step
+    /// assistant turn). See <see cref="ToolBurstStyle"/> for the variants.
+    /// </summary>
+    public static ToolBurstStyle ToolBurstStyle
+    {
+        get => _toolBurstStyle;
+        set { if (_toolBurstStyle != value) { _toolBurstStyle = value; RaiseChanged(); } }
+    }
+
+    /// <summary>
+    /// When true, prefix each step row with its 1-based index ("1.", "2.", …)
+    /// so the sequence is explicit. Has no effect on single-step bursts.
+    /// </summary>
+    public static bool ShowStepNumbers
+    {
+        get => _showStepNumbers;
+        set { if (_showStepNumbers != value) { _showStepNumbers = value; RaiseChanged(); } }
+    }
 }

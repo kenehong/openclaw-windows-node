@@ -42,7 +42,21 @@ public sealed class OpenClawChatRoot : Component
         var explorationRev = UseState(0, threadSafe: true);
         UseEffect((Func<Action>)(() =>
         {
-            EventHandler h = (_, _) => explorationRev.Set(explorationRev.Value + 1);
+            // Defer the re-render via DispatcherQueue. When the user picks an
+            // item from a ComboBox in the explorations panel, SelectionChanged
+            // fires synchronously; if we re-render this whole tree inline the
+            // ComboBox's own post-selection bookkeeping races with our
+            // reconciliation and the dropdown can become unresponsive on the
+            // next click. Posting back to the dispatcher lets the ComboBox
+            // finish its event handling before we reshape the tree.
+            var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            EventHandler h = (_, _) =>
+            {
+                if (dq is not null)
+                    dq.TryEnqueue(() => explorationRev.Set(explorationRev.Value + 1));
+                else
+                    explorationRev.Set(explorationRev.Value + 1);
+            };
             ChatExplorationState.Changed += h;
             return () => ChatExplorationState.Changed -= h;
         }));
@@ -69,11 +83,13 @@ public sealed class OpenClawChatRoot : Component
 
         var snapshot = snapshotState.Value;
 
-        // Preview override (G) — let the explorations panel force a specific
-        // lifecycle state without waiting for matching real backend conditions.
-        // `Loading` short-circuits ahead of the real snapshot==null branch so
-        // it stays previewable even after data has loaded.
-        var previewState = ChatExplorationState.PreviewState;
+        // Preview override (G) — only honored when the chat is bound to a
+        // fake provider (i.e. the explorations window). Real production
+        // chat surfaces ignore PreviewState so a stray Loading/EmptyZero
+        // setting in the explorations panel can't black out the real UI.
+        var previewState = _provider is FakeChatDataProvider
+            ? ChatExplorationState.PreviewState
+            : ChatPreviewState.Live;
 
         Element BuildLoadingElement()
         {
@@ -87,9 +103,6 @@ public sealed class OpenClawChatRoot : Component
                 ).VAlign(VerticalAlignment.Center).HAlign(HorizontalAlignment.Center)
             ).Background(loadingBg);
         }
-
-        if (previewState == ChatPreviewState.Loading)
-            return BuildLoadingElement();
 
         if (snapshot is null)
         {
@@ -131,12 +144,13 @@ public sealed class OpenClawChatRoot : Component
         if (selectedThread is not null && _provider is OpenClawChatDataProvider nativeForMeta)
             entryMeta = nativeForMeta.GetEntryMetadata(selectedThread.Id);
 
-        // The agent name visible in the web UI footer is "Field" — that's the
-        // gateway's default agent identity, not the chat thread title (which
-        // is typically the operator client name like "OpenClaw Windows Tray").
+        // The gateway's default agent identity is "Field" (matches the web UI footer),
+        // but for the WinUI tray we surface a generic "Assistant" label so the
+        // thinking indicator and sender chip read naturally to all users.
         // TODO: wire to a real agent-name source (agents.list response or
-        // sessionDefaults.defaultAgentId from hello-ok) once available.
-        const string assistantSenderLabel = "Field";
+        // sessionDefaults.defaultAgentId from hello-ok) once available, then
+        // restore the per-agent name here.
+        const string assistantSenderLabel = "Assistant";
 
         // Show inline "thinking" indicator when the turn is active but the
         // last visible entry is NOT an assistant block yet — i.e. we're between
@@ -147,15 +161,30 @@ public sealed class OpenClawChatRoot : Component
 
         // Apply preview-state overrides for the four data-dependent states.
         // These mutate locals only — real provider data on disk is untouched.
+        // Note: Loading is also handled here (rather than via early return)
+        // so that the OUTER Grid layout (header / divider / body / composer
+        // rows) stays structurally identical across all preview states. A
+        // structurally stable tree keeps Reactor's reconciliation cheap and
+        // avoids tearing down the timeline + composer subtrees, which was
+        // observed to race with subsequent ComboBox SelectionChanged events
+        // in the explorations panel and "lock" the dropdown after the first
+        // pick. Only the body cell content (and composer visibility) swaps.
         var pendingPermissionOverride = timeline.PendingPermission;
         var turnActiveOverride = timeline.TurnActive;
+        Element? bodyOverride = null;
+        var suppressComposer = false;
         switch (previewState)
         {
-            case ChatPreviewState.EmptyZero:
-                selectedThread = null;
+            case ChatPreviewState.Loading:
+                bodyOverride = BuildLoadingElement();
+                suppressComposer = true;
                 break;
 
-            case ChatPreviewState.EmptyThread:
+            case ChatPreviewState.Empty:
+                // Unified empty state: synthesize a thread + clear entries so
+                // the new welcome zero-state renders. (Collapses what used to
+                // be EmptyZero + EmptyThread — the user sees the same UI for
+                // both because the distinction is backend-only.)
                 selectedThread ??= SynthesizePreviewThread(snapshot);
                 entries = Array.Empty<ChatTimelineItem>();
                 showThinking = false;
@@ -189,11 +218,23 @@ public sealed class OpenClawChatRoot : Component
                 break;
         }
 
-        Element body = selectedThread is null
-            ? PlaceholderEmptyState(connectedRaw)
-            : entries.Count == 0 && !showThinking
-                ? PlaceholderEmptyThreadState(connState)
-                : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
+        // Production zero-state: triggered both when no thread is selected
+        // *and* when a thread is selected but has no messages yet. These were
+        // previously two distinct screens (PlaceholderEmptyState vs an empty
+        // OpenClawChatTimeline) but render identically now — the user only
+        // cares "this conversation is empty, what do I do?", not whether a
+        // thread record exists in the backend.
+        var isEmptyConversation = entries.Count == 0
+            && !showThinking
+            && pendingPermissionOverride is null;
+
+        Element body = bodyOverride ?? (selectedThread is null || isEmptyConversation
+            ? RenderZeroState(suggestion =>
+                {
+                    if (selectedThread is { } t)
+                        OnSend(t.Id, suggestion);
+                })
+            : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
                 SessionId: selectedThread.Id,
                 Entries: entries,
                 HasMoreHistory: false,
@@ -203,7 +244,7 @@ public sealed class OpenClawChatRoot : Component
                 AssistantSenderLabel: assistantSenderLabel,
                 DefaultModel: selectedThread.Model,
                 ShowThinkingIndicator: showThinking,
-                OnReadAloud: _onReadAloud));
+                OnReadAloud: _onReadAloud)));
 
         // Distinct list of channel labels (= thread titles) — feeds the
         // composer's first ComboBox so the user can switch chats from the
@@ -214,7 +255,7 @@ public sealed class OpenClawChatRoot : Component
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        Element composer = selectedThread is not null
+        Element composer = (selectedThread is not null && !suppressComposer)
             ? Component<OpenClawComposer, OpenClawComposerProps>(new(
                 ConnectionState: connState,
                 TurnActive: turnActiveOverride,
@@ -259,17 +300,69 @@ public sealed class OpenClawChatRoot : Component
         };
     }
 
-    private static Element PlaceholderEmptyState(string? connectionStatus)
+    /// <summary>
+    /// Unified zero-state for the chat surface — shown when there is no
+    /// thread selected OR the selected thread has no messages yet. Renders
+    /// the app icon, a welcome message, and three prompt suggestions that
+    /// invoke <paramref name="onSuggestionPicked"/> when clicked. The caller
+    /// is responsible for routing the suggestion text into a send (typically
+    /// via the active thread's OnSend handler).
+    /// </summary>
+    private static Element RenderZeroState(Action<string> onSuggestionPicked)
     {
-        var msg = connectionStatus is { } s && s.StartsWith("Connected", StringComparison.OrdinalIgnoreCase)
-            ? LocalizationHelper.GetString("Chat_Root_EmptyState_SelectSession")
-            : (connectionStatus ?? LocalizationHelper.GetString("Chat_Composer_Placeholder_Connecting"));
+        var welcomeTitle = LocalizationHelper.GetString("Chat_ZeroState_WelcomeTitle");
+        if (string.IsNullOrEmpty(welcomeTitle)) welcomeTitle = "Welcome to OpenClaw";
+
+        var welcomeSubtitle = LocalizationHelper.GetString("Chat_ZeroState_WelcomeSubtitle");
+        if (string.IsNullOrEmpty(welcomeSubtitle)) welcomeSubtitle = "How can I help you today?";
+
+        var suggestions = new[]
+        {
+            "Summarize the last commit on this branch",
+            "Explain what this repo does",
+            "Show me how to add a new chat exploration option",
+        };
+
+        Element SuggestionButton(string text) =>
+            Button(text, () => onSuggestionPicked(text))
+                .Set(b =>
+                {
+                    b.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    b.HorizontalContentAlignment = HorizontalAlignment.Left;
+                    b.Padding = new Thickness(12, 10, 12, 10);
+                    b.CornerRadius = new CornerRadius(8);
+                });
+
         return Border(
-            VStack(8,
-                TextBlock("💬").FontSize(48).HAlign(HorizontalAlignment.Center),
-                Caption(msg).Foreground(SecondaryText).HAlign(HorizontalAlignment.Center)
+            VStack(12,
+                Image("ms-appx:///Assets/Square44x44Logo.targetsize-256_altform-unplated.png")
+                    .Set(im =>
+                    {
+                        im.Width = 64;
+                        im.Height = 64;
+                        im.Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform;
+                        im.HorizontalAlignment = HorizontalAlignment.Center;
+                    }),
+                TextBlock(welcomeTitle)
+                    .Set(t =>
+                    {
+                        t.FontSize = 20;
+                        t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                        t.HorizontalAlignment = HorizontalAlignment.Center;
+                    }),
+                Caption(welcomeSubtitle).Foreground(SecondaryText).HAlign(HorizontalAlignment.Center),
+                VStack(6,
+                    SuggestionButton(suggestions[0]),
+                    SuggestionButton(suggestions[1]),
+                    SuggestionButton(suggestions[2])
+                ).Set(s =>
+                {
+                    s.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    s.MaxWidth = 360;
+                    s.Margin = new Thickness(0, 8, 0, 0);
+                })
             ).VAlign(VerticalAlignment.Center).HAlign(HorizontalAlignment.Center)
-        );
+        ).Padding(24, 24, 24, 24);
     }
 
     private static Element PlaceholderEmptyThreadState(string connectionState)
