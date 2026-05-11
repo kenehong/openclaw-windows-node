@@ -5,6 +5,7 @@ using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using OpenClawTray.Helpers;
 using OpenClawTray.Services;
+using OpenClawTray.Services.Connection;
 using OpenClawTray.Windows;
 using System;
 using System.Diagnostics;
@@ -60,9 +61,8 @@ public sealed partial class ChatPage : Page
         // even when the gateway isn't fully reachable yet.
         if (hub.Settings is not null)
         {
-            var gatewayUrl = hub.Settings.GetEffectiveGatewayUrl();
-            if (!string.IsNullOrEmpty(gatewayUrl) &&
-                GatewayChatUrlBuilder.TryBuildChatUrl(gatewayUrl, hub.Settings.Token, out var url, out _))
+            var url = TryComputeChatUrl(hub.Settings);
+            if (!string.IsNullOrEmpty(url))
             {
                 _chatUrl = url;
             }
@@ -108,9 +108,14 @@ public sealed partial class ChatPage : Page
 
     private static string? TryComputeChatUrl(SettingsManager settings)
     {
-        var gatewayUrl = settings.GetEffectiveGatewayUrl();
-        if (string.IsNullOrEmpty(gatewayUrl)) return null;
-        return GatewayChatUrlBuilder.TryBuildChatUrl(gatewayUrl, settings.Token, out var url, out _)
+        return InteractiveGatewayCredentialResolver.TryResolve(
+            settings,
+            (App.Current as App)?.Registry,
+            SettingsManager.SettingsDirectoryPath,
+            DeviceIdentityFileReader.Instance,
+            out var credential) &&
+            credential is { IsBootstrapToken: false } &&
+            GatewayChatUrlBuilder.TryBuildChatUrl(credential.GatewayUrl, credential.Token, out var url, out _)
             ? url
             : null;
     }
@@ -189,14 +194,29 @@ public sealed partial class ChatPage : Page
     {
         try
         {
-            var gatewayUrl = settings.GetEffectiveGatewayUrl();
-            if (string.IsNullOrEmpty(gatewayUrl))
+            if (!InteractiveGatewayCredentialResolver.TryResolve(
+                settings,
+                _hub?.GatewayRegistry,
+                SettingsManager.SettingsDirectoryPath,
+                DeviceIdentityFileReader.Instance,
+                out var credential) ||
+                credential == null)
             {
-                PlaceholderPanel.Visibility = Visibility.Visible;
+                PlaceholderPanel.Visibility = Visibility.Collapsed;
+                ErrorPanel.Visibility = Visibility.Visible;
+                ErrorText.Text = "Open Connection settings to finish pairing with a gateway.";
                 return;
             }
 
-            if (!GatewayChatHelper.TryBuildChatUrl(gatewayUrl, settings.Token, out var chatUrl, out var errorMessage))
+            if (credential.IsBootstrapToken)
+            {
+                PlaceholderPanel.Visibility = Visibility.Collapsed;
+                ErrorPanel.Visibility = Visibility.Visible;
+                ErrorText.Text = "Gateway pairing is not complete. Open Connection settings to finish pairing.";
+                return;
+            }
+
+            if (!GatewayChatHelper.TryBuildChatUrl(credential.GatewayUrl, credential.Token, out var chatUrl, out var errorMessage))
             {
                 PlaceholderPanel.Visibility = Visibility.Collapsed;
                 ErrorPanel.Visibility = Visibility.Visible;
@@ -240,7 +260,7 @@ public sealed partial class ChatPage : Page
                 {
                     WebView.Visibility = Visibility.Collapsed;
                     ErrorPanel.Visibility = Visibility.Visible;
-                    ErrorText.Text = $"Cannot connect to gateway at {gatewayUrl}\n\nMake sure the gateway is running.";
+                    ErrorText.Text = $"Cannot connect to gateway at {credential.GatewayUrl}\n\nMake sure the gateway is running.";
                 }
             };
             WebView.CoreWebView2.NavigationCompleted += _navCompletedHandler;
