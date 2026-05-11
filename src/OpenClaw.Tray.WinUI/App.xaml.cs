@@ -68,6 +68,7 @@ public partial class App : Application
     /// the chat surface between native Reactor and WebView2).
     /// </summary>
     public event EventHandler? SettingsChanged;
+    public event EventHandler? ChatProviderChanged;
 
     /// <summary>
     /// Ensures the managed SSH tunnel is started using the current settings.
@@ -1952,8 +1953,6 @@ public partial class App : Application
             old.AgentFileContentUpdated -= OnAgentFileContentUpdated;
         }
 
-        _chatCoordinator?.SetOperatorClient(null);
-
         // Subscribe to new client
         if (e.NewClient is { } client)
         {
@@ -1988,6 +1987,12 @@ public partial class App : Application
 
             _chatCoordinator?.SetOperatorClient(client);
         }
+        else
+        {
+            _chatCoordinator?.SetOperatorClient(null);
+        }
+
+        RaiseChatProviderChanged();
 
         _lastGatewaySelf = null;
 
@@ -2000,6 +2005,11 @@ public partial class App : Application
                 _hubWindow.CurrentStatus = _currentStatus;
             }
         });
+    }
+
+    private void RaiseChatProviderChanged()
+    {
+        ChatProviderChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

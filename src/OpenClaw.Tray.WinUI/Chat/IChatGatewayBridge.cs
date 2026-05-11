@@ -7,7 +7,7 @@ namespace OpenClawTray.Chat;
 /// <see cref="OpenClawChatDataProvider"/>. Exposed as an interface so the
 /// provider can be unit-tested without a live WebSocket connection.
 /// </summary>
-public interface IChatGatewayBridge
+public interface IChatGatewayBridge : IDisposable
 {
     bool IsConnected { get; }
     ConnectionStatus CurrentStatus { get; }
@@ -31,18 +31,37 @@ public interface IChatGatewayBridge
 public sealed class GatewayClientChatBridge : IChatGatewayBridge
 {
     private readonly OpenClawGatewayClient _client;
+    private readonly EventHandler<ConnectionStatus> _statusChangedHandler;
+    private readonly EventHandler<SessionInfo[]> _sessionsUpdatedHandler;
+    private readonly EventHandler<ChatMessageInfo> _chatMessageReceivedHandler;
+    private readonly EventHandler<AgentEventInfo> _agentEventReceivedHandler;
+    private readonly EventHandler<ModelsListInfo> _modelsListUpdatedHandler;
     private ConnectionStatus _currentStatus = ConnectionStatus.Disconnected;
     private ModelsListInfo? _currentModels;
+    private bool _disposed;
 
     public GatewayClientChatBridge(OpenClawGatewayClient client)
     {
         _client = client;
-        _client.StatusChanged += (_, s) => _currentStatus = s;
-        _client.StatusChanged += (s, e) => StatusChanged?.Invoke(s, e);
-        _client.SessionsUpdated += (s, e) => SessionsUpdated?.Invoke(s, e);
-        _client.ChatMessageReceived += (s, e) => ChatMessageReceived?.Invoke(s, e);
-        _client.AgentEventReceived += (s, e) => AgentEventReceived?.Invoke(s, e);
-        _client.ModelsListUpdated += (s, e) => { _currentModels = e; ModelsListUpdated?.Invoke(s, e); };
+        _statusChangedHandler = (s, e) =>
+        {
+            _currentStatus = e;
+            StatusChanged?.Invoke(s, e);
+        };
+        _sessionsUpdatedHandler = (s, e) => SessionsUpdated?.Invoke(s, e);
+        _chatMessageReceivedHandler = (s, e) => ChatMessageReceived?.Invoke(s, e);
+        _agentEventReceivedHandler = (s, e) => AgentEventReceived?.Invoke(s, e);
+        _modelsListUpdatedHandler = (s, e) =>
+        {
+            _currentModels = e;
+            ModelsListUpdated?.Invoke(s, e);
+        };
+
+        _client.StatusChanged += _statusChangedHandler;
+        _client.SessionsUpdated += _sessionsUpdatedHandler;
+        _client.ChatMessageReceived += _chatMessageReceivedHandler;
+        _client.AgentEventReceived += _agentEventReceivedHandler;
+        _client.ModelsListUpdated += _modelsListUpdatedHandler;
     }
 
     public bool IsConnected => _client.IsConnectedToGateway;
@@ -63,4 +82,22 @@ public sealed class GatewayClientChatBridge : IChatGatewayBridge
     public event EventHandler<ChatMessageInfo>? ChatMessageReceived;
     public event EventHandler<AgentEventInfo>? AgentEventReceived;
     public event EventHandler<ModelsListInfo>? ModelsListUpdated;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _client.StatusChanged -= _statusChangedHandler;
+        _client.SessionsUpdated -= _sessionsUpdatedHandler;
+        _client.ChatMessageReceived -= _chatMessageReceivedHandler;
+        _client.AgentEventReceived -= _agentEventReceivedHandler;
+        _client.ModelsListUpdated -= _modelsListUpdatedHandler;
+
+        StatusChanged = null;
+        SessionsUpdated = null;
+        ChatMessageReceived = null;
+        AgentEventReceived = null;
+        ModelsListUpdated = null;
+    }
 }

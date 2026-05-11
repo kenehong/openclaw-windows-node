@@ -49,12 +49,14 @@ public class OpenClawChatDataProviderTests
         public event EventHandler<ChatMessageInfo>? ChatMessageReceived;
         public event EventHandler<AgentEventInfo>? AgentEventReceived;
         public event EventHandler<ModelsListInfo>? ModelsListUpdated;
+        public bool IsDisposed { get; private set; }
 
         public void RaiseStatus(ConnectionStatus s) { CurrentStatus = s; StatusChanged?.Invoke(this, s); }
         public void RaiseSessions(SessionInfo[] s) { Sessions = s; SessionsUpdated?.Invoke(this, s); }
         public void RaiseChat(ChatMessageInfo m) => ChatMessageReceived?.Invoke(this, m);
         public void RaiseAgent(AgentEventInfo a) => AgentEventReceived?.Invoke(this, a);
         public void RaiseModels(ModelsListInfo m) { CurrentModels = m; ModelsListUpdated?.Invoke(this, m); }
+        public void Dispose() => IsDisposed = true;
     }
 
     private static (FakeBridge bridge, OpenClawChatDataProvider provider, List<ChatDataSnapshot> snapshots, List<ChatProviderNotification> notifications)
@@ -351,6 +353,7 @@ public class OpenClawChatDataProviderTests
         bridge.RaiseStatus(ConnectionStatus.Disconnected);
 
         Assert.Empty(snapshots);
+        Assert.True(bridge.IsDisposed);
     }
 
     [Fact]
@@ -1534,19 +1537,21 @@ public class OpenClawChatDataProviderTests
     [Fact]
     public void TruncateForChatEntry_DoesNotSplitSurrogatePair()
     {
-        // String of repeated 4-byte UTF-8 emoji that lands very close to
-        // the cap boundary. The truncate must not return a string whose
-        // last char is an unpaired high surrogate.
+        // String of repeated 4-byte UTF-8 emoji that crosses the cap
+        // boundary. The truncate must not hang and must not return a string
+        // whose last char before the marker is an unpaired high surrogate.
         const string emoji = "\uD83D\uDE00"; // 😀 (U+1F600)
         var sb = new System.Text.StringBuilder(OpenClawChatDataProvider.MaxEntryTextBytes);
-        while (sb.Length < OpenClawChatDataProvider.MaxEntryTextBytes / 2)
+        for (var i = 0; i < OpenClawChatDataProvider.MaxEntryTextBytes / 4 + 10; i++)
             sb.Append(emoji);
         var truncated = OpenClawChatDataProvider.TruncateForChatEntry(sb.ToString());
-        // No unpaired surrogates: the last code unit before the marker
-        // " … […]" must not be a high surrogate.
+
+        var bytes = System.Text.Encoding.UTF8.GetByteCount(truncated);
+        Assert.True(bytes <= OpenClawChatDataProvider.MaxEntryTextBytes);
+
         var insertedAt = truncated.IndexOf(" … [", StringComparison.Ordinal);
-        if (insertedAt > 0)
-            Assert.False(char.IsHighSurrogate(truncated[insertedAt - 1]));
+        Assert.True(insertedAt > 0);
+        Assert.False(char.IsHighSurrogate(truncated[insertedAt - 1]));
     }
 
     [Fact]

@@ -2111,24 +2111,17 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
 
             if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
             {
-                foreach (var item in content.EnumerateArray())
+                var text = ExtractMessageText(message);
+                if (string.IsNullOrEmpty(text)) return;
+
+                EmitChatMessageReceived(sessionKey, role, text, state, inTok, outTok, respTok, ctxPct);
+
+                if (role == "assistant" && string.Equals(state, "final", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (item.TryGetProperty("type", out var type) && type.GetString() == "text" &&
-                        item.TryGetProperty("text", out var textProp))
-                    {
-                        var text = textProp.GetString() ?? "";
-                        if (string.IsNullOrEmpty(text)) continue;
-
-                        EmitChatMessageReceived(sessionKey, role, text, state, inTok, outTok, respTok, ctxPct);
-
-                        if (role == "assistant" && string.Equals(state, "final", StringComparison.OrdinalIgnoreCase))
-                        {
-                            // HIGH 4: log shape only — content previously
-                            // surfaced in the operator log.
-                            _logger.Info($"Assistant response: role={role} state={state} len={text.Length}");
-                            EmitChatNotification(text);
-                        }
-                    }
+                    // HIGH 4: log shape only — content previously
+                    // surfaced in the operator log.
+                    _logger.Info($"Assistant response: role={role} state={state} len={text.Length}");
+                    EmitChatNotification(text);
                 }
             }
         }

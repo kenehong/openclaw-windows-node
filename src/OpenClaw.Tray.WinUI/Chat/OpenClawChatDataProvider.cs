@@ -597,6 +597,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         _bridge.ChatMessageReceived -= OnChatMessageReceived;
         _bridge.AgentEventReceived -= OnAgentEventReceived;
         _bridge.ModelsListUpdated -= OnModelsListUpdated;
+        _bridge.Dispose();
         return ValueTask.CompletedTask;
     }
 
@@ -1231,6 +1232,11 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             // Don't split a surrogate pair: nudge mid back if it lands on
             // a low surrogate.
             if (mid < text.Length && char.IsLowSurrogate(text[mid])) mid--;
+            if (mid <= lo)
+            {
+                hi = lo;
+                continue;
+            }
             int bytes = enc.GetByteCount(text.AsSpan(0, mid));
             if (bytes <= budget) lo = mid;
             else hi = mid - 1;

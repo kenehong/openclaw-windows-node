@@ -22,6 +22,7 @@ public sealed partial class ChatWindow : WindowEx
     private string _token;
     private string _chatUrl;
     private IDisposable? _reactorHost;
+    private IChatDataProvider? _mountedProvider;
     private bool _webViewInitialized;
     private bool _webViewMode;
     public bool IsClosed { get; private set; }
@@ -103,7 +104,10 @@ public sealed partial class ChatWindow : WindowEx
         // user toggles "Use standard Gateway Chat interface" while the
         // pre-warmed window is alive.
         if (App.Current is App app)
+        {
             app.SettingsChanged += OnAppSettingsChanged;
+            app.ChatProviderChanged += OnAppChatProviderChanged;
+        }
 
         // Per-surface debug override (DebugPage > "Debug Overrides").
         OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
@@ -119,6 +123,20 @@ public sealed partial class ChatWindow : WindowEx
     }
 
     private void OnAppSettingsChanged(object? sender, EventArgs e) => ApplyChatSurface();
+
+    private void OnAppChatProviderChanged(object? sender, EventArgs e)
+    {
+        if (IsClosed) return;
+
+        var dispatcher = DispatcherQueue;
+        if (dispatcher is null || dispatcher.HasThreadAccess)
+        {
+            ApplyChatSurface();
+            return;
+        }
+
+        _ = dispatcher.TryEnqueue(ApplyChatSurface);
+    }
 
     private void OnDebugOverrideChanged(object? sender, EventArgs e) => ApplyChatSurface();
 
@@ -184,9 +202,7 @@ public sealed partial class ChatWindow : WindowEx
         _webViewMode = true;
 
         // Tear down Reactor so the WebView2 owns the row.
-        var host = _reactorHost;
-        _reactorHost = null;
-        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
+        DisposeReactorHost();
 
         ChatHost.Visibility = Visibility.Collapsed;
         PlaceholderPanel.Visibility = Visibility.Collapsed;
@@ -336,16 +352,19 @@ public sealed partial class ChatWindow : WindowEx
 
     private void TryMountReactorChat()
     {
-        if (_reactorHost is not null)
+        var app = App.Current as App;
+        var provider = app?.ChatProvider;
+        Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
+
+        if (_reactorHost is not null && ReferenceEquals(_mountedProvider, provider))
         {
             PlaceholderPanel.Visibility = Visibility.Collapsed;
             ChatHost.Visibility = Visibility.Visible;
             return;
         }
 
-        var app = App.Current as App;
-        var provider = app?.ChatProvider;
-        Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
+        DisposeReactorHost();
+
         if (provider is null)
         {
             PlaceholderPanel.Visibility = Visibility.Visible;
@@ -359,6 +378,15 @@ public sealed partial class ChatWindow : WindowEx
             ChatHost,
             provider,
             onReadAloud: readAloud);
+        _mountedProvider = provider;
+    }
+
+    private void DisposeReactorHost()
+    {
+        var host = _reactorHost;
+        _reactorHost = null;
+        _mountedProvider = null;
+        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
     }
 
     private static string BuildChatUrl(string gatewayUrl, string token)
@@ -468,12 +496,14 @@ public sealed partial class ChatWindow : WindowEx
     {
         Closed -= OnWindowClosing;
         if (App.Current is App app)
+        {
             app.SettingsChanged -= OnAppSettingsChanged;
+            app.ChatProviderChanged -= OnAppChatProviderChanged;
+        }
         OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
         ChatExplorationState.Changed -= OnExplorationChanged;
         IsClosed = true;
-        try { _reactorHost?.Dispose(); } catch { }
-        _reactorHost = null;
+        DisposeReactorHost();
         Close();
     }
 

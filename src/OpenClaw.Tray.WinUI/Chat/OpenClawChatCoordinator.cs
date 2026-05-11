@@ -70,7 +70,7 @@ public sealed class OpenClawChatCoordinator : IDisposable
             return Task.CompletedTask;
         }
 
-        return SpeakConfiguredTextAsync(text, muteVoiceCapture: false);
+        return SpeakConfiguredTextAsync(text, muteVoiceCapture: true);
     }
 
     public Task SpeakResponseAsync(string text) => SpeakConfiguredTextAsync(text, muteVoiceCapture: true);

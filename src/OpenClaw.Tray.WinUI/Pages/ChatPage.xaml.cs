@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using OpenClaw.Chat;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using OpenClawTray.Helpers;
@@ -17,6 +18,7 @@ public sealed partial class ChatPage : Page
 {
     private HubWindow? _hub;
     private IDisposable? _reactorHost;
+    private IChatDataProvider? _mountedProvider;
     private string? _chatUrl;
     private bool _webViewInitialized;
     private bool _webViewMode;
@@ -32,9 +34,7 @@ public sealed partial class ChatPage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         // Tear down Reactor (if mounted) and detach WebView2 nav handlers.
-        var host = _reactorHost;
-        _reactorHost = null;
-        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
+        DisposeReactorHost();
 
         if (WebView.CoreWebView2 != null)
         {
@@ -46,6 +46,9 @@ public sealed partial class ChatPage : Page
 
         if (_hub is not null)
             _hub.SettingsSaved -= OnSettingsSaved;
+
+        if (App.Current is App app)
+            app.ChatProviderChanged -= OnAppChatProviderChanged;
 
         // MEDIUM 6: detach the static debug-override subscription so that
         // an unloaded ChatPage doesn't keep responding to overrides changes
@@ -73,6 +76,12 @@ public sealed partial class ChatPage : Page
         hub.SettingsSaved -= OnSettingsSaved;
         hub.SettingsSaved += OnSettingsSaved;
 
+        if (App.Current is App app)
+        {
+            app.ChatProviderChanged -= OnAppChatProviderChanged;
+            app.ChatProviderChanged += OnAppChatProviderChanged;
+        }
+
         // Also react to the per-surface debug override picked from DebugPage.
         OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
         OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed += OnDebugOverrideChanged;
@@ -83,6 +92,18 @@ public sealed partial class ChatPage : Page
     private void OnSettingsSaved(object? sender, EventArgs e) => ApplyChatSurface();
 
     private void OnDebugOverrideChanged(object? sender, EventArgs e) => ApplyChatSurface();
+
+    private void OnAppChatProviderChanged(object? sender, EventArgs e)
+    {
+        var dispatcher = DispatcherQueue;
+        if (dispatcher is null || dispatcher.HasThreadAccess)
+        {
+            ApplyChatSurface();
+            return;
+        }
+
+        _ = dispatcher.TryEnqueue(ApplyChatSurface);
+    }
 
     private void ApplyChatSurface()
     {
@@ -133,16 +154,19 @@ public sealed partial class ChatPage : Page
         RefreshButton.Visibility = Visibility.Collapsed;
         DevToolsButton.Visibility = Visibility.Collapsed;
 
-        if (_reactorHost is not null)
+        var app = App.Current as App;
+        var provider = app?.ChatProvider;
+        Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
+
+        if (_reactorHost is not null && ReferenceEquals(_mountedProvider, provider))
         {
             PlaceholderPanel.Visibility = Visibility.Collapsed;
             ChatHost.Visibility = Visibility.Visible;
             return;
         }
 
-        var app = App.Current as App;
-        var provider = app?.ChatProvider;
-        Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
+        DisposeReactorHost();
+
         if (provider is null)
         {
             PlaceholderPanel.Visibility = Visibility.Visible;
@@ -156,15 +180,14 @@ public sealed partial class ChatPage : Page
             ChatHost,
             provider,
             onReadAloud: readAloud);
+        _mountedProvider = provider;
     }
 
     private void ShowWebViewSurface(bool forceNavigate = false)
     {
         // Tear down Reactor (so the WebView2 owns the row) and (re)init WebView2.
         _webViewMode = true;
-        var host = _reactorHost;
-        _reactorHost = null;
-        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
+        DisposeReactorHost();
 
         ChatHost.Visibility = Visibility.Collapsed;
         PlaceholderPanel.Visibility = Visibility.Collapsed;
@@ -188,6 +211,14 @@ public sealed partial class ChatPage : Page
 
         if (_hub?.Settings is null) return;
         _ = InitializeWebViewAsync(_hub.Settings);
+    }
+
+    private void DisposeReactorHost()
+    {
+        var host = _reactorHost;
+        _reactorHost = null;
+        _mountedProvider = null;
+        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
     }
 
     private async Task InitializeWebViewAsync(SettingsManager settings)
