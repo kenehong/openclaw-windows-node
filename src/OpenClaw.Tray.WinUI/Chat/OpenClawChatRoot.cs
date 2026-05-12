@@ -82,6 +82,14 @@ public sealed class OpenClawChatRoot : Component
         }));
 
         var snapshot = snapshotState.Value;
+        var selectedIdForMetadata = selectedIdState.Value ?? snapshot?.DefaultThreadId;
+        var entryMetaSnapshot = UseMemo<IReadOnlyDictionary<string, ChatEntryMetadata>?>(() =>
+        {
+            if (selectedIdForMetadata is null || _provider is not OpenClawChatDataProvider nativeForMeta)
+                return null;
+
+            return nativeForMeta.GetEntryMetadata(selectedIdForMetadata);
+        }, selectedIdForMetadata ?? string.Empty, snapshot);
 
         // Preview override (G) — only honored when the chat is bound to a
         // fake provider (i.e. the explorations window). Real production
@@ -140,9 +148,9 @@ public sealed class OpenClawChatRoot : Component
         Element header = Empty();
 
         // Per-entry metadata for the OpenClaw timeline footer (sender · time · model).
-        IReadOnlyDictionary<string, ChatEntryMetadata>? entryMeta = null;
-        if (selectedThread is not null && _provider is OpenClawChatDataProvider nativeForMeta)
-            entryMeta = nativeForMeta.GetEntryMetadata(selectedThread.Id);
+        // Keep the same dictionary instance across composer-only renders so the
+        // timeline can skip re-rendering while the user types.
+        var entryMeta = selectedThread is null ? null : entryMetaSnapshot;
 
         // The gateway's default agent identity is "Field" (matches the web UI footer),
         // but for the WinUI tray we surface a generic "Assistant" label so the

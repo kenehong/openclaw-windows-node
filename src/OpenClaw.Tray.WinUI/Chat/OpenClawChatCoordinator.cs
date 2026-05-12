@@ -51,15 +51,28 @@ public sealed class OpenClawChatCoordinator : IDisposable
 
         lock (_gate)
         {
+            if (_disposed) return;
             oldProvider = _provider;
-            _provider = client is null
-                ? null
-                : new OpenClawChatDataProvider(new GatewayClientChatBridge(client), _post);
+            _provider = null;
         }
 
-        if (oldProvider is not null)
+        oldProvider?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        if (client is null)
         {
-            _ = oldProvider.DisposeAsync().AsTask();
+            return;
+        }
+
+        var newProvider = new OpenClawChatDataProvider(new GatewayClientChatBridge(client), _post);
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                newProvider.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                return;
+            }
+
+            _provider = newProvider;
         }
     }
 

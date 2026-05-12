@@ -245,6 +245,16 @@ public sealed partial class ChatWindow : WindowEx
         // the Debug Overrides force the Companion Chat UI on the Tray popup).
         if (_webViewMode && _webViewInitialized && WebView?.CoreWebView2 != null)
         {
+            if (string.IsNullOrEmpty(_chatUrl))
+            {
+                LoadingRing.IsActive = false;
+                LoadingRing.Visibility = Visibility.Collapsed;
+                WebView.Visibility = Visibility.Collapsed;
+                ErrorPanel.Visibility = Visibility.Visible;
+                ErrorText.Text = "Unable to load chat. The gateway URL or token is not available.";
+                return;
+            }
+
             try
             {
                 ErrorPanel.Visibility = Visibility.Collapsed;
@@ -255,6 +265,11 @@ public sealed partial class ChatWindow : WindowEx
             }
             catch (Exception ex)
             {
+                LoadingRing.IsActive = false;
+                LoadingRing.Visibility = Visibility.Collapsed;
+                WebView.Visibility = Visibility.Collapsed;
+                ErrorPanel.Visibility = Visibility.Visible;
+                ErrorText.Text = $"Unable to load chat. Please try again. ({ex.Message})";
                 Logger.Warn($"ChatWindow.RefreshCredentials navigate failed: {ex.Message}");
             }
         }
@@ -393,7 +408,7 @@ public sealed partial class ChatWindow : WindowEx
     {
         return GatewayChatUrlBuilder.TryBuildChatUrl(gatewayUrl, token, out var url, out _)
             ? url
-            : $"http://127.0.0.1:19001?token={Uri.EscapeDataString(token)}";
+            : string.Empty;
     }
 
     private bool _backdropAppliedOnce;

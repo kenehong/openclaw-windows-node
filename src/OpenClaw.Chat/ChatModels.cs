@@ -102,7 +102,7 @@ public record ChatUserMessageEvent(string Text, string? Nonce = null) : ChatEven
 public record ChatThinkingEvent(string Text) : ChatEvent;
 public record ChatReasoningEvent(string Text) : ChatEvent;
 public record ChatReasoningDeltaEvent(string Text) : ChatEvent;
-public record ChatMessageEvent(string Text, string? ReasoningText = null) : ChatEvent;
+public record ChatMessageEvent(string Text, string? ReasoningText = null, bool ReconcilePrevious = false) : ChatEvent;
 public record ChatMessageDeltaEvent(string Text) : ChatEvent;
 public record ChatTurnEndEvent() : ChatEvent;
 public record ChatIntentEvent(string Intent) : ChatEvent;

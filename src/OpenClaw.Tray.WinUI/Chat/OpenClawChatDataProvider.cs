@@ -798,7 +798,10 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         // blocks, not token deltas — see spec §"Block Streaming"). Map both
         // to ChatMessageEvent so the reducer REPLACES the active assistant
         // entry's text. Final additionally ends the turn.
-        ApplyEventAndPublish(threadId, new ChatMessageEvent(TruncateForChatEntry(message.Text)), meta);
+        ApplyEventAndPublish(
+            threadId,
+            new ChatMessageEvent(TruncateForChatEntry(message.Text), ReconcilePrevious: true),
+            meta);
 
         if (message.IsFinal)
         {

@@ -2,6 +2,8 @@ namespace OpenClaw.Chat;
 
 public static class ChatTimelineReducer
 {
+    private const int MaxLocalNonces = 256;
+
     public static ChatTimelineState Apply(ChatTimelineState state, ChatEvent evt)
     {
         return evt switch
@@ -11,13 +13,13 @@ public static class ChatTimelineReducer
             ChatReasoningEvent e => UpsertReasoning(BeginTurn(state), e.Text, replace: true),
             ChatReasoningDeltaEvent e => UpsertReasoning(BeginTurn(state), e.Text, replace: false),
             ChatMessageDeltaEvent e => UpsertAssistant(BeginTurn(state), e.Text, replace: false, streaming: true),
-            ChatMessageEvent e => UpsertAssistant(BeginTurn(state), e.Text, replace: true, streaming: false),
+            ChatMessageEvent e => UpsertAssistant(BeginTurn(state), e.Text, replace: true, streaming: false, e.ReconcilePrevious),
             ChatTurnEndEvent => state with { TurnActive = false, ActiveAssistantId = null, ActiveReasoningId = null, PendingPermission = null },
             ChatIntentEvent e => state with { CurrentIntent = e.Intent },
             ChatToolStartEvent e => ApplyToolStart(state, e),
             ChatToolOutputEvent e => ApplyToolOutput(state, e),
             ChatToolErrorEvent e => ApplyToolError(state, e),
-            ChatErrorEvent e => PushEntry(state, ChatTimelineItemKind.Status, e.Text, ChatTone.Error),
+            ChatErrorEvent e => PushEntry(EndTurn(state), ChatTimelineItemKind.Status, e.Text, ChatTone.Error),
             ChatStatusEvent e => PushEntry(state, ChatTimelineItemKind.Status, e.Text, e.Tone),
             ChatRestoredEvent e => PushEntry(state, ChatTimelineItemKind.Status, e.Text, ChatTone.Info),
             ChatContextChangedEvent => state,
@@ -34,10 +36,20 @@ public static class ChatTimelineReducer
     public static ChatTimelineState AddLocalUser(ChatTimelineState state, string text, string nonce)
     {
         var id = $"e{state.NextId}";
+        var localNonces = state.LocalNonces;
+        if (localNonces.Count >= MaxLocalNonces)
+        {
+            foreach (var nonceToDrop in localNonces)
+            {
+                localNonces = localNonces.Remove(nonceToDrop);
+                break;
+            }
+        }
+
         return state with
         {
             Entries = state.Entries.Add(new(id, ChatTimelineItemKind.User, text)),
-            LocalNonces = state.LocalNonces.Add(nonce),
+            LocalNonces = localNonces.Add(nonce),
             NextId = state.NextId + 1,
             TurnActive = true
         };
@@ -74,7 +86,8 @@ public static class ChatTimelineReducer
                 ToolName: e.ToolName, ToolResult: ChatToolCallStatus.InProgress,
                 IntentSummary: e.Text, ToolArgs: e.ToolArgs)),
             NextId = state.NextId + 1,
-            ActiveToolCallId = id
+            ActiveToolCallId = id,
+            TurnActive = true
         };
     }
 
@@ -114,7 +127,7 @@ public static class ChatTimelineReducer
         return state with { Entries = entries, ActiveToolCallId = null, PendingPermission = null };
     }
 
-    static ChatTimelineState UpsertAssistant(ChatTimelineState state, string text, bool replace, bool streaming)
+    static ChatTimelineState UpsertAssistant(ChatTimelineState state, string text, bool replace, bool streaming, bool reconcilePrevious = false)
     {
         if (state.ActiveAssistantId is { } aid)
         {
@@ -127,6 +140,23 @@ public static class ChatTimelineReducer
                     Entries = state.Entries.SetItem(idx, existing with
                     {
                         Text = replace ? text : existing.Text + text,
+                        IsStreaming = streaming
+                    })
+                };
+            }
+        }
+
+        if (replace && reconcilePrevious && state.Entries.Count > 0)
+        {
+            var lastIndex = state.Entries.Count - 1;
+            var last = state.Entries[lastIndex];
+            if (last.Kind == ChatTimelineItemKind.Assistant)
+            {
+                return state with
+                {
+                    Entries = state.Entries.SetItem(lastIndex, last with
+                    {
+                        Text = text,
                         IsStreaming = streaming
                     })
                 };
@@ -175,6 +205,15 @@ public static class ChatTimelineReducer
             NextId = state.NextId + 1
         };
     }
+
+    static ChatTimelineState EndTurn(ChatTimelineState state) => state with
+    {
+        TurnActive = false,
+        ActiveAssistantId = null,
+        ActiveReasoningId = null,
+        ActiveToolCallId = null,
+        PendingPermission = null
+    };
 
     static ChatTimelineState BeginTurn(ChatTimelineState state) =>
         state.TurnActive ? state : state with { TurnActive = true };

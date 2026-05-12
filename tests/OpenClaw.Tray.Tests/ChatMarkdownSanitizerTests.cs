@@ -77,6 +77,18 @@ public class ChatMarkdownSanitizerTests
         Assert.DoesNotContain("[ref]:", result);
     }
 
+    [Theory]
+    [InlineData(" [ref]: https://attacker.example")]
+    [InlineData("  [ref]: https://attacker.example")]
+    [InlineData("   [ref]: https://attacker.example")]
+    public void Sanitize_IndentedReferenceLinkDefinition_StripsDefinition(string definition)
+    {
+        var result = ChatMarkdownSanitizer.Sanitize($"Hello\n{definition}\nWorld");
+
+        Assert.Contains("ref: https://attacker.example", result);
+        Assert.DoesNotContain("[ref]:", result);
+    }
+
     [Fact]
     public void Sanitize_InlineCode_ProtectsContents()
     {
@@ -120,6 +132,26 @@ public class ChatMarkdownSanitizerTests
         var input = "see [text](http://no-close-paren";
         var result = ChatMarkdownSanitizer.Sanitize(input);
         Assert.Equal(input, result);
+    }
+
+    [Fact]
+    public void Sanitize_OversizedInlineImage_EscapesMarkdownOpening()
+    {
+        var input = "before ![" + new string('a', 1100) + "](https://attacker.example/p.png) after";
+        var result = ChatMarkdownSanitizer.Sanitize(input);
+
+        Assert.StartsWith("before \\!\\[", result);
+        Assert.DoesNotContain("![", result);
+    }
+
+    [Fact]
+    public void Sanitize_OversizedInlineLink_EscapesMarkdownOpening()
+    {
+        var input = "before [" + new string('a', 1100) + "](https://attacker.example/) after";
+        var result = ChatMarkdownSanitizer.Sanitize(input);
+
+        Assert.StartsWith("before \\[", result);
+        Assert.DoesNotContain("before [", result);
     }
 
     [Fact]

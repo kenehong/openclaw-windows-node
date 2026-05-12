@@ -202,6 +202,42 @@ public class OpenClawChatDataProviderTests
     }
 
     [Fact]
+    public async Task ChatMessageReceived_FinalAfterLifecycleEnd_DoesNotDuplicateAssistant()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "partial",
+            State = "delta"
+        });
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"end"}""", runId: "run-1"));
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "final",
+            State = "final"
+        });
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "final",
+            State = "final"
+        });
+
+        var timeline = (await provider.LoadAsync()).Timelines["main"];
+        var assistant = Assert.Single(timeline.Entries, e => e.Kind == ChatTimelineItemKind.Assistant);
+        Assert.Equal("final", assistant.Text);
+        Assert.False(assistant.IsStreaming);
+        Assert.False(timeline.TurnActive);
+    }
+
+    [Fact]
     public async Task ChatMessageReceived_UserEcho_Ignored()
     {
         var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
@@ -446,10 +482,12 @@ public class OpenClawChatDataProviderTests
         await provider.LoadAsync();
         snapshots.Clear();
 
+        bridge.RaiseAgent(MakeAgentEvent("lifecycle", """{"phase":"start"}""", runId: "run-1"));
         var evt = MakeAgentEvent("lifecycle", """{"phase":"error","message":"model unreachable"}""", runId: "run-1");
         bridge.RaiseAgent(evt);
 
         var timeline = snapshots[^1].Timelines["main"];
+        Assert.False(timeline.TurnActive);
         Assert.Contains(timeline.Entries, e =>
             e.Kind == ChatTimelineItemKind.Status && e.Text.Contains("model unreachable"));
     }

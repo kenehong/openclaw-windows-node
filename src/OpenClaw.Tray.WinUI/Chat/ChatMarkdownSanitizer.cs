@@ -160,29 +160,22 @@ internal static class ChatMarkdownSanitizer
                 continue;
             }
 
-            // Reference link definition at line start: ``[ref]: url ...``
-            if (atLineStart && c == '[')
+            // Reference link definition at line start: ``[ref]: url ...``.
+            // CommonMark also allows up to 3 leading spaces before the
+            // definition; 4+ spaces are handled above as indented code.
+            if (atLineStart && TryParseReferenceDefinition(text, i, n, out var refLabel, out var refUrl, out var refEnd))
             {
-                int lineEnd = text.IndexOf('\n', i);
-                int segEnd = lineEnd < 0 ? n : lineEnd;
-                int close = text.IndexOf(']', i + 1);
-                if (close > 0 && close < segEnd && close + 1 < n &&
-                    text[close + 1] == ':')
-                {
-                    var refLabel = text.Substring(i + 1, close - i - 1);
-                    var rest = text.Substring(close + 2, segEnd - (close + 2)).TrimStart();
-                    sb.Append(refLabel);
-                    sb.Append(": ");
-                    sb.Append(rest);
-                    i = segEnd;
-                    continue;
-                }
+                sb.Append(refLabel);
+                sb.Append(": ");
+                sb.Append(refUrl);
+                i = refEnd;
+                continue;
             }
 
             // Inline image: ![alt](src) → [Image: alt]
             if (c == '!' && i + 1 < n && text[i + 1] == '[')
             {
-                if (TryParseLinkOrImage(text, i + 1, out _, out var alt, out _, out var afterParen))
+                if (TryParseLinkOrImage(text, i + 1, out _, out var alt, out _, out var afterParen, out var exceededScanLimit))
                 {
                     sb.Append("[Image");
                     if (!string.IsNullOrEmpty(alt))
@@ -198,12 +191,20 @@ internal static class ChatMarkdownSanitizer
                     atLineStart = false;
                     continue;
                 }
+
+                if (exceededScanLimit)
+                {
+                    sb.Append(@"\!\[");
+                    i += 2;
+                    atLineStart = false;
+                    continue;
+                }
             }
 
             // Inline link: [text](url) → text (url)
             if (c == '[')
             {
-                if (TryParseLinkOrImage(text, i, out _, out var linkText, out var url, out var afterParen))
+                if (TryParseLinkOrImage(text, i, out _, out var linkText, out var url, out var afterParen, out var exceededScanLimit))
                 {
                     // Recursively sanitize the link text so a nested
                     // image / link inside the brackets (e.g.
@@ -222,6 +223,14 @@ internal static class ChatMarkdownSanitizer
                     atLineStart = false;
                     continue;
                 }
+
+                if (exceededScanLimit)
+                {
+                    sb.Append(@"\[");
+                    i++;
+                    atLineStart = false;
+                    continue;
+                }
             }
 
             sb.Append(c);
@@ -230,6 +239,36 @@ internal static class ChatMarkdownSanitizer
         }
 
         return sb.ToString();
+    }
+
+    private static bool TryParseReferenceDefinition(
+        string text, int lineStart, int n,
+        out string label, out string url, out int definitionEnd)
+    {
+        label = string.Empty;
+        url = string.Empty;
+        definitionEnd = lineStart;
+
+        int p = lineStart;
+        int leadingSpaces = 0;
+        while (p < n && text[p] == ' ' && leadingSpaces < 3)
+        {
+            p++;
+            leadingSpaces++;
+        }
+
+        if (p >= n || text[p] != '[') return false;
+
+        int lineEnd = text.IndexOf('\n', p);
+        int segEnd = lineEnd < 0 ? n : lineEnd;
+        int close = text.IndexOf(']', p + 1);
+        if (close <= p || close >= segEnd || close + 1 >= n || text[close + 1] != ':')
+            return false;
+
+        label = text.Substring(p + 1, close - p - 1);
+        url = text.Substring(close + 2, segEnd - (close + 2)).TrimStart();
+        definitionEnd = segEnd;
+        return true;
     }
 
     // Detect a CommonMark indented code block: a line that begins with
@@ -289,12 +328,14 @@ internal static class ChatMarkdownSanitizer
     // if the construct doesn't fully match within reasonable bounds.
     private static bool TryParseLinkOrImage(
         string text, int bracketStart,
-        out int closeBracket, out string innerText, out string url, out int afterParen)
+        out int closeBracket, out string innerText, out string url, out int afterParen,
+        out bool exceededScanLimit)
     {
         closeBracket = -1;
         innerText = string.Empty;
         url = string.Empty;
         afterParen = -1;
+        exceededScanLimit = false;
 
         int n = text.Length;
         if (bracketStart >= n || text[bracketStart] != '[') return false;
@@ -311,7 +352,12 @@ internal static class ChatMarkdownSanitizer
             else if (ch == ']') { depth--; if (depth == 0) { closeBracket = j; break; } }
             j++;
         }
-        if (closeBracket < 0 || closeBracket + 1 >= n || text[closeBracket + 1] != '(') return false;
+        if (closeBracket < 0)
+        {
+            exceededScanLimit = scanLimit < n;
+            return false;
+        }
+        if (closeBracket + 1 >= n || text[closeBracket + 1] != '(') return false;
 
         int parenStart = closeBracket + 2;
         int parenEnd = -1;
@@ -322,7 +368,11 @@ internal static class ChatMarkdownSanitizer
             if (ch == ')') { parenEnd = k; break; }
             if (ch == '\n') return false;
         }
-        if (parenEnd < 0) return false;
+        if (parenEnd < 0)
+        {
+            exceededScanLimit = parenScanLimit < n;
+            return false;
+        }
 
         innerText = text.Substring(bracketStart + 1, closeBracket - bracketStart - 1);
         var rawUrl = text.Substring(parenStart, parenEnd - parenStart).Trim();
