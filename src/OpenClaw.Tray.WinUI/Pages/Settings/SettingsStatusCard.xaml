@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="OpenClawTray.Pages.Settings.SettingsStatusCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Spacing="12">
+        <!-- Companion Stage -->
+        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1" CornerRadius="8" Padding="20"
+                AutomationProperties.AutomationId="CompanionStageCard">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Width="72" Height="72" VerticalAlignment="Center">
+                    <Ellipse x:Name="CompanionRing" Width="68" Height="68"
+                             StrokeThickness="3" Fill="Transparent"
+                             Stroke="{ThemeResource TextFillColorDisabledBrush}"/>
+                    <ProgressRing x:Name="CompanionProgressRing" Width="72" Height="72"
+                                  IsActive="False" Visibility="Collapsed"/>
+                    <TextBlock Text="🦞" FontSize="36"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                    <TextBlock x:Name="StatusHeadline" Text="Not connected to gateway"
+                               Style="{StaticResource SubtitleTextBlockStyle}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="StatusSubtext" Text=""
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2"
+                            HorizontalAlignment="Right">
+                    <TextBlock x:Name="GatewayUrlText" Text="—"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               IsTextSelectionEnabled="True" HorizontalAlignment="Right"/>
+                    <TextBlock x:Name="GatewayVersionText" Text=""
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               HorizontalAlignment="Right"/>
+                    <TextBlock x:Name="GatewayUptimeText" Text=""
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               HorizontalAlignment="Right"/>
+                    <HyperlinkButton x:Name="ScanButton" Content="Scan for gateways"
+                                     Padding="0" FontSize="12"
+                                     HorizontalAlignment="Right"
+                                     AutomationProperties.AutomationId="ScanButton"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Quick Actions -->
+        <StackPanel Orientation="Horizontal" Spacing="8"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.AutomationId="QuickActionsCard">
+            <Button x:Name="DashboardButton" Content="Open Dashboard"
+                    AutomationProperties.AutomationId="DashboardButton"/>
+            <Button x:Name="ChatButton" Content="Open Chat"
+                    AutomationProperties.AutomationId="ChatButton"/>
+            <Button x:Name="HealthCheckButton" Content="Health Check"
+                    AutomationProperties.AutomationId="HealthCheckButton"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

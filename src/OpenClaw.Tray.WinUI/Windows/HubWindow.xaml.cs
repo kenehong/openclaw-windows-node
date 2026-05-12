@@ -128,6 +128,20 @@ public sealed partial class HubWindow : WindowEx
         if (tag == "cron") tag = $"agent:{_currentAgentId}:cron";
         if (tag == "workspace") tag = $"agent:{_currentAgentId}:workspace";
 
+        // Settings-hosted tags route through SettingsHostPage and select the
+        // Settings nav item regardless of which sub-page is shown.
+        if (SettingsHostedTags.Contains(tag))
+        {
+            NavigateToSettings(tag);
+            return;
+        }
+
+        if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase))
+        {
+            NavigateToSettings(null);
+            return;
+        }
+
         // Search all nav items including nested
         if (FindAndSelectNavItem(NavView.MenuItems, tag)) return;
         if (FindAndSelectNavItem(NavView.FooterMenuItems, tag)) return;
@@ -139,6 +153,36 @@ public sealed partial class HubWindow : WindowEx
         {
             ContentFrame.Navigate(pageType);
             InitializeCurrentPage();
+        }
+    }
+
+    /// <summary>
+    /// Ensure SettingsHostPage is the current ContentFrame page and route to
+    /// <paramref name="subTag"/> within it. Pass null to land on the Settings root.
+    /// Also moves NavigationView selection to the Settings menu item.
+    /// </summary>
+    private void NavigateToSettings(string? subTag)
+    {
+        if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
+        {
+            ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
+            host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
+        }
+        host?.AttachHub(this);
+        if (!string.IsNullOrEmpty(subTag)) host?.NavigateTo(subTag);
+        else host?.NavigateToRoot();
+        SelectSettingsNavItem();
+    }
+
+    private void SelectSettingsNavItem()
+    {
+        foreach (var item in NavView.MenuItems)
+        {
+            if (item is NavigationViewItem nv && (nv.Tag as string) == "settings")
+            {
+                if (NavView.SelectedItem != nv) NavView.SelectedItem = nv;
+                return;
+            }
         }
     }
 
@@ -585,6 +629,17 @@ public sealed partial class HubWindow : WindowEx
         if (args.SelectedItem is NavigationViewItem item)
         {
             var tag = item.Tag as string;
+            if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
+                {
+                    ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
+                    host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
+                }
+                host?.AttachHub(this);
+                host?.NavigateToRoot();
+                return;
+            }
             if (tag?.StartsWith("agent:") == true)
             { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
             var pageType = TagToPageType(tag);
@@ -613,9 +668,11 @@ public sealed partial class HubWindow : WindowEx
         try { _settings.Save(); } catch { /* swallow — don't block UI */ }
     }
 
-    private void InitializeCurrentPage()
+    private void InitializeCurrentPage() => InitializePage(ContentFrame.Content);
+
+    internal void InitializePage(object? content)
     {
-        switch (ContentFrame.Content)
+        switch (content)
         {
             case HomePage home: home.Initialize(this); break;
             case ChatPage chat: chat.Initialize(this); break;
@@ -693,9 +750,22 @@ public sealed partial class HubWindow : WindowEx
         });
     }
 
+    // Tags that should be hosted INSIDE SettingsHostPage rather than navigating
+    // ContentFrame directly. NavigateTo/NavView_SelectionChanged route these
+    // through SettingsHostPage so the simplified sidebar (Home + Settings)
+    // still resolves all legacy deep-links.
+    internal static readonly HashSet<string> SettingsHostedTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "connection", "sessions", "conversations", "agentevents", "skills", "agents",
+        "channels", "nodes", "bindings", "config", "usage", "cron",
+        "capabilities", "voice", "permissions", "sandbox", "activity",
+        "apppreferences",
+        "debug", "info", "about"
+    };
+
     private static Type? TagToPageType(string? tag) => tag switch
     {
-        "home" => typeof(HomePage),
+        "home" => typeof(ChatPage),
         "chat" => typeof(ChatPage),
         "connection" => typeof(ConnectionPage),
         "channels" => typeof(ChannelsPage),
@@ -713,7 +783,7 @@ public sealed partial class HubWindow : WindowEx
         "debug" => typeof(DebugPage),
         "info" => typeof(AboutPage),
         // Legacy tags
-        "general" => typeof(HomePage),
+        "general" => typeof(ChatPage),
         "conversations" => typeof(ConversationsPage),
         "sessions" => typeof(SessionsPage),
         "agentevents" => typeof(AgentEventsPage),

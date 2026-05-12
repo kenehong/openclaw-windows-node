@@ -79,87 +79,18 @@
 
         <NavigationView.MenuItems>
             <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_79" Tag="home" Content="Home">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE80F;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_82" Tag="chat" Content="Chat">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItemSeparator/>
-
-            <NavigationViewItemHeader x:Uid="HubWindow_NavigationViewItemHeader_87" Content="Gateway"/>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_88" Tag="connection" Content="Connection">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE839;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_91" Tag="sessions" Content="Sessions">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F2;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="ConversationsNavItem" Tag="conversations" Content="Conversations">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8F2;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_94" Tag="agentevents" Content="Agent Events">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE943;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_97" Tag="skills" Content="Skills">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE945;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <!-- Agents — each agent is a direct nav item showing workspace -->
-            <NavigationViewItem x:Uid="AgentsNavItem" x:Name="AgentsNavItem" Content="Agents" SelectsOnInvoked="False" IsExpanded="True">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE99A;"/></NavigationViewItem.Icon>
-                <NavigationViewItem.MenuItems>
-                    <NavigationViewItem x:Uid="DefaultAgentNavItem" x:Name="DefaultAgentNavItem" Content="main" Tag="agent:main">
-                        <NavigationViewItem.Icon><FontIcon Glyph="&#xE99A;"/></NavigationViewItem.Icon>
-                    </NavigationViewItem>
-                </NavigationViewItem.MenuItems>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_109" Tag="channels" Content="Channels">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xEC05;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_112" Tag="nodes" Content="Nodes">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE977;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_115" Tag="bindings" Content="Bindings">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8AD;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_118" Tag="config" Content="Config">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE90F;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_121" Tag="usage" Content="Usage">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D9;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_124" Tag="cron" Content="Cron">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE787;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItemSeparator/>
-
-            <NavigationViewItemHeader x:Uid="HubWindow_NavigationViewItemHeader_129" Content="This Computer"/>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_130" Tag="capabilities" Content="Capabilities">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE964;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Tag="voice" Content="Voice &amp; Audio">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE720;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_133" Tag="settings" Content="Settings">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;"/></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_136" Tag="permissions" Content="Permissions">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8D7;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Tag="sandbox" Content="Sandbox">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE72E;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_139" Tag="activity" Content="Activity">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xEA95;"/></NavigationViewItem.Icon>
+            <!-- Hidden host for dynamically-rebuilt agent nav items; kept so existing code paths don't NRE. -->
+            <NavigationViewItem x:Name="AgentsNavItem" Content="Agents" Visibility="Collapsed" SelectsOnInvoked="False">
+                <NavigationViewItem.MenuItems>
+                    <NavigationViewItem x:Name="DefaultAgentNavItem" Content="main" Tag="agent:main"/>
+                </NavigationViewItem.MenuItems>
             </NavigationViewItem>
         </NavigationView.MenuItems>
-
-        <NavigationView.FooterMenuItems>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_145" Tag="debug" Content="Debug">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xEBE8;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_148" Tag="info" Content="Info">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE946;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-        </NavigationView.FooterMenuItems>
 
         <Frame x:Name="ContentFrame">
             <Frame.ContentTransitions>
