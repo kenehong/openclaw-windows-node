@@ -4,11 +4,16 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <StackPanel Spacing="12">
+    <!-- Variant B: full-width banner. The outer card stretches to the
+         page width since the no-rail overview gives Settings the entire
+         content area. Quick-actions sit inline at the bottom-right of
+         the same card so the banner reads as a single status surface. -->
+    <StackPanel Spacing="12" HorizontalAlignment="Stretch">
         <!-- Companion Stage -->
         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="20"
+                BorderThickness="1" CornerRadius="12" Padding="24"
+                HorizontalAlignment="Stretch"
                 AutomationProperties.AutomationId="CompanionStageCard">
             <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>

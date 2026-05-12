@@ -10,8 +10,11 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Breadcrumb / back row -->
-        <Grid x:Name="BreadcrumbBar" Grid.Row="0" Padding="24,16,24,8">
+        <!-- Breadcrumb / back row.
+             Variant B: hidden on the overview, shown only when a sub-page
+             or category drilldown is active. -->
+        <Grid x:Name="BreadcrumbBar" Grid.Row="0" Padding="24,16,24,8"
+              Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -19,7 +22,7 @@
 
             <HyperlinkButton x:Name="BackToSettings" Grid.Column="0" Content="← Settings"
                              Click="OnBackToSettingsClick"
-                             Visibility="Collapsed"
+                             AutomationProperties.AutomationId="SettingsBackButton"
                              Padding="0,0,12,0"/>
             <TextBlock x:Name="BreadcrumbText" Grid.Column="1"
                        Text="Settings"

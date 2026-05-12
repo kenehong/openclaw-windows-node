@@ -3,6 +3,7 @@ using System.Text.Json;
 
 namespace OpenClaw.Tray.Tests;
 
+[Collection(TrayDataDirEnvCollection.Name)]
 public sealed class SettingsManagerIsolationTests
 {
     [Fact]
