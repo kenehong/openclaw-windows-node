@@ -26,6 +26,32 @@ public sealed partial class SettingsStatusCard : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Variant C — make the card visually lighter so it fits the right pane
+    /// of the two-pane settings host instead of acting as a hero.
+    /// Idempotent.
+    /// </summary>
+    public void UseCompactLayout()
+    {
+        if (RootStack != null) RootStack.Spacing = 8;
+        if (StatusBorder != null)
+        {
+            StatusBorder.Padding = new Thickness(14);
+            StatusBorder.CornerRadius = new CornerRadius(6);
+        }
+        if (StatusGrid != null) StatusGrid.ColumnSpacing = 12;
+        if (CompanionAvatarHost != null)
+        {
+            CompanionAvatarHost.Width = 44;
+            CompanionAvatarHost.Height = 44;
+        }
+        if (CompanionRing != null) { CompanionRing.Width = 42; CompanionRing.Height = 42; CompanionRing.StrokeThickness = 2; }
+        if (CompanionProgressRing != null) { CompanionProgressRing.Width = 44; CompanionProgressRing.Height = 44; }
+        if (CompanionEmoji != null) CompanionEmoji.FontSize = 22;
+        if (StatusHeadline != null)
+            StatusHeadline.Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"];
+    }
+
     public void Initialize(HubWindow hub)
     {
         _hub = hub;

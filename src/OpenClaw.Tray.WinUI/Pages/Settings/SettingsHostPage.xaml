@@ -4,36 +4,46 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <NavigationView x:Name="TreeNav"
+                    PaneDisplayMode="Left"
+                    IsPaneToggleButtonVisible="False"
+                    IsBackButtonVisible="Collapsed"
+                    IsSettingsVisible="False"
+                    OpenPaneLength="260"
+                    SelectionChanged="OnTreeSelectionChanged">
 
-        <!-- Breadcrumb / back row -->
-        <Grid x:Name="BreadcrumbBar" Grid.Row="0" Padding="24,16,24,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-            <HyperlinkButton x:Name="BackToSettings" Grid.Column="0" Content="← Settings"
-                             Click="OnBackToSettingsClick"
-                             Visibility="Collapsed"
-                             Padding="0,0,12,0"/>
-            <TextBlock x:Name="BreadcrumbText" Grid.Column="1"
-                       Text="Settings"
-                       Style="{StaticResource SubtitleTextBlockStyle}"
-                       VerticalAlignment="Center"/>
+            <!-- Breadcrumb / context line -->
+            <Border Grid.Row="0"
+                    Padding="24,16,24,12"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1">
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="BreadcrumbText"
+                               Text="Settings"
+                               Style="{StaticResource SubtitleTextBlockStyle}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="BreadcrumbHint"
+                               Text=""
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Right pane content host -->
+            <Grid Grid.Row="1">
+                <ScrollViewer x:Name="RootHost"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="24,16,24,24"/>
+                <Frame x:Name="SubFrame" Visibility="Collapsed"/>
+            </Grid>
         </Grid>
-
-        <Grid Grid.Row="1">
-            <ContentControl x:Name="RootHost"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"/>
-            <Frame x:Name="SubFrame" Visibility="Collapsed"/>
-        </Grid>
-    </Grid>
+    </NavigationView>
 </Page>
