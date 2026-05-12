@@ -5,70 +5,106 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <StackPanel Spacing="12">
-        <!-- Companion Stage -->
-        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        <!-- Hero banner — Variant A: bigger ring, premium feel, info compressed
+             into a single right-aligned stack, scan/quick actions inline. -->
+        <Border Background="{ThemeResource AccentFillColorTertiaryBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="20"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="24"
                 AutomationProperties.AutomationId="CompanionStageCard">
-            <Grid ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <StackPanel Spacing="18">
 
-                <Grid Grid.Column="0" Width="72" Height="72" VerticalAlignment="Center">
-                    <Ellipse x:Name="CompanionRing" Width="68" Height="68"
-                             StrokeThickness="3" Fill="Transparent"
-                             Stroke="{ThemeResource TextFillColorDisabledBrush}"/>
-                    <ProgressRing x:Name="CompanionProgressRing" Width="72" Height="72"
-                                  IsActive="False" Visibility="Collapsed"/>
-                    <TextBlock Text="🦞" FontSize="36"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <!-- Top row: mascot + headline + right-side gateway info -->
+                <Grid ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Mascot ring -->
+                    <Grid Grid.Column="0" Width="96" Height="96" VerticalAlignment="Center">
+                        <Ellipse x:Name="CompanionRing"
+                                 Width="92" Height="92"
+                                 StrokeThickness="4"
+                                 Fill="{ThemeResource ControlOnImageFillColorDefaultBrush}"
+                                 Stroke="{ThemeResource TextFillColorDisabledBrush}"/>
+                        <ProgressRing x:Name="CompanionProgressRing"
+                                      Width="96" Height="96"
+                                      IsActive="False" Visibility="Collapsed"/>
+                        <TextBlock Text="🦞" FontSize="48"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Headline + subtext -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                        <TextBlock x:Name="StatusHeadline"
+                                   Text="Not connected to gateway"
+                                   Style="{StaticResource TitleTextBlockStyle}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="StatusSubtext"
+                                   Text=""
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <!-- Right-aligned gateway facts -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2"
+                                HorizontalAlignment="Right" MinWidth="180">
+                        <TextBlock x:Name="GatewayUrlText" Text="—"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   IsTextSelectionEnabled="True"
+                                   HorizontalAlignment="Right"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="GatewayVersionText" Text=""
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Right"/>
+                        <TextBlock x:Name="GatewayUptimeText" Text=""
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                   HorizontalAlignment="Right"/>
+                        <HyperlinkButton x:Name="ScanButton"
+                                         Content="Scan for gateways"
+                                         Padding="0,4,0,0"
+                                         FontSize="12"
+                                         HorizontalAlignment="Right"
+                                         AutomationProperties.AutomationId="ScanButton"/>
+                    </StackPanel>
                 </Grid>
 
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                    <TextBlock x:Name="StatusHeadline" Text="Not connected to gateway"
-                               Style="{StaticResource SubtitleTextBlockStyle}"
-                               TextWrapping="Wrap"/>
-                    <TextBlock x:Name="StatusSubtext" Text=""
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap"/>
+                <!-- Quick actions -->
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            AutomationProperties.AutomationId="QuickActionsCard">
+                    <Button x:Name="DashboardButton"
+                            Style="{ThemeResource AccentButtonStyle}"
+                            AutomationProperties.AutomationId="DashboardButton">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE7C3;" FontSize="14"/>
+                            <TextBlock Text="Open Dashboard"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChatButton"
+                            AutomationProperties.AutomationId="ChatButton">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8BD;" FontSize="14"/>
+                            <TextBlock Text="Open Chat"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="HealthCheckButton"
+                            AutomationProperties.AutomationId="HealthCheckButton">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE9D9;" FontSize="14"/>
+                            <TextBlock Text="Health Check"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2"
-                            HorizontalAlignment="Right">
-                    <TextBlock x:Name="GatewayUrlText" Text="—"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               IsTextSelectionEnabled="True" HorizontalAlignment="Right"/>
-                    <TextBlock x:Name="GatewayVersionText" Text=""
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                               HorizontalAlignment="Right"/>
-                    <TextBlock x:Name="GatewayUptimeText" Text=""
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                               HorizontalAlignment="Right"/>
-                    <HyperlinkButton x:Name="ScanButton" Content="Scan for gateways"
-                                     Padding="0" FontSize="12"
-                                     HorizontalAlignment="Right"
-                                     AutomationProperties.AutomationId="ScanButton"/>
-                </StackPanel>
-            </Grid>
+            </StackPanel>
         </Border>
-
-        <!-- Quick Actions -->
-        <StackPanel Orientation="Horizontal" Spacing="8"
-                    HorizontalAlignment="Left"
-                    AutomationProperties.AutomationId="QuickActionsCard">
-            <Button x:Name="DashboardButton" Content="Open Dashboard"
-                    AutomationProperties.AutomationId="DashboardButton"/>
-            <Button x:Name="ChatButton" Content="Open Chat"
-                    AutomationProperties.AutomationId="ChatButton"/>
-            <Button x:Name="HealthCheckButton" Content="Health Check"
-                    AutomationProperties.AutomationId="HealthCheckButton"/>
-        </StackPanel>
     </StackPanel>
 </UserControl>

@@ -4,35 +4,109 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid>
+    <Page.Resources>
+        <ResourceDictionary>
+            <Style x:Key="SettingsCardButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Padding" Value="16,14,16,14"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="UseSystemFocusVisuals" Value="True"/>
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid x:Name="RootGrid"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}">
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  Padding="{TemplateBinding Padding}"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  AutomationProperties.AccessibilityView="Raw"/>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="{ThemeResource SubtleFillColorSecondaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background"
+                                                        Value="{ThemeResource SubtleFillColorTertiaryBrush}"/>
+                                                <Setter Target="ContentPresenter.Opacity" Value="0.85"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Opacity" Value="0.5"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="SettingsPageTitleStyle" TargetType="TextBlock"
+                   BasedOn="{StaticResource TitleTextBlockStyle}">
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Margin" Value="0,0,0,4"/>
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Breadcrumb / back row -->
-        <Grid x:Name="BreadcrumbBar" Grid.Row="0" Padding="24,16,24,8">
+        <!-- Header / breadcrumb row — Win11 Settings keeps this thin and quiet -->
+        <Grid x:Name="BreadcrumbBar" Grid.Row="0" Padding="32,20,32,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <HyperlinkButton x:Name="BackToSettings" Grid.Column="0" Content="← Settings"
-                             Click="OnBackToSettingsClick"
-                             Visibility="Collapsed"
-                             Padding="0,0,12,0"/>
+            <Button x:Name="BackToSettings" Grid.Column="0"
+                    Click="OnBackToSettingsClick"
+                    Visibility="Collapsed"
+                    Margin="0,0,12,0"
+                    Padding="8"
+                    AutomationProperties.Name="Back to Settings"
+                    ToolTipService.ToolTip="Back to Settings">
+                <FontIcon Glyph="&#xE72B;" FontSize="14"/>
+            </Button>
+
             <TextBlock x:Name="BreadcrumbText" Grid.Column="1"
                        Text="Settings"
-                       Style="{StaticResource SubtitleTextBlockStyle}"
+                       Style="{StaticResource SettingsPageTitleStyle}"
                        VerticalAlignment="Center"/>
         </Grid>
 
         <Grid Grid.Row="1">
-            <ContentControl x:Name="RootHost"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"/>
+            <ScrollViewer x:Name="RootScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="32,8,32,32">
+                <ContentControl x:Name="RootHost"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"/>
+            </ScrollViewer>
             <Frame x:Name="SubFrame" Visibility="Collapsed"/>
         </Grid>
     </Grid>

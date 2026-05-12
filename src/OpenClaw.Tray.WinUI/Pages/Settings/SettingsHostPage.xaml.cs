@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using OpenClawTray.Pages;
 using OpenClawTray.Windows;
 using System;
@@ -11,9 +11,11 @@ using System.Collections.Generic;
 namespace OpenClawTray.Pages.Settings;
 
 /// <summary>
-/// Phase 0 Settings shell. Shows grouped cards at the root and hosts each
-/// existing per-feature page in <see cref="SubFrame"/>. The visual style is
-/// intentionally minimal; Phase 1 iterates on this baseline.
+/// Variant A — "Windows Settings faithful". Single long-scroll Settings page
+/// with grouped, full-width cards mirroring the Windows 11 Settings landing.
+/// Hosts each per-feature page inside <see cref="SubFrame"/> when a card is
+/// activated. Phase 0 deep-link contract (NavigateTo("connection") etc.) is
+/// preserved.
 /// </summary>
 public sealed partial class SettingsHostPage : Page
 {
@@ -23,13 +25,15 @@ public sealed partial class SettingsHostPage : Page
     private sealed record CardDef(string Tag, string Title, string Subtitle, string Glyph);
     private sealed record GroupDef(string Title, IReadOnlyList<CardDef> Cards);
 
+    // The "Status" group is rendered as the hero banner (SettingsStatusCard);
+    // the remaining groups are flat card lists below it.
     private static readonly IReadOnlyList<GroupDef> Groups = new[]
     {
         new GroupDef("Gateway", new[]
         {
             new CardDef("connection", "Connection", "Pair, reconnect, or change gateway", "\uE839"),
             new CardDef("sessions", "Sessions", "Active sessions on this gateway", "\uE8F2"),
-            new CardDef("conversations", "Conversations", "Past conversations and transcripts", "\uE8F2"),
+            new CardDef("conversations", "Conversations", "Past conversations and transcripts", "\uE8BD"),
             new CardDef("agentevents", "Agent Events", "Live agent event stream", "\uE943"),
             new CardDef("skills", "Skills", "Registered skills available to agents", "\uE945"),
             new CardDef("agents", "Agents", "Configured agents and workspaces", "\uE99A"),
@@ -90,26 +94,24 @@ public sealed partial class SettingsHostPage : Page
             return;
         }
 
-        SubFrame.Navigate(pageType);
+        SubFrame.Navigate(pageType, null, new SuppressNavigationTransitionInfo());
         SubFrame.Visibility = Visibility.Visible;
-        RootHost.Visibility = Visibility.Collapsed;
+        RootScroll.Visibility = Visibility.Collapsed;
         if (_hub != null) _hub.InitializePage(SubFrame.Content);
 
         var label = LookupCardTitle(tag) ?? tag;
-        BreadcrumbText.Text = $"Settings › {label}";
+        BreadcrumbText.Text = $"Settings  ›  {label}";
         BackToSettings.Visibility = Visibility.Visible;
     }
 
     public void NavigateToRoot()
     {
-        // Build root content (status card + grouped cards) in code so we can
-        // wire click handlers and preserve the SettingsStatusCard instance.
-        var root = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var stack = new StackPanel { Padding = new Thickness(24, 8, 24, 24), Spacing = 20 };
-        root.Content = stack;
+        var stack = new StackPanel { Spacing = 6 };
 
+        // Status hero banner (Variant A treats the entire status card as a
+        // section unto itself; no "Status" header above it — matching the
+        // Windows Settings landing where the hero is implicit.)
         _statusCard ??= new SettingsStatusCard();
-        // _statusCard is reused across root visits; ensure no stale parent.
         if (_statusCard.Parent is Panel oldParent)
             oldParent.Children.Remove(_statusCard);
         if (_hub != null) _statusCard.Initialize(_hub);
@@ -121,7 +123,7 @@ public sealed partial class SettingsHostPage : Page
             {
                 Text = group.Title,
                 Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-                Margin = new Thickness(0, 8, 0, 4)
+                Margin = new Thickness(4, 20, 0, 8),
             });
 
             var cardStack = new StackPanel { Spacing = 4 };
@@ -131,16 +133,38 @@ public sealed partial class SettingsHostPage : Page
         }
 
         SubFrame.Visibility = Visibility.Collapsed;
-        RootHost.Content = root;
-        RootHost.Visibility = Visibility.Visible;
+        RootHost.Content = stack;
+        RootScroll.Visibility = Visibility.Visible;
+        RootScroll.ChangeView(null, 0, null, true);
 
         BreadcrumbText.Text = "Settings";
         BackToSettings.Visibility = Visibility.Collapsed;
+
+        PlayRevealAnimation(stack);
+    }
+
+    private static void PlayRevealAnimation(UIElement target)
+    {
+        // Subtle fade — matches the Win11 Settings page in transition.
+        target.Opacity = 0;
+        var sb = new Storyboard();
+
+        var fade = new DoubleAnimation
+        {
+            To = 1,
+            Duration = new Duration(TimeSpan.FromMilliseconds(220)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(fade, target);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        sb.Children.Add(fade);
+
+        sb.Begin();
     }
 
     private Button BuildCardButton(CardDef card)
     {
-        var grid = new Grid { ColumnSpacing = 12 };
+        var grid = new Grid { ColumnSpacing = 16 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -150,7 +174,7 @@ public sealed partial class SettingsHostPage : Page
             Width = 28,
             Height = 28,
             VerticalAlignment = VerticalAlignment.Center,
-            Child = new FontIcon { Glyph = card.Glyph, FontSize = 16 }
+            Child = new FontIcon { Glyph = card.Glyph, FontSize = 18 }
         };
         Grid.SetColumn(iconHost, 0);
         grid.Children.Add(iconHost);
@@ -183,18 +207,13 @@ public sealed partial class SettingsHostPage : Page
 
         var btn = new Button
         {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(16, 12, 16, 12),
+            Style = (Style)Resources["SettingsCardButtonStyle"],
             Content = grid,
-            Tag = card.Tag
+            Tag = card.Tag,
         };
         AutomationProperties.SetAutomationId(btn, $"SettingsCard_{card.Tag}");
         AutomationProperties.SetName(btn, card.Title);
+        AutomationProperties.SetHelpText(btn, card.Subtitle);
         ToolTipService.SetToolTip(btn, card.Subtitle);
         btn.Click += (s, e) => NavigateTo(card.Tag);
         return btn;
