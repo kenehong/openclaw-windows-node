@@ -24,13 +24,8 @@ public sealed partial class HubWindow : WindowEx
         set
         {
             _settings = value;
-            // Apply persisted nav-pane state. NavView starts with its XAML
-            // default of IsPaneOpen=true; honor the user's last preference
-            // here so they don't re-toggle on every Hub open.
-            if (value != null && NavView != null)
-            {
-                NavView.IsPaneOpen = value.HubNavPaneOpen;
-            }
+            // Variant C-2: no Hub-level NavigationView; HubNavPaneOpen is
+            // preserved on disk for older variants but not consumed here.
         }
     }
     public IOperatorGatewayClient? GatewayClient { get; set; }
@@ -87,31 +82,20 @@ public sealed partial class HubWindow : WindowEx
         this.CenterOnScreen();
         this.SetIcon(IconHelper.GetStatusIconPath(ConnectionStatus.Connected));
 
-        RootGrid.SizeChanged += OnRootGridSizeChanged;
-
-        // Don't select a nav item here — Settings/GatewayClient aren't set yet.
-        // ShowHub() in App.xaml.cs calls NavigateToDefault() after setting properties.
-    }
-
-    private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        const double minPane = 200;
-        const double maxPane = 320;
-        const double ratio = 0.25;
-
-        double desired = e.NewSize.Width * ratio;
-        NavView.OpenPaneLength = Math.Clamp(desired, minPane, maxPane);
+        // Variant C-2: no Hub-level NavigationView; ShowHub() still calls
+        // NavigateToDefault() after wiring Settings/GatewayClient.
     }
 
     /// <summary>
     /// Navigate to the default page. Call after setting Settings/GatewayClient.
+    /// Variant C-2 lands on Chat full-screen.
     /// </summary>
     public void NavigateToDefault()
     {
-        if (ContentFrame.Content == null)
+        if (MainFrame.Content == null)
         {
-            // Navigate to Home (first item)
-            NavView.SelectedItem = NavView.MenuItems[0];
+            MainFrame.Navigate(typeof(ChatPage));
+            InitializeCurrentPage();
         }
     }
 
@@ -128,8 +112,8 @@ public sealed partial class HubWindow : WindowEx
         if (tag == "cron") tag = $"agent:{_currentAgentId}:cron";
         if (tag == "workspace") tag = $"agent:{_currentAgentId}:workspace";
 
-        // Settings-hosted tags route through SettingsHostPage and select the
-        // Settings nav item regardless of which sub-page is shown.
+        // Settings-hosted tags route through SettingsHostPage so the deep-link
+        // contract is preserved even though the Hub no longer owns a tree.
         if (SettingsHostedTags.Contains(tag))
         {
             NavigateToSettings(tag);
@@ -142,16 +126,12 @@ public sealed partial class HubWindow : WindowEx
             return;
         }
 
-        // Search all nav items including nested
-        if (FindAndSelectNavItem(NavView.MenuItems, tag)) return;
-        if (FindAndSelectNavItem(NavView.FooterMenuItems, tag)) return;
-
-        // Fallback: navigate directly
+        // Variant C-2: "home" is Chat full-screen.
         if (tag.StartsWith("agent:")) { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
         var pageType = TagToPageType(tag);
         if (pageType != null)
         {
-            ContentFrame.Navigate(pageType);
+            MainFrame.Navigate(pageType);
             InitializeCurrentPage();
         }
     }
@@ -163,40 +143,22 @@ public sealed partial class HubWindow : WindowEx
     /// </summary>
     private void NavigateToSettings(string? subTag)
     {
-        if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
+        if (MainFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
         {
-            ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
-            host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
+            MainFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
+            host = MainFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
         }
         host?.AttachHub(this);
         if (!string.IsNullOrEmpty(subTag)) host?.NavigateTo(subTag);
         else host?.NavigateToRoot();
-        SelectSettingsNavItem();
     }
 
-    private void SelectSettingsNavItem()
+    /// <summary>Navigate the main frame back to the full-screen Chat home view.</summary>
+    public void NavigateHome()
     {
-        foreach (var item in NavView.MenuItems)
-        {
-            if (item is NavigationViewItem nv && (nv.Tag as string) == "settings")
-            {
-                if (NavView.SelectedItem != nv) NavView.SelectedItem = nv;
-                return;
-            }
-        }
-    }
-
-    private bool FindAndSelectNavItem(IList<object> items, string tag)
-    {
-        foreach (var item in items)
-        {
-            if (item is NavigationViewItem navItem)
-            {
-                if (navItem.Tag as string == tag) { NavView.SelectedItem = navItem; return true; }
-                if (navItem.MenuItems.Count > 0 && FindAndSelectNavItem(navItem.MenuItems, tag)) return true;
-            }
-        }
-        return false;
+        if (MainFrame.Content is ChatPage) return;
+        MainFrame.Navigate(typeof(ChatPage));
+        InitializeCurrentPage();
     }
 
     public void UpdateStatus(ConnectionStatus status)
@@ -211,11 +173,11 @@ public sealed partial class HubWindow : WindowEx
                 if (status == ConnectionStatus.Disconnected)
                     _lastGatewaySelf = null;
                 UpdateTitleBarStatus(status);
-                if (ContentFrame?.Content is HomePage homePage)
+                if (MainFrame?.Content is HomePage homePage)
                 {
                     homePage.UpdateConnectionStatus(status, Settings?.GetEffectiveGatewayUrl());
                 }
-                if (ContentFrame?.Content is ConnectionPage connectionPage)
+                if (MainFrame?.Content is ConnectionPage connectionPage)
                 {
                     connectionPage.UpdateStatus(status);
                 }
@@ -226,7 +188,7 @@ public sealed partial class HubWindow : WindowEx
 
     private void UpdateTitleBarStatus(ConnectionStatus status)
     {
-        var (color, text) = status switch
+        var (color, headline) = status switch
         {
             ConnectionStatus.Connected => (Microsoft.UI.Colors.LimeGreen, "Connected"),
             ConnectionStatus.Connecting => (Microsoft.UI.Colors.Orange, "Connecting…"),
@@ -234,18 +196,52 @@ public sealed partial class HubWindow : WindowEx
             _ => (Microsoft.UI.Colors.Gray, "Disconnected")
         };
 
-        TitleStatusDot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
-        TitleStatusText.Text = text;
+        var brush = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
+        OverflowStatusBadge.Background = brush;
+        FlyoutStatusDot.Fill = brush;
 
-        // Add gateway version if available
-        if (status == ConnectionStatus.Connected && GatewayClient != null)
+        var url = Settings?.GetEffectiveGatewayUrl();
+        if (status == ConnectionStatus.Connected && !string.IsNullOrEmpty(url))
+            FlyoutStatusHeadline.Text = $"Connected to {url}";
+        else
+            FlyoutStatusHeadline.Text = headline;
+
+        var sub = "";
+        if (status == ConnectionStatus.Connected && _lastGatewaySelf != null)
         {
-            var self = _lastGatewaySelf;
-            if (self != null && !string.IsNullOrEmpty(self.ServerVersion))
-                TitleStatusText.Text = $"Connected · v{self.ServerVersion}";
-            if (self?.PresenceCount is > 0)
-                TitleStatusText.Text += $" · {self.PresenceCount} clients";
+            if (!string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
+                sub = $"v{_lastGatewaySelf.ServerVersion}";
+            if (_lastGatewaySelf.PresenceCount is > 0)
+                sub = string.IsNullOrEmpty(sub)
+                    ? $"{_lastGatewaySelf.PresenceCount} clients"
+                    : $"{sub} · {_lastGatewaySelf.PresenceCount} clients";
         }
+        else if (status != ConnectionStatus.Connected && !string.IsNullOrEmpty(url))
+        {
+            sub = url;
+        }
+        FlyoutStatusSubline.Text = sub;
+        FlyoutStatusSubline.Visibility = string.IsNullOrEmpty(sub)
+            ? Visibility.Collapsed : Visibility.Visible;
+
+        FlyoutReconnectButton.Visibility =
+            (status == ConnectionStatus.Disconnected || status == ConnectionStatus.Error)
+                ? Visibility.Visible : Visibility.Collapsed;
+
+        ToolTipService.SetToolTip(OverflowButton, FlyoutStatusHeadline.Text);
+    }
+
+    private void OnFlyoutOpenSettingsClick(object sender, RoutedEventArgs e)
+    {
+        // Close the flyout, then route into the Settings host page.
+        OverflowButton.Flyout?.Hide();
+        NavigateToSettings(null);
+    }
+
+    private void OnFlyoutReconnectClick(object sender, RoutedEventArgs e)
+    {
+        OverflowButton.Flyout?.Hide();
+        ReconnectAction?.Invoke();
     }
 
     private GatewaySelfInfo? _lastGatewaySelf;
@@ -260,7 +256,7 @@ public sealed partial class HubWindow : WindowEx
             {
                 if (IsClosed) return;
                 UpdateTitleBarStatus(CurrentStatus);
-                if (ContentFrame?.Content is AboutPage about)
+                if (MainFrame?.Content is AboutPage about)
                     about.RefreshGatewayInfo();
             });
         }
@@ -273,9 +269,9 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is SessionsPage sp) sp.UpdateSessions(sessions);
-            else if (ContentFrame?.Content is ConversationsPage convos) convos.UpdateSessions(sessions);
-            else if (ContentFrame?.Content is HomePage home) home.UpdateSessions(sessions);
+            if (MainFrame?.Content is SessionsPage sp) sp.UpdateSessions(sessions);
+            else if (MainFrame?.Content is ConversationsPage convos) convos.UpdateSessions(sessions);
+            else if (MainFrame?.Content is HomePage home) home.UpdateSessions(sessions);
         });
     }
 
@@ -285,7 +281,7 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is ChannelsPage cp) cp.UpdateChannels(channels);
+            if (MainFrame?.Content is ChannelsPage cp) cp.UpdateChannels(channels);
         });
     }
 
@@ -295,7 +291,7 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is UsagePage up) up.UpdateUsage(usage);
+            if (MainFrame?.Content is UsagePage up) up.UpdateUsage(usage);
         });
     }
 
@@ -305,7 +301,7 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is UsagePage up) up.UpdateUsageCost(cost);
+            if (MainFrame?.Content is UsagePage up) up.UpdateUsageCost(cost);
         });
     }
 
@@ -315,7 +311,7 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is UsagePage up) up.UpdateUsageStatus(status);
+            if (MainFrame?.Content is UsagePage up) up.UpdateUsageStatus(status);
         });
     }
 
@@ -325,8 +321,8 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is NodesPage np) np.UpdateNodes(nodes);
-            else if (ContentFrame?.Content is HomePage home) home.UpdateNodes(nodes);
+            if (MainFrame?.Content is NodesPage np) np.UpdateNodes(nodes);
+            else if (MainFrame?.Content is HomePage home) home.UpdateNodes(nodes);
         });
     }
 
@@ -342,7 +338,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is CronPage cp) cp.UpdateFromGateway(data);
+                if (MainFrame?.Content is CronPage cp) cp.UpdateFromGateway(data);
             });
         }
         catch { }
@@ -356,7 +352,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is CronPage cp) cp.UpdateFromGateway(data);
+                if (MainFrame?.Content is CronPage cp) cp.UpdateFromGateway(data);
             });
         }
         catch { }
@@ -369,7 +365,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is CronPage cp) cp.UpdateCronRuns(data);
+                if (MainFrame?.Content is CronPage cp) cp.UpdateCronRuns(data);
             });
         }
         catch { }
@@ -388,8 +384,8 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is ConfigPage cp) cp.UpdateConfig(snapshot);
-            else if (ContentFrame?.Content is BindingsPage bp) bp.UpdateConfig(snapshot);
+            if (MainFrame?.Content is ConfigPage cp) cp.UpdateConfig(snapshot);
+            else if (MainFrame?.Content is BindingsPage bp) bp.UpdateConfig(snapshot);
         });
     }
 
@@ -403,7 +399,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is ConfigPage cp) cp.UpdateConfigSchema(snapshot);
+                if (MainFrame?.Content is ConfigPage cp) cp.UpdateConfigSchema(snapshot);
             });
         }
         catch { }
@@ -416,7 +412,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is SkillsPage sp) sp.UpdateFromGateway(data);
+                if (MainFrame?.Content is SkillsPage sp) sp.UpdateFromGateway(data);
             });
         }
         catch { }
@@ -432,7 +428,7 @@ public sealed partial class HubWindow : WindowEx
                 if (IsClosed) return;
                 // Rebuild nav sidebar agent items
                 RebuildAgentNavItems(data);
-                if (ContentFrame?.Content is HomePage home) home.UpdateAgentsList(data);
+                if (MainFrame?.Content is HomePage home) home.UpdateAgentsList(data);
             });
         }
         catch { }
@@ -440,26 +436,8 @@ public sealed partial class HubWindow : WindowEx
 
     private void RebuildAgentNavItems(System.Text.Json.JsonElement data)
     {
-        if (!data.TryGetProperty("agents", out var agentsEl) ||
-            agentsEl.ValueKind != System.Text.Json.JsonValueKind.Array) return;
-
-        AgentsNavItem.MenuItems.Clear();
-
-        foreach (var agent in agentsEl.EnumerateArray())
-        {
-            var id = agent.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
-            if (string.IsNullOrEmpty(id)) continue;
-            var name = agent.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
-
-            var agentItem = new NavigationViewItem
-            {
-                Content = name ?? id,
-                Tag = $"agent:{id}",
-                Icon = new FontIcon { Glyph = "\uE99A" }
-            };
-
-            AgentsNavItem.MenuItems.Add(agentItem);
-        }
+        // Variant C-2: no Hub-level NavigationView to mutate. Agent IDs are
+        // still cached for the command palette / pages via UpdateAgentsList.
     }
 
     /// <summary>Extract agent IDs from cached agents data.</summary>
@@ -487,7 +465,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is WorkspacePage wp) wp.UpdateAgentFilesList(data);
+                if (MainFrame?.Content is WorkspacePage wp) wp.UpdateAgentFilesList(data);
             });
         }
         catch { }
@@ -500,7 +478,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is WorkspacePage wp) wp.UpdateAgentFileContent(data);
+                if (MainFrame?.Content is WorkspacePage wp) wp.UpdateAgentFileContent(data);
             });
         }
         catch { }
@@ -552,7 +530,7 @@ public sealed partial class HubWindow : WindowEx
                 _agentEvents.Insert(0, evt);
                 if (_agentEvents.Count > MaxAgentEvents)
                     _agentEvents.RemoveRange(MaxAgentEvents, _agentEvents.Count - MaxAgentEvents);
-                if (ContentFrame?.Content is AgentEventsPage agentEvents) agentEvents.AddEvent(evt);
+                if (MainFrame?.Content is AgentEventsPage agentEvents) agentEvents.AddEvent(evt);
             });
         }
         catch { }
@@ -571,7 +549,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is NodesPage np) np.UpdatePairingRequests(data);
+                if (MainFrame?.Content is NodesPage np) np.UpdatePairingRequests(data);
             });
         }
         catch { }
@@ -585,8 +563,8 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is NodesPage np) np.UpdateDevicePairingRequests(data);
-                if (ContentFrame?.Content is ConnectionPage cp) cp.UpdateDevicePairingRequests(data);
+                if (MainFrame?.Content is NodesPage np) np.UpdateDevicePairingRequests(data);
+                if (MainFrame?.Content is ConnectionPage cp) cp.UpdateDevicePairingRequests(data);
             });
         }
         catch { }
@@ -600,7 +578,7 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is SessionsPage sp) sp.UpdateModelsList(data);
+                if (MainFrame?.Content is SessionsPage sp) sp.UpdateModelsList(data);
             });
         }
         catch { }
@@ -617,58 +595,14 @@ public sealed partial class HubWindow : WindowEx
             DispatcherQueue?.TryEnqueue(() =>
             {
                 if (IsClosed) return;
-                if (ContentFrame?.Content is InstancesPage ip) ip.UpdatePresenceData(data);
-                if (ContentFrame?.Content is NodesPage np) np.UpdatePresence(data);
+                if (MainFrame?.Content is InstancesPage ip) ip.UpdatePresenceData(data);
+                if (MainFrame?.Content is NodesPage np) np.UpdatePresence(data);
             });
         }
         catch { }
     }
 
-    private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
-    {
-        if (args.SelectedItem is NavigationViewItem item)
-        {
-            var tag = item.Tag as string;
-            if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase))
-            {
-                if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
-                {
-                    ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
-                    host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
-                }
-                host?.AttachHub(this);
-                host?.NavigateToRoot();
-                return;
-            }
-            if (tag?.StartsWith("agent:") == true)
-            { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
-            var pageType = TagToPageType(tag);
-            if (pageType != null)
-            {
-                ContentFrame.Navigate(pageType);
-                InitializeCurrentPage();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Persist the NavigationView's expanded/compact state on every toggle.
-    /// Both PaneOpening and PaneClosing route here; we read the current
-    /// state from the sender so we don't have to distinguish the two.
-    /// </summary>
-    private void OnNavPaneStateChanged(NavigationView sender, object args)
-    {
-        if (_settings == null) return;
-        // PaneOpening fires BEFORE IsPaneOpen flips, PaneClosing fires
-        // BEFORE it flips the other way. Use the event identity to know
-        // the new state rather than reading IsPaneOpen.
-        var newState = args is NavigationViewPaneClosingEventArgs ? false : true;
-        if (_settings.HubNavPaneOpen == newState) return;
-        _settings.HubNavPaneOpen = newState;
-        try { _settings.Save(); } catch { /* swallow — don't block UI */ }
-    }
-
-    private void InitializeCurrentPage() => InitializePage(ContentFrame.Content);
+    private void InitializeCurrentPage() => InitializePage(MainFrame.Content);
 
     internal void InitializePage(object? content)
     {
@@ -719,10 +653,9 @@ public sealed partial class HubWindow : WindowEx
             case AgentEventsPage agentEvents:
                 agentEvents.ClearCentralCache = ClearAgentEvents;
                 agentEvents.PopulateAgentFilter(this);
-                // When navigated via top-level nav (tag "agentevents"), show all agents
-                var agentEventsTag = (NavView?.SelectedItem as NavigationViewItem)?.Tag as string;
-                var eventsAgentFilter = agentEventsTag?.StartsWith("agent:") == true ? _currentAgentId : null;
-                agentEvents.SetAgentFilter(eventsAgentFilter);
+                // Variant C-2: no Hub-level nav selection — show all agents
+                // unless an agent-scoped tag was used (handled by callers).
+                agentEvents.SetAgentFilter(null);
                 if (agentEvents.EventCount == 0 && LastAgentEvents != null)
                 {
                     for (int i = LastAgentEvents.Count - 1; i >= 0; i--)
@@ -745,7 +678,7 @@ public sealed partial class HubWindow : WindowEx
         if (IsClosed) return;
         DispatcherQueue?.TryEnqueue(() =>
         {
-            if (ContentFrame?.Content is ActivityPage activity)
+            if (MainFrame?.Content is ActivityPage activity)
                 activity.SetFilter(filter);
         });
     }

@@ -57,49 +57,82 @@
                 </AutoSuggestBox.ItemTemplate>
             </AutoSuggestBox>
 
-            <!-- Status indicator on the right -->
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Ellipse x:Name="TitleStatusDot" Width="8" Height="8" VerticalAlignment="Center"
-                         Fill="Gray"/>
-                <TextBlock x:Uid="TitleStatusText" x:Name="TitleStatusText" Text="Disconnected"
-                           FontSize="11" VerticalAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            </StackPanel>
+            <!-- Variant C-2: overflow button replaces always-on status dot/text.
+                 The small dot in the corner mirrors connection state at a glance;
+                 click reveals a flyout with the full status card + Open Settings. -->
+            <Button Grid.Column="3" x:Name="OverflowButton"
+                    Width="36" Height="32"
+                    Background="Transparent" BorderThickness="0"
+                    Padding="0" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="Status &amp; Settings">
+                <Grid>
+                    <FontIcon Glyph="&#xE712;" FontSize="16"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border x:Name="OverflowStatusBadge"
+                            Width="8" Height="8" CornerRadius="4"
+                            Background="Gray"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Margin="0,0,4,4"
+                            BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                            BorderThickness="1"/>
+                </Grid>
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedRight">
+                        <StackPanel Width="320" Spacing="0">
+                            <!-- Status card -->
+                            <StackPanel Padding="4,4,4,12" Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <Ellipse x:Name="FlyoutStatusDot" Width="10" Height="10" Fill="Gray"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="FlyoutStatusHeadline"
+                                               Text="Disconnected"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <TextBlock x:Name="FlyoutStatusSubline"
+                                           Text=""
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap"/>
+                                <Button x:Name="FlyoutReconnectButton"
+                                        Content="Reconnect"
+                                        Visibility="Collapsed"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,4,0,0"
+                                        Click="OnFlyoutReconnectClick"/>
+                            </StackPanel>
+
+                            <Border Height="1"
+                                    Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    Margin="0,4,0,4"/>
+
+                            <!-- Settings entry -->
+                            <Button x:Name="FlyoutOpenSettingsButton"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="6,8,6,8"
+                                    Click="OnFlyoutOpenSettingsClick">
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE713;" FontSize="16" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Open Settings" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
-        <!-- Main Content -->
-        <NavigationView Grid.Row="1"
-            x:Name="NavView"
-            IsBackButtonVisible="Collapsed"
-            IsSettingsVisible="False"
-            PaneDisplayMode="Left"
-            PaneOpening="OnNavPaneStateChanged"
-            PaneClosing="OnNavPaneStateChanged"
-            SelectionChanged="NavView_SelectionChanged">
-
-        <NavigationView.MenuItems>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_79" Tag="home" Content="Home">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_133" Tag="settings" Content="Settings">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <!-- Hidden host for dynamically-rebuilt agent nav items; kept so existing code paths don't NRE. -->
-            <NavigationViewItem x:Name="AgentsNavItem" Content="Agents" Visibility="Collapsed" SelectsOnInvoked="False">
-                <NavigationViewItem.MenuItems>
-                    <NavigationViewItem x:Name="DefaultAgentNavItem" Content="main" Tag="agent:main"/>
-                </NavigationViewItem.MenuItems>
-            </NavigationViewItem>
-        </NavigationView.MenuItems>
-
-        <Frame x:Name="ContentFrame">
+        <!-- Main Content: a single Frame fills the area below the title bar.
+             Variant C-2 has no left rail at the Hub level; Settings reaches its
+             own tree via SettingsHostPage which is navigated into MainFrame. -->
+        <Frame x:Name="MainFrame" Grid.Row="1">
             <Frame.ContentTransitions>
                 <TransitionCollection>
                     <NavigationThemeTransition/>
                 </TransitionCollection>
             </Frame.ContentTransitions>
         </Frame>
-    </NavigationView>
-
     </Grid>
 </winex:WindowEx>

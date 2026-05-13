@@ -103,6 +103,18 @@ public sealed partial class SettingsHostPage : Page
     /// <summary>Compatibility shim — equivalent to <c>NavigateTo("status")</c>.</summary>
     public void NavigateToRoot() => NavigateTo("status");
 
+    private void OnBackToHomeClick(object sender, RoutedEventArgs e)
+    {
+        // Variant C-2: return Hub to the full-screen Chat home.
+        if (_hub != null)
+        {
+            _hub.NavigateHome();
+            return;
+        }
+        // Fallback if AttachHub never ran: navigate the parent frame directly.
+        Frame?.Navigate(typeof(ChatPage));
+    }
+
     private void OnTreeSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (_suppressSelection) return;
