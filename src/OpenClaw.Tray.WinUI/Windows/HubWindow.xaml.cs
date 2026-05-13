@@ -88,6 +88,8 @@ public sealed partial class HubWindow : WindowEx
         this.SetIcon(IconHelper.GetStatusIconPath(ConnectionStatus.Connected));
 
         RootGrid.SizeChanged += OnRootGridSizeChanged;
+        // Apply initial responsive state (matches the 900x650 default).
+        ApplyResponsivePaneState(900);
 
         // Variant C-1: build the hamburger-overlay menu (Home + full C tree
         // from SettingsTreeBuilder). Settings/GatewayClient may not be set
@@ -149,11 +151,36 @@ public sealed partial class HubWindow : WindowEx
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        // Overlay pane: keep a comfortable width regardless of window width.
+        ApplyResponsivePaneState(e.NewSize.Width);
+    }
+
+    // Threshold below which the overlay collapses to a hamburger-revealable
+    // pane. Above the threshold the pane is permanently docked on the left
+    // and the hamburger button hides — the user never needs to toggle it.
+    private const double PaneAlwaysVisibleThreshold = 820;
+
+    private void ApplyResponsivePaneState(double width)
+    {
+        if (NavView == null) return;
+
         const double minPane = 240;
         const double maxPane = 320;
-        double desired = e.NewSize.Width * 0.30;
+        double desired = width * 0.30;
         NavView.OpenPaneLength = Math.Clamp(desired, minPane, maxPane);
+
+        bool wide = width >= PaneAlwaysVisibleThreshold;
+        if (wide)
+        {
+            NavView.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+            NavView.IsPaneOpen = true;
+            if (HamburgerButton != null) HamburgerButton.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            NavView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+            NavView.IsPaneOpen = false;
+            if (HamburgerButton != null) HamburgerButton.Visibility = Visibility.Visible;
+        }
     }
 
     private void OnHamburgerClick(object sender, RoutedEventArgs e)
