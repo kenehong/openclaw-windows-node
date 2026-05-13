@@ -55,6 +55,7 @@ public sealed partial class ChatPage : Page
                 WebView.CoreWebView2.NavigationCompleted -= _navCompletedHandler;
             if (_navStartingHandler != null)
                 WebView.CoreWebView2.NavigationStarting -= _navStartingHandler;
+            try { WebView.CoreWebView2.WebMessageReceived -= OnChatBridgeMessage; } catch { /* nop */ }
         }
 
         if (_hub is not null)
@@ -265,6 +266,30 @@ public sealed partial class ChatPage : Page
         }
     }
 
+    // Variant C-1m: host receives latest-user-message events from the chat
+    // bridge script and routes them to ChatContextService for the Hub overlay.
+    private void OnChatBridgeMessage(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        try
+        {
+            var raw = args.WebMessageAsJson;
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            if (!doc.RootElement.TryGetProperty("type", out var typeEl)) return;
+            if (typeEl.GetString() != ChatBridgeScript.MessageType) return;
+            if (!doc.RootElement.TryGetProperty("text", out var textEl)) return;
+            var text = textEl.GetString();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                ChatContextService.SetLastUserMessage(text);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[ChatPage] ChatBridge message parse failed: {ex.Message}");
+        }
+    }
+
     private void DisposeReactorHost()
     {
         var host = _reactorHost;
@@ -320,6 +345,20 @@ public sealed partial class ChatPage : Page
 
             await GatewayChatHelper.InitializeWebView2Async(WebView);
             _webViewInitialized = true;
+
+            // Variant C-1m: inject host bridge to surface latest user message
+            // to the Hub overlay pane (best-effort DOM scrape; placeholder
+            // fallback on the host side if nothing matches).
+            try
+            {
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                    OpenClawTray.Chat.ChatBridgeScript.JsSource);
+                WebView.CoreWebView2.WebMessageReceived += OnChatBridgeMessage;
+            }
+            catch (Exception bridgeEx)
+            {
+                Logger.Warn($"[ChatPage] ChatBridge injection failed: {bridgeEx.Message}");
+            }
 
             _navCompletedHandler = (s, e) =>
             {

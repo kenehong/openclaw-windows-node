@@ -77,7 +77,11 @@ public sealed partial class HubWindow : WindowEx
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        Closed += (s, e) => IsClosed = true;
+        Closed += (s, e) =>
+        {
+            IsClosed = true;
+            ChatContextService.LastUserMessageChanged -= OnChatContextChanged;
+        };
 
         this.SetWindowSize(900, 650);
         this.CenterOnScreen();
@@ -90,8 +94,57 @@ public sealed partial class HubWindow : WindowEx
         // yet, so we re-build later when the gateway display name is known.
         BuildNavMenu();
 
+        // Variant C-1m: live chat preview in the overlay pane Chat row.
+        ChatContextService.LastUserMessageChanged += OnChatContextChanged;
+        UpdateChatPreviewText();
+
+        // Variant C-1m: toggle the title-bar Back button by current frame page.
+        ContentFrame.Navigated += OnContentFrameNavigated;
+
         // Don't select a nav item here — Settings/GatewayClient aren't set yet.
         // ShowHub() in App.xaml.cs calls NavigateToDefault() after setting properties.
+    }
+
+    private void OnContentFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        TitleBarBackButton.Visibility =
+            e.SourcePageType == typeof(OpenClawTray.Pages.Settings.SettingsHostPage)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    private void OnTitleBarBackClick(object sender, RoutedEventArgs e) => NavigateHome();
+
+    /// <summary>Variant C-1m: return main frame to the Chat page (Home).</summary>
+    public void NavigateHome()
+    {
+        if (ContentFrame.Content is ChatPage) return;
+        NavigateTo("home");
+    }
+
+    private void OnOverlayChatClick(object sender, RoutedEventArgs e)
+    {
+        if (NavView != null) NavView.IsPaneOpen = false;
+        NavigateHome();
+    }
+
+    private void OnOverlaySettingsClick(object sender, RoutedEventArgs e)
+    {
+        if (NavView != null) NavView.IsPaneOpen = false;
+        NavigateTo("settingshost");
+    }
+
+    private void OnChatContextChanged(object? sender, EventArgs e)
+    {
+        if (DispatcherQueue is null) { UpdateChatPreviewText(); return; }
+        DispatcherQueue.TryEnqueue(UpdateChatPreviewText);
+    }
+
+    private void UpdateChatPreviewText()
+    {
+        if (OverlayChatPreviewText is null) return;
+        var msg = ChatContextService.LastUserMessage;
+        OverlayChatPreviewText.Text = string.IsNullOrEmpty(msg) ? "Resume conversation" : msg;
     }
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
@@ -131,7 +184,10 @@ public sealed partial class HubWindow : WindowEx
     {
         if (NavView == null) return;
 
-        // Preserve the hidden AgentsNavItem (used by RebuildAgentNavItems).
+        // Variant C-1m: the overlay pane no longer hosts the C tree — that
+        // moved into SettingsHostPage. We keep only the hidden AgentsNavItem
+        // so existing code paths (RebuildAgentNavItems, agent routing) don't
+        // NRE. No Home item, no tree, nothing else.
         NavigationViewItem? agentsHost = null;
         foreach (var existing in NavView.MenuItems)
         {
@@ -145,38 +201,6 @@ public sealed partial class HubWindow : WindowEx
         NavView.MenuItems.Clear();
         _navItemsByTag.Clear();
 
-        // Home (Chat) — root entry.
-        var homeItem = new NavigationViewItem
-        {
-            Content = "Home",
-            Tag = "home",
-            Icon = new FontIcon { Glyph = "\uE8BD" }
-        };
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(homeItem, "HubNav_home");
-        NavView.MenuItems.Add(homeItem);
-        _navItemsByTag["home"] = homeItem;
-
-        NavView.MenuItems.Add(new NavigationViewItemSeparator());
-
-        // Full C tree.
-        var gatewayDisplay = OpenClawTray.Pages.Settings.SettingsTreeBuilder.FormatGatewayDisplay(
-            GatewayRegistry?.GetActive()?.Url ?? Settings?.GetEffectiveGatewayUrl());
-
-        var nodes = new[]
-        {
-            new OpenClawTray.Pages.Settings.SettingsTreeBuilder.NodeDescriptor(
-                Id: "thispc",
-                DisplayName: $"This PC ({Environment.MachineName})",
-                Glyph: "\uE977"),
-        };
-
-        var roots = OpenClawTray.Pages.Settings.SettingsTreeBuilder.Build(gatewayDisplay, nodes);
-        foreach (var root in roots)
-        {
-            NavView.MenuItems.Add(BuildNavItemFromTree(root));
-        }
-
-        // Re-attach hidden agents host so RebuildAgentNavItems still works.
         if (agentsHost != null) NavView.MenuItems.Add(agentsHost);
     }
 
@@ -344,17 +368,18 @@ public sealed partial class HubWindow : WindowEx
             _ => (Microsoft.UI.Colors.Gray, "Disconnected")
         };
 
-        TitleStatusDot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
-        TitleStatusText.Text = text;
+        // Variant C-1m: status pill moved to the overlay pane footer.
+        OverlayStatusDot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
+        OverlayStatusText.Text = text;
 
         // Add gateway version if available
         if (status == ConnectionStatus.Connected && GatewayClient != null)
         {
             var self = _lastGatewaySelf;
             if (self != null && !string.IsNullOrEmpty(self.ServerVersion))
-                TitleStatusText.Text = $"Connected · v{self.ServerVersion}";
+                OverlayStatusText.Text = $"Connected · v{self.ServerVersion}";
             if (self?.PresenceCount is > 0)
-                TitleStatusText.Text += $" · {self.PresenceCount} clients";
+                OverlayStatusText.Text += $" · {self.PresenceCount} clients";
         }
     }
 
@@ -838,6 +863,7 @@ public sealed partial class HubWindow : WindowEx
             case DebugPage debug: debug.Initialize(this); break;
             case AboutPage about: about.Initialize(this); break;
             case OpenClawTray.Pages.Settings.StatusPage status: status.Initialize(this); break;
+            case OpenClawTray.Pages.Settings.SettingsHostPage host: host.AttachHub(this); break;
         }
     }
 
@@ -856,7 +882,9 @@ public sealed partial class HubWindow : WindowEx
     // separate host shim. Kept (empty) for any external code still importing it.
     internal static readonly HashSet<string> SettingsHostedTags = new(StringComparer.OrdinalIgnoreCase);
 
-    private static Type? TagToPageType(string? tag)
+    private static Type? TagToPageType(string? tag) => TagToPageTypeInternal(tag);
+
+    internal static Type? TagToPageTypeInternal(string? tag)
     {
         if (string.IsNullOrEmpty(tag)) return null;
 
@@ -874,6 +902,7 @@ public sealed partial class HubWindow : WindowEx
         return key.ToLowerInvariant() switch
         {
             "home" or "chat" or "general" => typeof(ChatPage),
+            "settingshost" => typeof(OpenClawTray.Pages.Settings.SettingsHostPage),
             "status" => typeof(OpenClawTray.Pages.Settings.StatusPage),
             "connection" => typeof(ConnectionPage),
             "channels" => typeof(ChannelsPage),
