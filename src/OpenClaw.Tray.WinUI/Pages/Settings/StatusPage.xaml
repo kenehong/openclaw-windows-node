@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenClawTray.Pages.Settings.StatusPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settings="using:OpenClawTray.Pages.Settings">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16,24,24">
+        <StackPanel Spacing="16" MaxWidth="780" HorizontalAlignment="Left">
+            <TextBlock Text="Status"
+                       Style="{StaticResource TitleTextBlockStyle}"/>
+            <TextBlock Text="Companion status overview — gateway connection, sessions, and quick actions."
+                       Style="{StaticResource BodyTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap"/>
+            <settings:SettingsStatusCard x:Name="StatusCard"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

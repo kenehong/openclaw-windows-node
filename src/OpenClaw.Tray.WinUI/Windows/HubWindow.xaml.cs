@@ -24,13 +24,9 @@ public sealed partial class HubWindow : WindowEx
         set
         {
             _settings = value;
-            // Apply persisted nav-pane state. NavView starts with its XAML
-            // default of IsPaneOpen=true; honor the user's last preference
-            // here so they don't re-toggle on every Hub open.
-            if (value != null && NavView != null)
-            {
-                NavView.IsPaneOpen = value.HubNavPaneOpen;
-            }
+            // Variant C-1: pane is overlay-only (LeftMinimal). We no longer
+            // restore IsPaneOpen from settings — overlay panes always start
+            // closed and the user opens them on demand via the hamburger.
         }
     }
     public IOperatorGatewayClient? GatewayClient { get; set; }
@@ -89,18 +85,127 @@ public sealed partial class HubWindow : WindowEx
 
         RootGrid.SizeChanged += OnRootGridSizeChanged;
 
+        // Variant C-1: build the hamburger-overlay menu (Home + full C tree
+        // from SettingsTreeBuilder). Settings/GatewayClient may not be set
+        // yet, so we re-build later when the gateway display name is known.
+        BuildNavMenu();
+
         // Don't select a nav item here — Settings/GatewayClient aren't set yet.
         // ShowHub() in App.xaml.cs calls NavigateToDefault() after setting properties.
     }
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        const double minPane = 200;
+        // Overlay pane: keep a comfortable width regardless of window width.
+        const double minPane = 240;
         const double maxPane = 320;
-        const double ratio = 0.25;
-
-        double desired = e.NewSize.Width * ratio;
+        double desired = e.NewSize.Width * 0.30;
         NavView.OpenPaneLength = Math.Clamp(desired, minPane, maxPane);
+    }
+
+    private void OnHamburgerClick(object sender, RoutedEventArgs e)
+    {
+        if (NavView == null) return;
+        NavView.IsPaneOpen = !NavView.IsPaneOpen;
+    }
+
+    // ── Variant C-1: hamburger-overlay nav driven by SettingsTreeBuilder ──
+
+    /// <summary>
+    /// Tag → NavigationViewItem index used to (a) reflect deep-link navigation
+    /// in the overlay pane and (b) avoid scanning the tree on every selection.
+    /// Rebuilt whenever <see cref="BuildNavMenu"/> runs.
+    /// </summary>
+    private readonly Dictionary<string, NavigationViewItem> _navItemsByTag =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private bool _suppressNavSelection;
+
+    /// <summary>
+    /// (Re)build the overlay menu: Home (Chat) + separator + full C tree from
+    /// <see cref="OpenClawTray.Pages.Settings.SettingsTreeBuilder"/>. Branch
+    /// nodes that don't map to a page are marked non-selectable so they only
+    /// expand/collapse on click. Idempotent.
+    /// </summary>
+    public void BuildNavMenu()
+    {
+        if (NavView == null) return;
+
+        // Preserve the hidden AgentsNavItem (used by RebuildAgentNavItems).
+        NavigationViewItem? agentsHost = null;
+        foreach (var existing in NavView.MenuItems)
+        {
+            if (existing is NavigationViewItem nv && ReferenceEquals(nv, AgentsNavItem))
+            {
+                agentsHost = nv;
+                break;
+            }
+        }
+
+        NavView.MenuItems.Clear();
+        _navItemsByTag.Clear();
+
+        // Home (Chat) — root entry.
+        var homeItem = new NavigationViewItem
+        {
+            Content = "Home",
+            Tag = "home",
+            Icon = new FontIcon { Glyph = "\uE8BD" }
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(homeItem, "HubNav_home");
+        NavView.MenuItems.Add(homeItem);
+        _navItemsByTag["home"] = homeItem;
+
+        NavView.MenuItems.Add(new NavigationViewItemSeparator());
+
+        // Full C tree.
+        var gatewayDisplay = OpenClawTray.Pages.Settings.SettingsTreeBuilder.FormatGatewayDisplay(
+            GatewayRegistry?.GetActive()?.Url ?? Settings?.GetEffectiveGatewayUrl());
+
+        var nodes = new[]
+        {
+            new OpenClawTray.Pages.Settings.SettingsTreeBuilder.NodeDescriptor(
+                Id: "thispc",
+                DisplayName: $"This PC ({Environment.MachineName})",
+                Glyph: "\uE977"),
+        };
+
+        var roots = OpenClawTray.Pages.Settings.SettingsTreeBuilder.Build(gatewayDisplay, nodes);
+        foreach (var root in roots)
+        {
+            NavView.MenuItems.Add(BuildNavItemFromTree(root));
+        }
+
+        // Re-attach hidden agents host so RebuildAgentNavItems still works.
+        if (agentsHost != null) NavView.MenuItems.Add(agentsHost);
+    }
+
+    private NavigationViewItem BuildNavItemFromTree(
+        OpenClawTray.Pages.Settings.SettingsTreeBuilder.SettingsTreeNode node)
+    {
+        var item = new NavigationViewItem
+        {
+            Content = node.Title,
+            Tag = node.Tag,
+            Icon = new FontIcon { Glyph = node.Glyph },
+            IsExpanded = node.IsExpandedByDefault,
+        };
+        if (!string.IsNullOrEmpty(node.Subtitle))
+            ToolTipService.SetToolTip(item, node.Subtitle);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(item, $"HubNav_{node.Tag}");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, node.Title);
+
+        // Branch parents that don't resolve to a page only expand/collapse.
+        if (node.Children.Count > 0 && TagToPageType(node.Tag) == null)
+        {
+            item.SelectsOnInvoked = false;
+        }
+
+        foreach (var child in node.Children)
+            item.MenuItems.Add(BuildNavItemFromTree(child));
+
+        _navItemsByTag[node.Tag] = item;
+        return item;
     }
 
     /// <summary>
@@ -108,92 +213,97 @@ public sealed partial class HubWindow : WindowEx
     /// </summary>
     public void NavigateToDefault()
     {
+        // Re-build menu so the gateway display name (now known) is shown.
+        BuildNavMenu();
         if (ContentFrame.Content == null)
         {
-            // Navigate to Home (first item)
-            NavView.SelectedItem = NavView.MenuItems[0];
+            NavigateTo("home");
         }
     }
 
     /// <summary>
-    /// Navigate to a specific page by tag name (e.g. "home", "sessions", "channels").
+    /// Navigate to a specific page by tag name (e.g. "home", "sessions",
+    /// "channels"). Variant C-1: also selects the matching item in the
+    /// hamburger-overlay tree so deep-link entry points stay consistent.
     /// </summary>
     public void NavigateTo(string tag)
     {
-        // Map legacy tags
-        if (tag == "general") tag = "home";
-        // "chat" tag opens the ChatPage (WebView2) directly
-        if (tag == "about") tag = "info";
-        // Map legacy agent-scoped workspace/cron tags
-        if (tag == "cron") tag = $"agent:{_currentAgentId}:cron";
-        if (tag == "workspace") tag = $"agent:{_currentAgentId}:workspace";
+        // Map legacy / alias tags.
+        if (string.Equals(tag, "general", StringComparison.OrdinalIgnoreCase)) tag = "home";
+        if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase)) tag = "status";
+        if (string.Equals(tag, "about", StringComparison.OrdinalIgnoreCase)) tag = "info";
+        // Map bare per-node sub-tags onto the local node namespace.
+        if (LooksLikeNodeSubTag(tag)) tag = $"thispc:{tag}";
+        // Legacy agent-scoped fallbacks.
+        if (string.Equals(tag, "cron", StringComparison.OrdinalIgnoreCase))
+            tag = $"agent:{_currentAgentId}:cron";
+        if (string.Equals(tag, "workspace", StringComparison.OrdinalIgnoreCase))
+            tag = $"agent:{_currentAgentId}:workspace";
 
-        // Settings-hosted tags route through SettingsHostPage and select the
-        // Settings nav item regardless of which sub-page is shown.
-        if (SettingsHostedTags.Contains(tag))
+        if (tag.StartsWith("agent:", StringComparison.OrdinalIgnoreCase))
         {
-            NavigateToSettings(tag);
-            return;
+            _currentAgentId = ParseAgentIdFromTag(tag);
+            _cachedCommands = null;
         }
 
-        if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase))
-        {
-            NavigateToSettings(null);
-            return;
-        }
-
-        // Search all nav items including nested
-        if (FindAndSelectNavItem(NavView.MenuItems, tag)) return;
-        if (FindAndSelectNavItem(NavView.FooterMenuItems, tag)) return;
-
-        // Fallback: navigate directly
-        if (tag.StartsWith("agent:")) { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
         var pageType = TagToPageType(tag);
         if (pageType != null)
         {
             ContentFrame.Navigate(pageType);
             InitializeCurrentPage();
         }
+
+        // Reflect the navigation in the overlay tree (and auto-close overlay).
+        SelectNavItem(tag);
     }
+
+    private static bool LooksLikeNodeSubTag(string tag) => tag.ToLowerInvariant() switch
+    {
+        "capabilities" or "voice" or "permissions" or "sandbox" or
+        "activity" or "apppreferences" => true,
+        _ => false
+    };
 
     /// <summary>
-    /// Ensure SettingsHostPage is the current ContentFrame page and route to
-    /// <paramref name="subTag"/> within it. Pass null to land on the Settings root.
-    /// Also moves NavigationView selection to the Settings menu item.
+    /// Set <see cref="NavigationView.SelectedItem"/> to the item matching
+    /// <paramref name="tag"/> without re-triggering <see cref="NavView_SelectionChanged"/>.
+    /// Auto-expands ancestor branch items and closes the overlay so the
+    /// content swap feels instant.
     /// </summary>
-    private void NavigateToSettings(string? subTag)
+    private void SelectNavItem(string tag)
     {
-        if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
+        if (!_navItemsByTag.TryGetValue(tag, out var item)) return;
+        _suppressNavSelection = true;
+        try
         {
-            ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
-            host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
+            ExpandAncestorsOf(item);
+            if (NavView.SelectedItem != item) NavView.SelectedItem = item;
         }
-        host?.AttachHub(this);
-        if (!string.IsNullOrEmpty(subTag)) host?.NavigateTo(subTag);
-        else host?.NavigateToRoot();
-        SelectSettingsNavItem();
+        finally { _suppressNavSelection = false; }
+
+        // Selecting any leaf closes the overlay (Variant C-1 contract).
+        if (NavView.IsPaneOpen) NavView.IsPaneOpen = false;
     }
 
-    private void SelectSettingsNavItem()
+    private void ExpandAncestorsOf(NavigationViewItem item)
     {
-        foreach (var item in NavView.MenuItems)
+        // Walk MenuItems tree; mark every ancestor of `item` as IsExpanded.
+        foreach (var root in NavView.MenuItems)
         {
-            if (item is NavigationViewItem nv && (nv.Tag as string) == "settings")
-            {
-                if (NavView.SelectedItem != nv) NavView.SelectedItem = nv;
+            if (root is NavigationViewItem nv && ExpandIfAncestor(nv, item))
                 return;
-            }
         }
     }
 
-    private bool FindAndSelectNavItem(IList<object> items, string tag)
+    private static bool ExpandIfAncestor(NavigationViewItem candidate, NavigationViewItem target)
     {
-        foreach (var item in items)
+        if (ReferenceEquals(candidate, target)) return true;
+        foreach (var child in candidate.MenuItems)
         {
-            if (item is NavigationViewItem navItem)
+            if (child is NavigationViewItem cnv && ExpandIfAncestor(cnv, target))
             {
-                if (navItem.Tag as string == tag) { NavView.SelectedItem = navItem; return true; }
-                if (navItem.MenuItems.Count > 0 && FindAndSelectNavItem(navItem.MenuItems, tag)) return true;
+                candidate.IsExpanded = true;
+                return true;
             }
         }
         return false;
@@ -626,46 +736,36 @@ public sealed partial class HubWindow : WindowEx
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (args.SelectedItem is NavigationViewItem item)
+        if (_suppressNavSelection) return;
+        if (args.SelectedItem is not NavigationViewItem item) return;
+        if (item.Tag is not string tag || string.IsNullOrEmpty(tag)) return;
+
+        if (tag.StartsWith("agent:", StringComparison.OrdinalIgnoreCase))
         {
-            var tag = item.Tag as string;
-            if (string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase))
-            {
-                if (ContentFrame.Content is not OpenClawTray.Pages.Settings.SettingsHostPage host)
-                {
-                    ContentFrame.Navigate(typeof(OpenClawTray.Pages.Settings.SettingsHostPage));
-                    host = ContentFrame.Content as OpenClawTray.Pages.Settings.SettingsHostPage;
-                }
-                host?.AttachHub(this);
-                host?.NavigateToRoot();
-                return;
-            }
-            if (tag?.StartsWith("agent:") == true)
-            { _currentAgentId = ParseAgentIdFromTag(tag); _cachedCommands = null; }
-            var pageType = TagToPageType(tag);
-            if (pageType != null)
-            {
-                ContentFrame.Navigate(pageType);
-                InitializeCurrentPage();
-            }
+            _currentAgentId = ParseAgentIdFromTag(tag);
+            _cachedCommands = null;
         }
+
+        var pageType = TagToPageType(tag);
+        if (pageType != null)
+        {
+            ContentFrame.Navigate(pageType);
+            InitializeCurrentPage();
+        }
+
+        // Variant C-1: any selection collapses the overlay so the user sees
+        // the chosen page immediately.
+        if (NavView.IsPaneOpen) NavView.IsPaneOpen = false;
     }
 
     /// <summary>
-    /// Persist the NavigationView's expanded/compact state on every toggle.
-    /// Both PaneOpening and PaneClosing route here; we read the current
-    /// state from the sender so we don't have to distinguish the two.
+    /// Variant C-1: pane state is no longer persisted — the overlay always
+    /// starts closed. We keep the handler wired so XAML doesn't break, but it
+    /// no longer touches <see cref="SettingsManager.HubNavPaneOpen"/>.
     /// </summary>
     private void OnNavPaneStateChanged(NavigationView sender, object args)
     {
-        if (_settings == null) return;
-        // PaneOpening fires BEFORE IsPaneOpen flips, PaneClosing fires
-        // BEFORE it flips the other way. Use the event identity to know
-        // the new state rather than reading IsPaneOpen.
-        var newState = args is NavigationViewPaneClosingEventArgs ? false : true;
-        if (_settings.HubNavPaneOpen == newState) return;
-        _settings.HubNavPaneOpen = newState;
-        try { _settings.Save(); } catch { /* swallow — don't block UI */ }
+        // Intentional no-op for Variant C-1.
     }
 
     private void InitializeCurrentPage() => InitializePage(ContentFrame.Content);
@@ -737,6 +837,7 @@ public sealed partial class HubWindow : WindowEx
             case SettingsPage settings: settings.Initialize(this); break;
             case DebugPage debug: debug.Initialize(this); break;
             case AboutPage about: about.Initialize(this); break;
+            case OpenClawTray.Pages.Settings.StatusPage status: status.Initialize(this); break;
         }
     }
 
@@ -750,51 +851,60 @@ public sealed partial class HubWindow : WindowEx
         });
     }
 
-    // Tags that should be hosted INSIDE SettingsHostPage rather than navigating
-    // ContentFrame directly. NavigateTo/NavView_SelectionChanged route these
-    // through SettingsHostPage so the simplified sidebar (Home + Settings)
-    // still resolves all legacy deep-links.
-    internal static readonly HashSet<string> SettingsHostedTags = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "connection", "sessions", "conversations", "agentevents", "skills", "agents",
-        "channels", "nodes", "bindings", "config", "usage", "cron",
-        "capabilities", "voice", "permissions", "sandbox", "activity",
-        "apppreferences",
-        "debug", "info", "about"
-    };
+    // Tags that previously routed through SettingsHostPage. Variant C-1 maps
+    // them all directly to their feature pages via TagToPageType — no
+    // separate host shim. Kept (empty) for any external code still importing it.
+    internal static readonly HashSet<string> SettingsHostedTags = new(StringComparer.OrdinalIgnoreCase);
 
-    private static Type? TagToPageType(string? tag) => tag switch
+    private static Type? TagToPageType(string? tag)
     {
-        "home" => typeof(ChatPage),
-        "chat" => typeof(ChatPage),
-        "connection" => typeof(ConnectionPage),
-        "channels" => typeof(ChannelsPage),
-        "nodes" => typeof(NodesPage),
-        "instances" => typeof(InstancesPage),
-        "config" => typeof(ConfigPage),
-        "usage" => typeof(UsagePage),
-        "bindings" => typeof(BindingsPage),
-        "capabilities" => typeof(CapabilitiesPage),
-        "voice" => typeof(VoiceSettingsPage),
-        "permissions" => typeof(PermissionsPage),
-        "sandbox" => typeof(SandboxPage),
-        "activity" => typeof(ActivityPage),
-        "settings" => typeof(SettingsPage),
-        "debug" => typeof(DebugPage),
-        "info" => typeof(AboutPage),
-        // Legacy tags
-        "general" => typeof(ChatPage),
-        "conversations" => typeof(ConversationsPage),
-        "sessions" => typeof(SessionsPage),
-        "agentevents" => typeof(AgentEventsPage),
-        "skills" => typeof(SkillsPage),
-        "cron" => typeof(CronPage),
-        "workspace" => typeof(WorkspacePage),
-        "about" => typeof(AboutPage),
-        // Agent-scoped pages
-        _ when tag?.StartsWith("agent:") == true => ResolveAgentPageType(tag),
-        _ => null
-    };
+        if (string.IsNullOrEmpty(tag)) return null;
+
+        // Strip per-node namespace ("thispc:capabilities" → "capabilities")
+        // so all node sub-tags reuse the same per-feature pages. Branch tags
+        // like "node:thispc" stay intact and fall through to the switch below.
+        var key = tag;
+        if (!tag.StartsWith("node:", StringComparison.OrdinalIgnoreCase) &&
+            !tag.StartsWith("agent:", StringComparison.OrdinalIgnoreCase))
+        {
+            var colon = tag.IndexOf(':');
+            if (colon > 0) key = tag.Substring(colon + 1);
+        }
+
+        return key.ToLowerInvariant() switch
+        {
+            "home" or "chat" or "general" => typeof(ChatPage),
+            "status" => typeof(OpenClawTray.Pages.Settings.StatusPage),
+            "connection" => typeof(ConnectionPage),
+            "channels" => typeof(ChannelsPage),
+            "nodes" => typeof(NodesPage),
+            "instances" => typeof(InstancesPage),
+            "config" => typeof(ConfigPage),
+            "usage" => typeof(UsagePage),
+            "bindings" => typeof(BindingsPage),
+            "capabilities" => typeof(CapabilitiesPage),
+            "voice" => typeof(VoiceSettingsPage),
+            "permissions" => typeof(PermissionsPage),
+            "sandbox" => typeof(SandboxPage),
+            "activity" => typeof(ActivityPage),
+            "apppreferences" or "settings" => typeof(SettingsPage),
+            "debug" => typeof(DebugPage),
+            "info" or "about" => typeof(AboutPage),
+            "conversations" => typeof(ConversationsPage),
+            "sessions" => typeof(SessionsPage),
+            "agentevents" => typeof(AgentEventsPage),
+            "skills" => typeof(SkillsPage),
+            "agents" => typeof(WorkspacePage),
+            "cron" => typeof(CronPage),
+            "workspace" => typeof(WorkspacePage),
+            // Branch parents (no page) — selectable=false in the tree, so
+            // we'll never actually navigate here, but return null defensively.
+            "gateway" or "diagnostics" => null,
+            _ when tag.StartsWith("node:", StringComparison.OrdinalIgnoreCase) => null,
+            _ when tag.StartsWith("agent:", StringComparison.OrdinalIgnoreCase) => ResolveAgentPageType(tag),
+            _ => null
+        };
+    }
 
     private static Type? ResolveAgentPageType(string tag)
     {

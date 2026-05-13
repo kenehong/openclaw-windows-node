@@ -26,8 +26,19 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Icon + Title -->
-            <TextBlock Grid.Column="0" Text="🦞" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <!-- Hamburger (Variant C-1) — toggles overlay nav pane -->
+            <Button x:Name="HamburgerButton" Grid.Column="0"
+                    Click="OnHamburgerClick"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    Padding="8,4"
+                    Margin="-8,0,8,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Open navigation"
+                    AutomationProperties.AutomationId="HubHamburgerButton"
+                    ToolTipService.ToolTip="Open navigation">
+                <FontIcon Glyph="&#xE700;" FontSize="16"/>
+            </Button>
             <TextBlock x:Uid="TitleText" Grid.Column="1" x:Name="TitleText" Text="OpenClaw Windows Companion"
                        FontSize="13" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"/>
@@ -67,23 +78,22 @@
             </StackPanel>
         </Grid>
 
-        <!-- Main Content -->
+        <!-- Main Content — Variant C-1: LeftMinimal so the pane overlays
+             content rather than pushing it. Built-in toggle is hidden because
+             the title-bar HamburgerButton drives IsPaneOpen. -->
         <NavigationView Grid.Row="1"
             x:Name="NavView"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
-            PaneDisplayMode="Left"
+            IsPaneToggleButtonVisible="False"
+            IsPaneOpen="False"
+            PaneDisplayMode="LeftMinimal"
+            OpenPaneLength="280"
             PaneOpening="OnNavPaneStateChanged"
             PaneClosing="OnNavPaneStateChanged"
             SelectionChanged="NavView_SelectionChanged">
 
         <NavigationView.MenuItems>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_79" Tag="home" Content="Home">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Uid="HubWindow_NavigationViewItem_133" Tag="settings" Content="Settings">
-                <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;"/></NavigationViewItem.Icon>
-            </NavigationViewItem>
             <!-- Hidden host for dynamically-rebuilt agent nav items; kept so existing code paths don't NRE. -->
             <NavigationViewItem x:Name="AgentsNavItem" Content="Agents" Visibility="Collapsed" SelectsOnInvoked="False">
                 <NavigationViewItem.MenuItems>

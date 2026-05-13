@@ -11,7 +11,7 @@ namespace OpenClawTray.Pages.Settings;
 
 /// <summary>
 /// Reusable status surface lifted from the Phase-0-deprecated HomePage.
-/// Hosted at the top of <see cref="SettingsHostPage"/>.
+/// Hosted at the top of <see cref="StatusPage"/>.
 /// </summary>
 public sealed partial class SettingsStatusCard : UserControl
 {
