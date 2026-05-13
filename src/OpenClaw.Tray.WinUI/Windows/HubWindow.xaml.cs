@@ -82,9 +82,18 @@ public sealed partial class HubWindow : WindowEx
         this.CenterOnScreen();
         this.SetIcon(IconHelper.GetStatusIconPath(ConnectionStatus.Connected));
 
-        // Variant C-2: no Hub-level NavigationView; ShowHub() still calls
-        // NavigateToDefault() after wiring Settings/GatewayClient.
+        // Variant C-2: title-bar Back button is shown only while Settings is the
+        // current page. Hook frame navigation to keep its visibility in sync.
+        MainFrame.Navigated += (s, e) =>
+        {
+            TitleBarBackButton.Visibility =
+                MainFrame.Content is OpenClawTray.Pages.Settings.SettingsHostPage
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+        };
     }
+
+    private void OnTitleBarBackClick(object sender, RoutedEventArgs e) => NavigateHome();
 
     /// <summary>
     /// Navigate to the default page. Call after setting Settings/GatewayClient.
@@ -197,7 +206,6 @@ public sealed partial class HubWindow : WindowEx
         };
 
         var brush = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
-        OverflowStatusBadge.Background = brush;
         FlyoutStatusDot.Fill = brush;
 
         var url = Settings?.GetEffectiveGatewayUrl();

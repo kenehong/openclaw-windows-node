@@ -18,22 +18,36 @@
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="16,0,140,0">
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="16,0,138,0">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
+            <!-- Variant C-2: Back button shown only when in Settings; returns to Chat. -->
+            <Button Grid.Column="0" x:Name="TitleBarBackButton"
+                    Width="36" Height="32"
+                    Background="Transparent" BorderThickness="0"
+                    Padding="0" Margin="0,0,8,0"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed"
+                    Click="OnTitleBarBackClick"
+                    ToolTipService.ToolTip="Back to Home"
+                    AutomationProperties.AutomationId="TitleBarBack">
+                <FontIcon Glyph="&#xE72B;" FontSize="14"/>
+            </Button>
+
             <!-- Icon + Title -->
-            <TextBlock Grid.Column="0" Text="🦞" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <TextBlock x:Uid="TitleText" Grid.Column="1" x:Name="TitleText" Text="OpenClaw Windows Companion"
+            <TextBlock Grid.Column="1" Text="🦞" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBlock x:Uid="TitleText" Grid.Column="2" x:Name="TitleText" Text="OpenClaw Windows Companion"
                        FontSize="13" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"/>
 
             <!-- Search box -->
-            <AutoSuggestBox x:Uid="TitleSearchBox" Grid.Column="2" x:Name="TitleSearchBox"
+            <AutoSuggestBox x:Uid="TitleSearchBox" Grid.Column="3" x:Name="TitleSearchBox"
                             PlaceholderText="Search… (Ctrl+E)"
                             QueryIcon="Find"
                             HorizontalAlignment="Stretch"
@@ -57,25 +71,17 @@
                 </AutoSuggestBox.ItemTemplate>
             </AutoSuggestBox>
 
-            <!-- Variant C-2: overflow button replaces always-on status dot/text.
-                 The small dot in the corner mirrors connection state at a glance;
-                 click reveals a flyout with the full status card + Open Settings. -->
-            <Button Grid.Column="3" x:Name="OverflowButton"
-                    Width="36" Height="32"
-                    Background="Transparent" BorderThickness="0"
-                    Padding="0" VerticalAlignment="Center"
+            <!-- Variant C-2: overflow button sized + placed to match the system caption buttons (min/max/close).
+                 Click reveals a flyout with the full status card + Open Settings. -->
+            <Button Grid.Column="4" x:Name="OverflowButton"
+                    Width="46" Height="32"
+                    Background="Transparent" BorderThickness="0" CornerRadius="0"
+                    Padding="0" Margin="0,0,0,0"
+                    VerticalAlignment="Top" HorizontalAlignment="Right"
                     ToolTipService.ToolTip="Status &amp; Settings">
-                <Grid>
-                    <FontIcon Glyph="&#xE712;" FontSize="16"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <Border x:Name="OverflowStatusBadge"
-                            Width="8" Height="8" CornerRadius="4"
-                            Background="Gray"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                            Margin="0,0,4,4"
-                            BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                            BorderThickness="1"/>
-                </Grid>
+                <FontIcon Glyph="&#xE712;" FontSize="12"
+                          FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 <Button.Flyout>
                     <Flyout Placement="BottomEdgeAlignedRight">
                         <StackPanel Width="320" Spacing="0">
