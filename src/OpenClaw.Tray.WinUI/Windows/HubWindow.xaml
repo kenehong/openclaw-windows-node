@@ -28,34 +28,34 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Hamburger (Variant C-1) — toggles overlay nav pane -->
-            <Button x:Name="HamburgerButton" Grid.Column="0"
-                    Click="OnHamburgerClick"
-                    Background="Transparent"
-                    BorderBrush="Transparent"
-                    Padding="8,4"
-                    Margin="-8,0,4,0"
-                    VerticalAlignment="Center"
-                    AutomationProperties.Name="Open navigation"
-                    AutomationProperties.AutomationId="HubHamburgerButton"
-                    ToolTipService.ToolTip="Open navigation">
-                <FontIcon Glyph="&#xE700;" FontSize="16"/>
-            </Button>
-
-            <!-- Variant C-1m: Back button to the right of the hamburger.
+            <!-- Variant C-1m: Back button on the LEFT of the hamburger.
                  Visible only when ContentFrame is on SettingsHostPage. -->
-            <Button x:Name="TitleBarBackButton" Grid.Column="1"
+            <Button x:Name="TitleBarBackButton" Grid.Column="0"
                     Click="OnTitleBarBackClick"
                     Background="Transparent"
                     BorderBrush="Transparent"
                     Padding="8,4"
-                    Margin="0,0,4,0"
+                    Margin="-8,0,4,0"
                     VerticalAlignment="Center"
                     Visibility="Collapsed"
                     AutomationProperties.Name="Back to Home"
                     AutomationProperties.AutomationId="TitleBarBack"
                     ToolTipService.ToolTip="Back to Home">
                 <FontIcon Glyph="&#xE72B;" FontSize="14"/>
+            </Button>
+
+            <!-- Hamburger (Variant C-1) — toggles overlay nav pane -->
+            <Button x:Name="HamburgerButton" Grid.Column="1"
+                    Click="OnHamburgerClick"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    Padding="8,4"
+                    Margin="0,0,4,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Open navigation"
+                    AutomationProperties.AutomationId="HubHamburgerButton"
+                    ToolTipService.ToolTip="Open navigation">
+                <FontIcon Glyph="&#xE700;" FontSize="16"/>
             </Button>
 
             <TextBlock x:Uid="TitleText" Grid.Column="2" x:Name="TitleText" Text="OpenClaw Windows Companion"
@@ -115,18 +115,10 @@
             </NavigationViewItem>
         </NavigationView.MenuItems>
 
-        <!-- Variant C-1m overlay pane:
-             Chat preview (top, latest user message) | spacer | divider |
-             Connected status row | Settings button.
-             Connected + Settings are stacked together as the footer group,
-             separated from Chat by a single divider above them. -->
+        <!-- Variant C-1m overlay pane: Chat preview at top (PaneCustomContent). -->
         <NavigationView.PaneCustomContent>
-            <Grid x:Name="OverlayPaneRoot" Padding="0" MinHeight="400">
+            <Grid x:Name="OverlayPaneRoot" Padding="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
@@ -160,15 +152,26 @@
                         </StackPanel>
                     </Grid>
                 </Button>
+            </Grid>
+        </NavigationView.PaneCustomContent>
 
-                <!-- Spacer pushes footer to bottom -->
+        <!-- Footer group: divider + Connected row + Settings button.
+             PaneFooter is anchored to the bottom of the pane by NavigationView,
+             so this group always hugs the bottom regardless of pane height. -->
+        <NavigationView.PaneFooter>
+            <Grid x:Name="OverlayFooterRoot" Padding="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
                 <!-- Divider above footer group -->
-                <Border Grid.Row="2" Height="1" Margin="12,0,12,0"
+                <Border Grid.Row="0" Height="1" Margin="12,0,12,0"
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                 <!-- Connected status row (non-interactive) -->
-                <Grid Grid.Row="3" Padding="16,10,16,6">
+                <Grid Grid.Row="1" Padding="16,10,16,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -187,7 +190,7 @@
 
                 <!-- Settings button (footer) -->
                 <Button x:Name="OverlaySettingsItem"
-                        Grid.Row="4"
+                        Grid.Row="2"
                         Click="OnOverlaySettingsClick"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
@@ -201,7 +204,7 @@
                     </StackPanel>
                 </Button>
             </Grid>
-        </NavigationView.PaneCustomContent>
+        </NavigationView.PaneFooter>
 
         <Frame x:Name="ContentFrame">
             <Frame.ContentTransitions>
