@@ -109,10 +109,25 @@ public sealed partial class HubWindow : WindowEx
 
     private void OnContentFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
-        TitleBarBackButton.Visibility =
-            e.SourcePageType == typeof(OpenClawTray.Pages.Settings.SettingsHostPage)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        bool onSettings = e.SourcePageType == typeof(OpenClawTray.Pages.Settings.SettingsHostPage);
+        TitleBarBackButton.Visibility = onSettings ? Visibility.Visible : Visibility.Collapsed;
+
+        if (onSettings)
+        {
+            // Settings page hosts its own left NavigationView — collapse the
+            // outer hub pane entirely so we don't render a duplicate rail.
+            if (NavView != null)
+            {
+                NavView.IsPaneOpen = false;
+                NavView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+            }
+            if (HamburgerButton != null) HamburgerButton.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            // Restore responsive behavior for the outer pane.
+            ApplyResponsivePaneState(RootGrid?.ActualWidth ?? 900);
+        }
     }
 
     private void OnTitleBarBackClick(object sender, RoutedEventArgs e) => NavigateHome();
@@ -151,6 +166,9 @@ public sealed partial class HubWindow : WindowEx
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        // While the Settings host page is showing, keep the outer pane
+        // collapsed (the Settings page has its own left rail).
+        if (ContentFrame?.Content is OpenClawTray.Pages.Settings.SettingsHostPage) return;
         ApplyResponsivePaneState(e.NewSize.Width);
     }
 
