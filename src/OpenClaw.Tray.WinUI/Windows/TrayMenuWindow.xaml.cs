@@ -333,7 +333,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             Content = row,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Padding = new Thickness(0, 8, 0, 8),
+            Padding = new Thickness(0, 6, 0, 6),
             Background = s_transparentBrush,
             BorderThickness = new Thickness(0),
             IsEnabled = isEnabled,
@@ -399,7 +399,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             Content = row,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Padding = new Thickness(0, 8, 0, 8),
+            Padding = new Thickness(0, 6, 0, 6),
             Background = s_transparentBrush,
             BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(4)
@@ -438,7 +438,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         var sep = new Border
         {
             Height = 1,
-            Margin = new Thickness(8, 6, 8, 6),
+            Margin = new Thickness(8, 4, 8, 4),
             Background = DividerBrush
         };
         AutomationProperties.SetAccessibilityView(sep, AccessibilityView.Raw);

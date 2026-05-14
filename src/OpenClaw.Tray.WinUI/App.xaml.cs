@@ -1252,25 +1252,25 @@ public partial class App : Application
         var secondaryText = (Microsoft.UI.Xaml.Media.Brush)resources["TextFillColorSecondaryBrush"];
         var captionStyle = (Style)resources["CaptionTextBlockStyle"];
 
-        // ── Brand Header (non-interactive) ──
+        // ── Brand Header (non-interactive) ── VarA: tight 12pt single line.
         menu.AddCustomElement(new StackPanel
         {
-            Padding = new Thickness(14, 10, 14, 6),
+            Padding = new Thickness(14, 6, 14, 4),
             Children =
             {
                 new TextBlock
                 {
                     Text = $"{FluentIconCatalog.Brand} OpenClaw",
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    FontSize = 14
+                    FontSize = 12
                 }
             }
         });
 
-        // ── Gateway Section ──
+        // ── Gateway Section ── VarA: collapse to one line.
         var gwGrid = new Grid
         {
-            Padding = new Thickness(14, 4, 14, 8),
+            Padding = new Thickness(14, 4, 14, 6),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             ColumnDefinitions =
             {
@@ -1281,8 +1281,26 @@ public partial class App : Application
 
         var gwInfo = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
 
-        // Gateway status line
-        var gwStatusRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        // Build single-line gateway status:
+        // ● Gateway · Connected · v2026.x · 1 client[ · node paired]
+        var gwParts = new List<string> { $"Gateway · {statusText}" };
+        if (isConnected)
+        {
+            if (_lastGatewaySelf != null && !string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
+                gwParts.Add($"v{_lastGatewaySelf.ServerVersion}");
+            if (_lastPresence != null && _lastPresence.Length > 0)
+                gwParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
+        }
+
+        // Fold node pairing/connected onto the same line.
+        if (_settings?.EnableNodeMode == true && _nodeService != null)
+        {
+            if (_nodeService.IsPaired) gwParts.Add("node paired");
+            else if (_nodeService.IsPendingApproval) gwParts.Add("node pairing pending");
+            else if (_nodeService.IsConnected) gwParts.Add("node connected");
+        }
+
+        var gwStatusRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
         gwStatusRow.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
@@ -1293,67 +1311,40 @@ public partial class App : Application
         });
         gwStatusRow.Children.Add(new TextBlock
         {
-            Text = $"Gateway · {statusText}",
+            Text = string.Join(" · ", gwParts),
             Style = captionStyle,
             FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
         gwInfo.Children.Add(gwStatusRow);
 
-        // Gateway details
-        if (isConnected)
-        {
-            var detailParts = new List<string>();
-            if (_lastGatewaySelf != null && !string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
-                detailParts.Add($"v{_lastGatewaySelf.ServerVersion}");
-            var url = _settings?.GetEffectiveGatewayUrl();
-            if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri))
-                detailParts.Add($"{uri.Host}:{uri.Port}");
-            if (_lastPresence != null && _lastPresence.Length > 0)
-                detailParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
-            if (detailParts.Count > 0)
-            {
-                gwInfo.Children.Add(new TextBlock
-                {
-                    Text = string.Join(" · ", detailParts),
-                    Style = captionStyle,
-                    Foreground = secondaryText,
-                    FontSize = 11
-                });
-            }
-        }
-
-        // Node pairing status
-        if (_settings?.EnableNodeMode == true && _nodeService != null)
-        {
-            var nodeText = _nodeService.IsPaired ? "Node paired"
-                : _nodeService.IsPendingApproval ? "⏳ Node pairing pending"
-                : _nodeService.IsConnected ? "Node connected"
-                : null;
-            if (nodeText != null)
-            {
-                gwInfo.Children.Add(new TextBlock
-                {
-                    Text = nodeText,
-                    Style = captionStyle,
-                    Foreground = secondaryText,
-                    FontSize = 11
-                });
-            }
-        }
-
-        // Auth failure
+        // Auth failure: single truncated line, tooltip carries full text.
         if (!string.IsNullOrEmpty(_authFailureMessage))
         {
-            gwInfo.Children.Add(new TextBlock
+            var authLine = new TextBlock
             {
-                Text = $"⚠️ {_authFailureMessage}",
+                Text = _authFailureMessage,
                 Style = captionStyle,
-                Foreground = criticalBrush,
+                Foreground = secondaryText,
                 FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 240
-            });
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 240,
+                Padding = new Thickness(4, 1, 4, 1)
+            };
+            // Background brush stays critical for visibility; foreground uses
+            // tertiary text per spec to keep the critical block subdued.
+            var authBorder = new Border
+            {
+                Background = criticalBrush,
+                CornerRadius = new CornerRadius(3),
+                Child = authLine,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            ToolTipService.SetToolTip(authBorder, _authFailureMessage);
+            gwInfo.Children.Add(authBorder);
         }
 
         Grid.SetColumn(gwInfo, 0);
@@ -1445,7 +1436,7 @@ public partial class App : Application
             }
         }
 
-        // ── Sessions (now below Devices) ──
+        // ── Sessions (now below Devices) ── VarA: cap to 2 with "More" row.
         if (_lastSessions.Length > 0)
         {
             menu.AddSeparator();
@@ -1456,11 +1447,21 @@ public partial class App : Application
             var sessionSummaryRight = $"{activeCount} active · {FormatTokenCount(totalTokensAll)} tokens";
             menu.AddCustomElement(BuildSectionHeader("Sessions", sessionSummaryRight));
 
-            foreach (var session in _lastSessions.Take(5))
+            const int sessionCap = 2;
+            foreach (var session in _lastSessions.Take(sessionCap))
             {
                 var card = BuildSessionCard(session, successBrush, cautionBrush, neutralBrush, criticalBrush, secondaryText);
                 var flyoutItems = BuildSessionFlyoutItems(session);
                 menu.AddFlyoutCustomItem(card, flyoutItems, action: "sessions");
+            }
+            if (_lastSessions.Length > sessionCap)
+            {
+                var moreCount = _lastSessions.Length - sessionCap;
+                menu.AddMenuItem(
+                    $"More ({moreCount} more)",
+                    (IconElement?)null,
+                    "sessions",
+                    trailing: FluentIconCatalog.Build(FluentIconCatalog.ChevronR, 12));
             }
         }
 
@@ -1588,7 +1589,7 @@ public partial class App : Application
     {
         var grid = new Grid
         {
-            Padding = new Thickness(12, 8, 12, 4),
+            Padding = new Thickness(12, 4, 12, 2),
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         grid.Children.Add(new TextBlock
@@ -1618,28 +1619,23 @@ public partial class App : Application
         Microsoft.UI.Xaml.Media.Brush criticalBrush,
         Microsoft.UI.Xaml.Media.Brush secondaryText)
     {
+        // VarA compact: single-line "● {name} · {tokens}". No progress bar.
+        // Model details live in the hover tooltip.
         var usedTokens = session.InputTokens + session.OutputTokens;
         var contextTokens = session.ContextTokens > 0 ? session.ContextTokens : 200_000;
-        var pct = usedTokens > 0 ? (int)(Math.Min(1.0, (double)usedTokens / contextTokens) * 100) : 0;
         var isActive = string.Equals(session.Status, "active", StringComparison.OrdinalIgnoreCase);
         var isIdle = string.Equals(session.Status, "idle", StringComparison.OrdinalIgnoreCase);
 
         var grid = new Grid
         {
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(12, 4, 12, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            RowSpacing = 2,
             ColumnSpacing = 6
         };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // status dot
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });                       // dot
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // model badge
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });                       // tokens
 
-        // Row 0: status dot
         var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
@@ -1648,109 +1644,44 @@ public partial class App : Application
                 : isIdle ? cautionBrush
                 : neutralBrush
         };
-        Grid.SetRow(dot, 0);
         Grid.SetColumn(dot, 0);
         grid.Children.Add(dot);
 
-        // Row 0: session name
+        var displayName = session.DisplayName ?? session.Key;
         var nameBlock = new TextBlock
         {
-            Text = session.DisplayName ?? session.Key,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 12,
+            Text = displayName,
+            FontSize = 13,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
-        Grid.SetRow(nameBlock, 0);
         Grid.SetColumn(nameBlock, 1);
         grid.Children.Add(nameBlock);
 
-        // Row 0: model badge
-        if (!string.IsNullOrEmpty(session.Model))
+        if (usedTokens > 0)
         {
-            var modelBadge = BuildBadge(session.Model);
-            Grid.SetRow(modelBadge, 0);
-            Grid.SetColumn(modelBadge, 2);
-            grid.Children.Add(modelBadge);
-        }
-
-        // Row 0: chevron
-        var chevron = new TextBlock
-        {
-            Text = "›",
-            FontSize = 14,
-            Opacity = 0.5,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsTextSelectionEnabled = false
-        };
-        Grid.SetRow(chevron, 0);
-        Grid.SetColumn(chevron, 3);
-        grid.Children.Add(chevron);
-
-        // Row 1: token info + channel badge + status
-        var row1 = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        var tokenText = usedTokens > 0
-            ? $"{FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} ({pct}%)"
-            : "";
-        if (!string.IsNullOrEmpty(tokenText))
-        {
-            row1.Children.Add(new TextBlock
+            var tokenBlock = new TextBlock
             {
-                Text = tokenText,
+                Text = $"{FormatTokenCount(usedTokens)} tokens",
                 FontSize = 11,
                 Foreground = secondaryText,
                 VerticalAlignment = VerticalAlignment.Center,
                 IsTextSelectionEnabled = false
-            });
-        }
-        if (!string.IsNullOrEmpty(session.Channel))
-        {
-            var channelAbbrev = session.Channel!.Length <= 2
-                ? session.Channel.ToUpperInvariant()
-                : session.Channel[..2].ToUpperInvariant();
-            row1.Children.Add(BuildBadge(channelAbbrev));
-        }
-        var statusText = string.IsNullOrEmpty(session.Status) ? "Unknown"
-            : char.ToUpperInvariant(session.Status[0]) + session.Status[1..];
-        row1.Children.Add(new TextBlock
-        {
-            Text = statusText,
-            FontSize = 11,
-            Foreground = secondaryText,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsTextSelectionEnabled = false
-        });
-        Grid.SetRow(row1, 1);
-        Grid.SetColumn(row1, 1);
-        Grid.SetColumnSpan(row1, 3);
-        grid.Children.Add(row1);
-
-        // Row 2: thin progress bar
-        if (usedTokens > 0)
-        {
-            var bar = new ProgressBar
-            {
-                Minimum = 0,
-                Maximum = 100,
-                Value = pct,
-                Height = 3,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                CornerRadius = new CornerRadius(1.5),
-                Foreground = pct > 80 ? criticalBrush
-                    : pct > 50 ? cautionBrush
-                    : successBrush
             };
-            Grid.SetRow(bar, 2);
-            Grid.SetColumn(bar, 0);
-            Grid.SetColumnSpan(bar, 4);
-            grid.Children.Add(bar);
+            Grid.SetColumn(tokenBlock, 2);
+            grid.Children.Add(tokenBlock);
         }
+
+        // Tooltip: full session details (model · used/context).
+        var tooltipLines = new List<string> { displayName };
+        if (!string.IsNullOrEmpty(session.Model))
+            tooltipLines.Add($"{session.Model} · {FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} tokens");
+        else if (usedTokens > 0)
+            tooltipLines.Add($"{FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} tokens");
+        ToolTipService.SetToolTip(grid, string.Join("\n", tooltipLines));
+        AutomationProperties.SetName(grid, $"Session {displayName}");
 
         return grid;
     }
@@ -1823,105 +1754,69 @@ public partial class App : Application
         Microsoft.UI.Xaml.Media.Brush neutralBrush,
         Microsoft.UI.Xaml.Media.Brush secondaryText)
     {
+        // VarA compact: single-line "● {name} [os chip] →". Status/caps live
+        // in the tooltip so the menu stays dense.
         var nodeName = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId;
 
         var grid = new Grid
         {
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(12, 4, 12, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            RowSpacing = 2,
             ColumnSpacing = 6
         };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // dot
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // platform badge
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // os chip
 
-        // Row 0: status dot
         var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
             VerticalAlignment = VerticalAlignment.Center,
             Fill = node.IsOnline ? successBrush : neutralBrush
         };
-        Grid.SetRow(dot, 0);
         Grid.SetColumn(dot, 0);
         grid.Children.Add(dot);
 
-        // Row 0: device name
         var nameBlock = new TextBlock
         {
             Text = nodeName,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 12,
+            FontSize = 13,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
-        Grid.SetRow(nameBlock, 0);
         Grid.SetColumn(nameBlock, 1);
         grid.Children.Add(nameBlock);
 
-        // Row 0: platform badge
         if (!string.IsNullOrEmpty(node.Platform))
         {
-            var badge = BuildBadge(node.Platform);
-            Grid.SetRow(badge, 0);
-            Grid.SetColumn(badge, 2);
-            grid.Children.Add(badge);
-        }
-
-        // Row 0: chevron
-        var chevron = new TextBlock
-        {
-            Text = "›",
-            FontSize = 14,
-            Opacity = 0.5,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsTextSelectionEnabled = false
-        };
-        Grid.SetRow(chevron, 0);
-        Grid.SetColumn(chevron, 3);
-        grid.Children.Add(chevron);
-
-        // Row 1: capability icons + count + online/offline
-        var row1 = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        // Capability emoji icons
-        var capIcons = new System.Text.StringBuilder();
-        if (node.Capabilities.Count > 0)
-        {
-            foreach (var cap in node.Capabilities)
+            var chip = new Border
             {
-                if (CapabilityIcons.TryGetValue(cap, out var icon))
-                    capIcons.Append(icon);
-            }
+                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ControlFillColorSecondaryBrush"],
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(4, 1, 4, 1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = node.Platform!.ToLowerInvariant(),
+                    FontSize = 10,
+                    Foreground = secondaryText,
+                    IsTextSelectionEnabled = false
+                }
+            };
+            Grid.SetColumn(chip, 2);
+            grid.Children.Add(chip);
         }
-        var capText = capIcons.Length > 0
-            ? $"{capIcons} {node.CapabilityCount} caps"
-            : node.CapabilityCount > 0 ? $"{node.CapabilityCount} caps" : "";
-        var statusLabel = node.IsOnline ? "online" : "offline";
-        var row1Text = !string.IsNullOrEmpty(capText) ? $"{capText}  ·  {statusLabel}" : statusLabel;
 
-        row1.Children.Add(new TextBlock
-        {
-            Text = row1Text,
-            FontSize = 11,
-            Foreground = secondaryText,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsTextSelectionEnabled = false
-        });
-        Grid.SetRow(row1, 1);
-        Grid.SetColumn(row1, 1);
-        Grid.SetColumnSpan(row1, 3);
-        grid.Children.Add(row1);
+        // Tooltip carries the second-line detail (status · platform · caps).
+        var tooltipParts = new List<string> { node.IsOnline ? "Online" : "Offline" };
+        if (!string.IsNullOrEmpty(node.Platform)) tooltipParts.Add(node.Platform!);
+        if (!string.IsNullOrEmpty(node.Mode)) tooltipParts.Add(node.Mode!);
+        if (node.CapabilityCount > 0) tooltipParts.Add($"{node.CapabilityCount} caps");
+        ToolTipService.SetToolTip(grid, $"{nodeName}\n{string.Join(" · ", tooltipParts)}");
+        AutomationProperties.SetName(grid, $"Device {nodeName} {(node.IsOnline ? "online" : "offline")}");
 
         return grid;
     }
