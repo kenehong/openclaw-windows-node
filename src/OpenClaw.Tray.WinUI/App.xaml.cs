@@ -972,6 +972,16 @@ public partial class App : Application
         {
             case "status": ShowStatusDetail(); break;
             case "reconnect": _ = _connectionManager?.ReconnectAsync(); break;
+            case "disconnect":
+                _ = _connectionManager?.DisconnectAsync();
+                _lastSessions = Array.Empty<SessionInfo>();
+                _lastNodePairList = null;
+                _lastDevicePairList = null;
+                _lastModelsList = null;
+                _agentEventsCache.Clear();
+                UpdateTrayIcon();
+                _hubWindow?.UpdateStatus(ConnectionStatus.Disconnected);
+                break;
             case "dashboard": OpenDashboard(); break;
             case "canvas": ShowCanvasWindow(); break;
             case "openchat": ShowChatWindow(); break;
@@ -1251,6 +1261,7 @@ public partial class App : Application
         var criticalBrush = (Microsoft.UI.Xaml.Media.Brush)resources["SystemFillColorCriticalBrush"];
         var secondaryText = (Microsoft.UI.Xaml.Media.Brush)resources["TextFillColorSecondaryBrush"];
         var captionStyle = (Style)resources["CaptionTextBlockStyle"];
+        var controlSecondaryFill = (Microsoft.UI.Xaml.Media.Brush)resources["ControlFillColorSecondaryBrush"];
 
         // ── Brand Header (non-interactive) ── VarA: tight 12pt single line.
         menu.AddCustomElement(new StackPanel
@@ -1267,23 +1278,22 @@ public partial class App : Application
             }
         });
 
-        // ── Gateway Section ── VarA: collapse to one line.
-        var gwGrid = new Grid
+        // ── Gateway Section ── VarA: single-line + Local chip, flyout disconnect.
+        var gwRow = new Grid
         {
-            Padding = new Thickness(14, 4, 14, 6),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ColumnDefinitions =
-            {
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
-                new ColumnDefinition { Width = GridLength.Auto }
-            }
+            Padding = new Thickness(12, 4, 12, 6),
+            ColumnSpacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        gwRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        gwRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        gwRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var gwInfo = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-
-        // Build single-line gateway status:
-        // ● Gateway · Connected · v2026.x · 1 client[ · node paired]
+        // Build folded status string: "Gateway · Connected · v2026.x · 1 client[ · node paired]"
         var gwParts = new List<string> { $"Gateway · {statusText}" };
+        var gwUrl = _settings?.GetEffectiveGatewayUrl();
+        Uri? gwUri = null;
+        if (!string.IsNullOrEmpty(gwUrl)) Uri.TryCreate(gwUrl, UriKind.Absolute, out gwUri);
         if (isConnected)
         {
             if (_lastGatewaySelf != null && !string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
@@ -1291,8 +1301,6 @@ public partial class App : Application
             if (_lastPresence != null && _lastPresence.Length > 0)
                 gwParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
         }
-
-        // Fold node pairing/connected onto the same line.
         if (_settings?.EnableNodeMode == true && _nodeService != null)
         {
             if (_nodeService.IsPaired) gwParts.Add("node paired");
@@ -1315,89 +1323,74 @@ public partial class App : Application
             Style = captionStyle,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            IsTextSelectionEnabled = false
         });
-        gwInfo.Children.Add(gwStatusRow);
+        Grid.SetColumn(gwStatusRow, 0);
+        gwRow.Children.Add(gwStatusRow);
 
-        // Auth failure: single truncated line, tooltip carries full text.
+        // Right chip: "Local" when localhost, else version chip.
+        string? gwChipText = null;
+        if (isConnected)
+        {
+            if (gwUri != null && (gwUri.Host == "localhost" || gwUri.Host == "127.0.0.1" || gwUri.Host == "::1"))
+                gwChipText = "Local";
+        }
+        if (gwChipText != null)
+        {
+            var chip = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 1, 6, 1),
+                Background = controlSecondaryFill,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = gwChipText,
+                    FontSize = 10,
+                    Foreground = secondaryText,
+                    IsTextSelectionEnabled = false
+                }
+            };
+            Grid.SetColumn(chip, 2);
+            gwRow.Children.Add(chip);
+        }
+
+        // Auth failure: appended as a second line under the row, in critical brush.
+        UIElement gwCard = gwRow;
         if (!string.IsNullOrEmpty(_authFailureMessage))
         {
-            var authLine = new TextBlock
+            var stack = new StackPanel { Spacing = 2 };
+            stack.Children.Add(gwRow);
+            stack.Children.Add(new TextBlock
             {
                 Text = _authFailureMessage,
                 Style = captionStyle,
-                Foreground = secondaryText,
+                Foreground = criticalBrush,
                 FontSize = 11,
                 TextWrapping = TextWrapping.NoWrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxWidth = 240,
-                Padding = new Thickness(4, 1, 4, 1)
-            };
-            // Background brush stays critical for visibility; foreground uses
-            // tertiary text per spec to keep the critical block subdued.
-            var authBorder = new Border
-            {
-                Background = criticalBrush,
-                CornerRadius = new CornerRadius(3),
-                Child = authLine,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 2, 0, 0)
-            };
-            ToolTipService.SetToolTip(authBorder, _authFailureMessage);
-            gwInfo.Children.Add(authBorder);
+                Margin = new Thickness(12, 0, 12, 4),
+                IsTextSelectionEnabled = false
+            });
+            gwCard = stack;
         }
 
-        Grid.SetColumn(gwInfo, 0);
-        gwGrid.Children.Add(gwInfo);
+        // Flyout: Disconnect/Connect (action verb) + open connection settings.
+        var gwFlyoutItems = new List<TrayMenuFlyoutItem>
+        {
+            new() { Text = "Gateway", IsHeader = true },
+        };
+        if (isConnected)
+            gwFlyoutItems.Add(new() { Text = "Disconnect", Action = "disconnect" });
+        else
+            gwFlyoutItems.Add(new() { Text = "Connect", Action = "reconnect" });
+        gwFlyoutItems.Add(new() { Text = "Open connection settings", Action = "connection" });
 
-        // Gateway connect/disconnect button
-        var connectBtn = new ToggleButton
-        {
-            IsChecked = isConnected,
-            Content = isConnected ? "Connected" : "Disconnected",
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Padding = new Thickness(10, 4, 10, 4),
-            MinHeight = 0,
-            MinWidth = 0,
-            FontSize = 11
-        };
-        AutomationProperties.SetName(connectBtn, isConnected ? "Disconnect from gateway" : "Connect to gateway");
-        ToolTipService.SetToolTip(connectBtn, isConnected ? "Click to disconnect from gateway" : "Click to connect to gateway");
-        connectBtn.Click += (s, ev) =>
-        {
-            var on = connectBtn.IsChecked == true;
-            connectBtn.Content = on ? "Connected" : "Disconnected";
-            ToolTipService.SetToolTip(connectBtn, on ? "Click to disconnect from gateway" : "Click to connect to gateway");
-            if (on)
-            {
-                _ = _connectionManager?.ReconnectAsync();
-            }
-            else
-            {
-                _ = _connectionManager?.DisconnectAsync();
-                // Status is updated by OnManagerStateChanged when disconnect completes.
-                _lastSessions = Array.Empty<SessionInfo>();
-                _lastNodePairList = null;
-                _lastDevicePairList = null;
-                _lastModelsList = null;
-                _agentEventsCache.Clear();
-                UpdateTrayIcon();
-                _hubWindow?.UpdateStatus(ConnectionStatus.Disconnected);
-            }
-            // Dismiss menu after toggle — header will rebuild with correct state on next open
-            _trayMenuWindow?.HideCascade();
-        };
-        Grid.SetColumn(connectBtn, 1);
-        gwGrid.Children.Add(connectBtn);
-
-        // Make gateway info area clickable → opens Connection page
-        gwInfo.Tapped += (s, ev) =>
-        {
-            ShowHub("connection");
-        };
-        AutomationProperties.SetName(gwInfo, $"Gateway {statusText}. Activate to open connection settings.");
-        menu.AddCustomElement(gwGrid);
+        AutomationProperties.SetName((FrameworkElement)gwCard,
+            $"Gateway {statusText}. Activate to open connection settings.");
+        menu.AddFlyoutCustomItem(gwCard, gwFlyoutItems, action: "connection");
 
         // ── Connected Devices (moved above Sessions) ──
         var connectedNodes = _lastNodes.Where(n => n.IsOnline).ToArray();
