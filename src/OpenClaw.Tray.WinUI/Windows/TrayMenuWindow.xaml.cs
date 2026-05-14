@@ -141,6 +141,39 @@ public sealed partial class TrayMenuWindow : WindowEx
         
         // Hide when focus lost
         Activated += OnActivated;
+
+        // Keyboard support: Esc dismisses, ↑/↓ navigates between menu items.
+        // Tab navigation works automatically via UseSystemFocusVisuals on each button.
+        RootGrid.KeyDown += OnRootKeyDown;
+    }
+
+    private void OnRootKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Escape)
+        {
+            HideCascade();
+            _ownerMenu?.HideCascade();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == global::Windows.System.VirtualKey.Down || e.Key == global::Windows.System.VirtualKey.Up)
+        {
+            var direction = e.Key == global::Windows.System.VirtualKey.Down
+                ? Microsoft.UI.Xaml.Input.FocusNavigationDirection.Down
+                : Microsoft.UI.Xaml.Input.FocusNavigationDirection.Up;
+            var options = new Microsoft.UI.Xaml.Input.FindNextElementOptions
+            {
+                SearchRoot = RootGrid,
+                XYFocusNavigationStrategyOverride = Microsoft.UI.Xaml.Input.XYFocusNavigationStrategyOverride.Projection,
+            };
+            var next = Microsoft.UI.Xaml.Input.FocusManager.FindNextElement(direction, options);
+            if (next is Control control)
+            {
+                control.Focus(FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -279,32 +312,201 @@ public sealed partial class TrayMenuWindow : WindowEx
         }
     }
 
-    public void AddMenuItem(string text, string? icon, string action, bool isEnabled = true, bool indent = false)
+    /// <summary>
+    /// Builds an icon element for a menu row. Recognizes single Private-Use-Area
+    /// codepoints (Segoe Fluent Icons range \uE000–\uF8FF) and renders them as a
+    /// FontIcon; everything else (emoji, ASCII) renders as a TextBlock. Returns
+    /// null for empty input so callers can leave the slot empty without padding.
+    /// </summary>
+    private static FrameworkElement? BuildIconElement(string? icon)
     {
-        var content = new TextBlock
+        if (string.IsNullOrEmpty(icon)) return null;
+
+        // Detect Segoe Fluent Icons glyph: single char in PUA range, or a high-surrogate pair
+        var isFluentGlyph = icon.Length == 1 && icon[0] >= '\uE000' && icon[0] <= '\uF8FF';
+        if (isFluentGlyph)
         {
-            Text = string.IsNullOrEmpty(icon) ? text : $"{icon}  {text}",
+            return new FontIcon
+            {
+                Glyph = icon,
+                FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                IsTextScaleFactorEnabled = false
+            };
+        }
+
+        return new TextBlock
+        {
+            Text = icon,
+            FontSize = 14,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            IsTextSelectionEnabled = false,
+            IsTextScaleFactorEnabled = false
+        };
+    }
+
+    /// <summary>
+    /// Adds a checkmark menu item — Windows menu idiom for toggleable state.
+    /// Renders a 16px ✓ slot on the left (visible only when checked), then icon + label.
+    /// Click invokes <paramref name="onToggle"/> with the new state and does NOT dismiss the menu.
+    /// </summary>
+    public void AddCheckMenuItem(string text, string? icon, bool isChecked, Action<bool> onToggle, bool isEnabled = true, string? tooltip = null)
+    {
+        var grid = new Grid { ColumnSpacing = 8 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) }); // ✓
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) }); // icon
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var check = new FontIcon
+        {
+            Glyph = isChecked ? "\uE73E" : string.Empty, // CheckMark
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 14,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(check, 0);
+        grid.Children.Add(check);
+
+        var iconEl = BuildIconElement(icon);
+        if (iconEl != null)
+        {
+            Grid.SetColumn(iconEl, 1);
+            grid.Children.Add(iconEl);
+        }
+
+        var label = new TextBlock
+        {
+            Text = text,
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
+        if (!isEnabled)
+            label.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorDisabledBrush"];
+        Grid.SetColumn(label, 2);
+        grid.Children.Add(label);
 
-        var leftPadding = indent ? 28 : 12;
         var button = new Button
         {
-            Content = content,
+            Content = grid,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(8, 8, 12, 8),
+            Background = null,
+            BorderThickness = new Thickness(0),
+            IsEnabled = isEnabled,
+            CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+            UseSystemFocusVisuals = true
+        };
+        AutomationProperties.SetAutomationId(button, BuildMenuItemAutomationId("toggle:" + text, text));
+        AutomationProperties.SetName(button, isChecked ? $"{text} on" : $"{text} off");
+        if (!string.IsNullOrEmpty(tooltip))
+        {
+            ToolTipService.SetToolTip(button, tooltip);
+            AutomationProperties.SetHelpText(button, tooltip);
+        }
+
+        button.Click += (s, e) =>
+        {
+            var newState = !isChecked;
+            isChecked = newState;
+            check.Glyph = newState ? "\uE73E" : string.Empty;
+            AutomationProperties.SetName(button, newState ? $"{text} on" : $"{text} off");
+            onToggle(newState);
+            // Do NOT dismiss — toggles stay open so users can flip multiple capabilities
+        };
+
+        button.PointerEntered += (s, e) =>
+        {
+            HideActiveFlyout();
+            if (button.IsEnabled)
+                button.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+        };
+        button.PointerExited += (s, e) =>
+        {
+            button.Background = null;
+        };
+
+        MenuPanel.Children.Add(button);
+        _itemCount++;
+    }
+
+    public void AddMenuItem(string text, string? icon, string action, bool isEnabled = true, bool indent = false, string? accessKey = null, string? accelerator = null)
+    {
+        var rowGrid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(16) },             // icon slot
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }, // label
+                new ColumnDefinition { Width = GridLength.Auto }                  // accelerator
+            }
+        };
+
+        var iconEl = BuildIconElement(icon);
+        if (iconEl != null)
+        {
+            Grid.SetColumn(iconEl, 0);
+            rowGrid.Children.Add(iconEl);
+        }
+
+        var content = new TextBlock
+        {
+            Text = text,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            IsTextSelectionEnabled = false,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        if (!isEnabled)
+            content.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorDisabledBrush"];
+        Grid.SetColumn(content, 1);
+        rowGrid.Children.Add(content);
+
+        if (!string.IsNullOrEmpty(accelerator))
+        {
+            var accel = new TextBlock
+            {
+                Text = accelerator,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                VerticalAlignment = VerticalAlignment.Center,
+                IsTextSelectionEnabled = false
+            };
+            Grid.SetColumn(accel, 2);
+            rowGrid.Children.Add(accel);
+        }
+
+        var leftPadding = indent ? 24 : 12;
+        var button = new Button
+        {
+            Content = rowGrid,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(leftPadding, 8, 12, 8),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Background = null,
             BorderThickness = new Thickness(0),
             IsEnabled = isEnabled,
             Tag = action,
-            CornerRadius = new CornerRadius(4)
+            CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+            UseSystemFocusVisuals = true
         };
         AutomationProperties.SetAutomationId(button, BuildMenuItemAutomationId(action, text));
+        AutomationProperties.SetName(button, text);
 
-        if (!isEnabled)
-            content.Opacity = 0.5;
+        // AccessKey + KeyboardAccelerator wiring intentionally disabled — when set on
+        // Buttons inside the custom WindowEx tray popup, they triggered a native
+        // WinUI fail-fast (0xc000027b) the moment the menu was shown. Deferred until
+        // we can validate AccessKeyManager scope behavior on a non-Page XamlRoot.
+        _ = accessKey; _ = accelerator;
 
         button.Click += (s, e) =>
         {
@@ -321,7 +523,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         };
         button.PointerExited += (s, e) =>
         {
-            button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            button.Background = null;
         };
 
         MenuPanel.Children.Add(button);
@@ -340,28 +542,106 @@ public sealed partial class TrayMenuWindow : WindowEx
             : "TrayMenuItem" + new string(chars);
     }
 
+    /// <summary>
+    /// Parses a display accelerator string (e.g., "Ctrl+,", "Ctrl+Shift+Q") into a
+    /// Windows.System.VirtualKey + modifier set so the menu row registers a real
+    /// KeyboardAccelerator. Returns false for empty/unparseable input.
+    /// </summary>
+    private static bool TryParseAccelerator(string? accelerator, out global::Windows.System.VirtualKey key, out global::Windows.System.VirtualKeyModifiers mods)
+    {
+        key = default;
+        mods = global::Windows.System.VirtualKeyModifiers.None;
+        if (string.IsNullOrWhiteSpace(accelerator)) return false;
+
+        var parts = accelerator.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return false;
+
+        for (int i = 0; i < parts.Length - 1; i++)
+        {
+            switch (parts[i].ToLowerInvariant())
+            {
+                case "ctrl":
+                case "control": mods |= global::Windows.System.VirtualKeyModifiers.Control; break;
+                case "shift": mods |= global::Windows.System.VirtualKeyModifiers.Shift; break;
+                case "alt": mods |= global::Windows.System.VirtualKeyModifiers.Menu; break;
+                case "win":
+                case "windows": mods |= global::Windows.System.VirtualKeyModifiers.Windows; break;
+                default: return false;
+            }
+        }
+
+        var keyText = parts[^1];
+        if (keyText.Length == 1)
+        {
+            var ch = char.ToUpperInvariant(keyText[0]);
+            if (ch >= 'A' && ch <= 'Z') { key = (global::Windows.System.VirtualKey)ch; return true; }
+            if (ch >= '0' && ch <= '9') { key = (global::Windows.System.VirtualKey)ch; return true; }
+            if (ch == ',') { key = (global::Windows.System.VirtualKey)188; return true; } // OEM Comma
+            if (ch == '.') { key = (global::Windows.System.VirtualKey)190; return true; } // OEM Period
+            if (ch == '/') { key = (global::Windows.System.VirtualKey)191; return true; }
+        }
+        return Enum.TryParse<global::Windows.System.VirtualKey>(keyText, ignoreCase: true, out key);
+    }
+
     public void AddFlyoutMenuItem(string text, string? icon, IEnumerable<TrayMenuFlyoutItem> items, bool indent = false, string? action = null)
     {
+        var rowGrid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(16) },                  // icon
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },// label
+                new ColumnDefinition { Width = GridLength.Auto }                       // chevron
+            }
+        };
+
+        var iconEl = BuildIconElement(icon);
+        if (iconEl != null)
+        {
+            Grid.SetColumn(iconEl, 0);
+            rowGrid.Children.Add(iconEl);
+        }
+
         var content = new TextBlock
         {
-            Text = string.IsNullOrEmpty(icon) ? $"{text}  ›" : $"{icon}  {text}  ›",
+            Text = text,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            IsTextSelectionEnabled = false
+            IsTextSelectionEnabled = false,
+            VerticalAlignment = VerticalAlignment.Center
         };
+        Grid.SetColumn(content, 1);
+        rowGrid.Children.Add(content);
+
+        var chevron = new FontIcon
+        {
+            Glyph = "\uE76C", // ChevronRight
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 12,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextScaleFactorEnabled = false
+        };
+        AutomationProperties.SetAccessibilityView(chevron, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        Grid.SetColumn(chevron, 2);
+        rowGrid.Children.Add(chevron);
 
         var flyoutItems = items.ToArray();
 
-        var leftPadding = indent ? 28 : 12;
+        var leftPadding = indent ? 24 : 12;
         var button = new Button
         {
-            Content = content,
+            Content = rowGrid,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Padding = new Thickness(leftPadding, 8, 12, 8),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Background = null,
             BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(4)
+            CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+            UseSystemFocusVisuals = true
         };
+        AutomationProperties.SetName(button, text);
 
         button.PointerEntered += (s, e) =>
         {
@@ -370,7 +650,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         };
         button.PointerExited += (s, e) =>
         {
-            button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            button.Background = null;
         };
         button.Click += (s, e) =>
         {
@@ -394,7 +674,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         var sep = new Border
         {
             Height = 1,
-            Margin = new Thickness(8, 6, 8, 6),
+            Margin = new Thickness(8, 4, 8, 4),
             Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"]
         };
         sep.PointerEntered += (s, e) => HideActiveFlyout();
@@ -414,14 +694,13 @@ public sealed partial class TrayMenuWindow : WindowEx
         panel.Children.Add(new TextBlock
         {
             Text = emoji,
-            FontSize = 28
+            Style = (Style)Application.Current.Resources["TitleTextBlockStyle"]
         });
 
         panel.Children.Add(new TextBlock
         {
             Text = text,
-            FontSize = 18,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"],
             VerticalAlignment = VerticalAlignment.Center
         });
 
@@ -434,9 +713,9 @@ public sealed partial class TrayMenuWindow : WindowEx
         var tb = new TextBlock
         {
             Text = text,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Padding = new Thickness(12, 10, 12, 4),
-            Opacity = 0.7
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Padding = new Thickness(12, 8, 12, 4)
         };
         tb.PointerEntered += (s, e) => HideActiveFlyout();
         MenuPanel.Children.Add(tb);
@@ -464,9 +743,10 @@ public sealed partial class TrayMenuWindow : WindowEx
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(0),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Background = null,
             BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(6)
+            CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+            UseSystemFocusVisuals = true
         };
 
         button.PointerEntered += (s, e) =>
@@ -476,7 +756,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         };
         button.PointerExited += (s, e) =>
         {
-            button.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            button.Background = null;
         };
         button.Click += (s, e) =>
         {
@@ -700,6 +980,15 @@ public sealed partial class TrayMenuWindow : WindowEx
                 {
                     flyoutWindow.AddHeader(item.Text);
                 }
+                else if (item.IsCheck && item.OnToggle != null)
+                {
+                    var toggleCallback = item.OnToggle;
+                    flyoutWindow.AddCheckMenuItem(item.Text, item.Icon, item.IsChecked, newState =>
+                    {
+                        item.IsChecked = newState;
+                        toggleCallback(newState);
+                    }, tooltip: item.Tooltip);
+                }
                 else if (string.IsNullOrEmpty(item.Action))
                 {
                     // Non-interactive detail line — compact padding
@@ -824,4 +1113,12 @@ public sealed class TrayMenuFlyoutItem
     public string? Icon { get; set; }
     public string Action { get; set; } = "";
     public bool IsHeader { get; set; }
+
+    // Optional interactive checkbox row. When IsCheck=true and OnToggle is set,
+    // the flyout renders this as a check-menu row (✓ slot + label) that toggles
+    // without dismissing the flyout. Used for per-device capability permissions.
+    public bool IsCheck { get; set; }
+    public bool IsChecked { get; set; }
+    public Action<bool>? OnToggle { get; set; }
+    public string? Tooltip { get; set; }
 }

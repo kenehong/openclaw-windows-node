@@ -9,20 +9,15 @@
     Width="320"
     Height="400">
 
-    <!-- Acrylic backdrop applied in code-behind via BackdropHelper -->
-
-    <Grid x:Name="RootGrid" Background="Transparent">
-        <Border Background="Transparent"
-                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          VerticalScrollMode="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="MenuPanel" AutomationProperties.AutomationId="TrayMenuPanel" Padding="6,8">
-                    <!-- Menu items will be added programmatically -->
-                </StackPanel>
-            </ScrollViewer>
-        </Border>
+    <!-- Single Fluent flyout surface. Acrylic comes from BackdropHelper (system backdrop)
+         + DWM rounded corners on Win11. No inner Border wrapper — that caused double tinting. -->
+    <Grid x:Name="RootGrid">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      VerticalScrollMode="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="MenuPanel"
+                        AutomationProperties.AutomationId="TrayMenuPanel"
+                        Padding="4,8" />
+        </ScrollViewer>
     </Grid>
 </winex:WindowEx>

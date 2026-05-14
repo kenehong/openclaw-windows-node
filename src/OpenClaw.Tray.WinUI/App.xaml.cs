@@ -1,5 +1,6 @@
 using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using OpenClaw.Shared;
@@ -259,7 +260,11 @@ public partial class App : Application
         }
 
         InitializeComponent();
-        
+
+        // Prevent the OS from drawing solid black backplates behind text in High Contrast themes.
+        // This is the recommended Windows 11 default per WinUXE accessibility guidance.
+        HighContrastAdjustment = ApplicationHighContrastAdjustment.None;
+
         CheckPreviousRun();
         MarkRunStarted();
         
@@ -1011,6 +1016,8 @@ public partial class App : Application
             case "copydeviceid": CopyDeviceIdToClipboard(); break;
             case "copynodesummary": CopyNodeSummaryToClipboard(); break;
             case "exit": ExitApplication(); break;
+            case "about": ShowHub("about"); break;
+            case "approvals": ShowHub(); break; // TODO: dedicated approvals page (p25-exec-approvals)
             default:
                 if (action.StartsWith("session-reset|", StringComparison.Ordinal))
                     _ = ExecuteSessionActionAsync("reset", action["session-reset|".Length..]);
@@ -1208,30 +1215,101 @@ public partial class App : Application
             .ToList();
     }
 
+    /// <summary>Maps a connection/session status to a Fluent system fill brush. Theme- and HC-aware.</summary>
+    private static Microsoft.UI.Xaml.Media.Brush GetStatusBrush(string key) =>
+        (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[key];
+
     private void BuildTrayMenuPopup(TrayMenuWindow menu)
     {
         var isConnected = _currentStatus == ConnectionStatus.Connected;
         var statusText = LocalizationHelper.GetConnectionStatusText(_currentStatus);
 
-        // ── Brand Header (non-interactive) ──
-        menu.AddCustomElement(new StackPanel
+        // ── Status Header (state-aware) ──
+        // Windows tray convention (OneDrive: "OneDrive — Up to date"): brand name
+        // followed by current state. Uses Segoe Fluent Icons glyphs in 16px slot.
+        var nodePending = (_lastNodePairList?.Pending.Count ?? 0) + (_lastDevicePairList?.Pending.Count ?? 0);
+        string headerGlyph, headerState, headerBrushKey;
+        if (!string.IsNullOrEmpty(_authFailureMessage))
         {
-            Padding = new Thickness(14, 10, 14, 6),
-            Children =
+            headerGlyph = "\uE783"; // Error
+            headerState = "Authentication failed";
+            headerBrushKey = "SystemFillColorCriticalBrush";
+        }
+        else if (nodePending > 0)
+        {
+            headerGlyph = "\uE7BA"; // Warning
+            headerState = "Pairing pending";
+            headerBrushKey = "SystemFillColorCautionBrush";
+        }
+        else if (isConnected)
+        {
+            headerGlyph = "\uE73E"; // CheckMark
+            headerState = "Active";
+            headerBrushKey = "SystemFillColorSuccessBrush";
+        }
+        else if (_currentStatus == ConnectionStatus.Connecting)
+        {
+            headerGlyph = "\uE895"; // SyncStatus
+            headerState = "Connecting…";
+            headerBrushKey = "SystemFillColorCautionBrush";
+        }
+        else
+        {
+            headerGlyph = "\uF384"; // PlugDisconnected
+            headerState = "Disconnected";
+            headerBrushKey = "SystemFillColorNeutralBrush";
+        }
+
+        var headerRow = new Grid
+        {
+            Padding = new Thickness(12, 8, 12, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            ColumnDefinitions =
             {
-                new TextBlock
-                {
-                    Text = "🦞 OpenClaw",
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    FontSize = 14
-                }
+                new ColumnDefinition { Width = new GridLength(16) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
             }
-        });
+        };
+        var headerIcon = new TextBlock
+        {
+            Text = headerGlyph,
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 14,
+            Foreground = GetStatusBrush(headerBrushKey),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            IsTextScaleFactorEnabled = false
+        };
+        Grid.SetColumn(headerIcon, 0);
+        headerRow.Children.Add(headerIcon);
+
+        var headerBrand = new TextBlock
+        {
+            Text = "OpenClaw",
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(headerBrand, 1);
+        headerRow.Children.Add(headerBrand);
+
+        var headerStateText = new TextBlock
+        {
+            Text = headerState,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(headerStateText, 2);
+        headerRow.Children.Add(headerStateText);
+        AutomationProperties.SetName(headerRow, $"OpenClaw — {headerState}");
+        menu.AddCustomElement(headerRow);
 
         // ── Gateway Section ──
         var gwGrid = new Grid
         {
-            Padding = new Thickness(14, 4, 14, 8),
+            Padding = new Thickness(12, 4, 12, 8),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             ColumnDefinitions =
             {
@@ -1240,24 +1318,25 @@ public partial class App : Application
             }
         };
 
-        var gwInfo = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var gwInfo = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
 
         // Gateway status line
-        var gwStatusRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        gwStatusRow.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse
+        var gwStatusRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var gwDotBrushKey = isConnected ? "SystemFillColorSuccessBrush"
+            : _currentStatus == ConnectionStatus.Connecting ? "SystemFillColorCautionBrush"
+            : "SystemFillColorNeutralBrush";
+        var gwDot = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
             VerticalAlignment = VerticalAlignment.Center,
-            Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                isConnected ? Microsoft.UI.Colors.LimeGreen
-                : _currentStatus == ConnectionStatus.Connecting ? Microsoft.UI.Colors.Orange
-                : Microsoft.UI.Colors.Gray)
-        });
+            Fill = GetStatusBrush(gwDotBrushKey)
+        };
+        AutomationProperties.SetName(gwDot, $"Gateway {statusText}");
+        gwStatusRow.Children.Add(gwDot);
         gwStatusRow.Children.Add(new TextBlock
         {
             Text = $"Gateway · {statusText}",
             Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center
         });
         gwInfo.Children.Add(gwStatusRow);
@@ -1269,8 +1348,15 @@ public partial class App : Application
             if (_lastGatewaySelf != null && !string.IsNullOrEmpty(_lastGatewaySelf.ServerVersion))
                 detailParts.Add($"v{_lastGatewaySelf.ServerVersion}");
             var url = _settings?.GetEffectiveGatewayUrl();
-            if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            var isLocal = !string.IsNullOrEmpty(url) && LocalGatewayUrlClassifier.IsLocalGatewayUrl(url);
+            if (isLocal)
+            {
+                detailParts.Add("Local");
+            }
+            else if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
                 detailParts.Add($"{uri.Host}:{uri.Port}");
+            }
             if (_lastPresence != null && _lastPresence.Length > 0)
                 detailParts.Add($"{_lastPresence.Length} client{(_lastPresence.Length != 1 ? "s" : "")}");
             if (detailParts.Count > 0)
@@ -1279,8 +1365,7 @@ public partial class App : Application
                 {
                     Text = string.Join(" · ", detailParts),
                     Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-                    FontSize = 11
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
                 });
             }
         }
@@ -1289,7 +1374,7 @@ public partial class App : Application
         if (_settings?.EnableNodeMode == true && _nodeService != null)
         {
             var nodeText = _nodeService.IsPaired ? "Node paired"
-                : _nodeService.IsPendingApproval ? "⏳ Node pairing pending"
+                : _nodeService.IsPendingApproval ? "Node pairing pending"
                 : _nodeService.IsConnected ? "Node connected"
                 : null;
             if (nodeText != null)
@@ -1298,8 +1383,7 @@ public partial class App : Application
                 {
                     Text = nodeText,
                     Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-                    FontSize = 11
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
                 });
             }
         }
@@ -1307,38 +1391,51 @@ public partial class App : Application
         // Auth failure
         if (!string.IsNullOrEmpty(_authFailureMessage))
         {
-            gwInfo.Children.Add(new TextBlock
+            var authRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            authRow.Children.Add(new FontIcon
             {
-                Text = $"⚠️ {_authFailureMessage}",
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.OrangeRed),
-                FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 240
+                Glyph = "\uE7BA",
+                FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+                FontSize = 12,
+                Foreground = GetStatusBrush("SystemFillColorCriticalBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                IsTextScaleFactorEnabled = false
             });
+            authRow.Children.Add(new TextBlock
+            {
+                Text = _authFailureMessage,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = GetStatusBrush("SystemFillColorCriticalBrush"),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            gwInfo.Children.Add(authRow);
         }
 
         Grid.SetColumn(gwInfo, 0);
         gwGrid.Children.Add(gwInfo);
 
-        // Gateway connect/disconnect button
+        // Gateway connect/disconnect button — label uses action verb (Disconnect/Connect)
         var connectBtn = new ToggleButton
         {
             IsChecked = isConnected,
-            Content = isConnected ? "Connected" : "Disconnected",
+            Content = isConnected ? "Disconnect" : "Connect",
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Padding = new Thickness(10, 4, 10, 4),
+            Padding = new Thickness(12, 4, 12, 4),
             MinHeight = 0,
-            MinWidth = 0,
-            FontSize = 11
+            MinWidth = 0
         };
-        ToolTipService.SetToolTip(connectBtn, isConnected ? "Click to disconnect from gateway" : "Click to connect to gateway");
+        var connectTooltip = isConnected ? "Click to disconnect from gateway" : "Click to connect to gateway";
+        ToolTipService.SetToolTip(connectBtn, connectTooltip);
+        AutomationProperties.SetName(connectBtn, connectTooltip);
         connectBtn.Click += (s, ev) =>
         {
             var on = connectBtn.IsChecked == true;
-            connectBtn.Content = on ? "Connected" : "Disconnected";
-            ToolTipService.SetToolTip(connectBtn, on ? "Click to disconnect from gateway" : "Click to connect to gateway");
+            connectBtn.Content = on ? "Disconnect" : "Connect";
+            var newTip = on ? "Click to disconnect from gateway" : "Click to connect to gateway";
+            ToolTipService.SetToolTip(connectBtn, newTip);
+            AutomationProperties.SetName(connectBtn, newTip);
             if (on)
             {
                 _ = _connectionManager?.ReconnectAsync();
@@ -1368,155 +1465,116 @@ public partial class App : Application
         };
         menu.AddCustomElement(gwGrid);
 
+        // ── Devices (connected nodes) ──
+        // Placed right after Gateway as part of the Status block: both describe
+        // infrastructure identity. Always rendered so the section is stable even
+        // when the gateway hasn't returned the node list yet.
+        var connectedNodes = _lastNodes.Where(n => n.IsOnline).ToArray();
+        {
+            menu.AddSeparator();
+
+            var deviceSummaryRight = connectedNodes.Length > 0
+                ? $"{connectedNodes.Length} online"
+                : (_lastNodes.Length > 0 ? "0 online" : "");
+            menu.AddCustomElement(BuildSectionHeader("Devices", deviceSummaryRight));
+
+            if (connectedNodes.Length > 0)
+            {
+                foreach (var node in connectedNodes.Take(5))
+                {
+                    var card = BuildDeviceCard(node);
+                    var flyoutItems = BuildDeviceFlyoutItems(node);
+                    menu.AddFlyoutCustomItem(card, flyoutItems, action: "nodes");
+                }
+            }
+            else
+            {
+                var emptyLabel = isConnected
+                    ? (_lastNodes.Length > 0 ? "No devices online" : "Waiting for devices…")
+                    : "Gateway disconnected";
+                menu.AddMenuItem(emptyLabel, "\uE977", "nodes", isEnabled: isConnected); // Devices
+            }
+        }
+
+        // ── Capabilities ──
+        // Moved into the per-device flyout (right-hover panel). The local Windows node
+        // flyout exposes capability toggles inline so the main menu stays compact.
+
         // ── Sessions ──
+        // Header + up to 2 most recent session previews + "More" row when overflow.
+        // Reference: Slack/Teams tray idiom — show top items inline, expand via "More".
         if (_lastSessions.Length > 0)
         {
             menu.AddSeparator();
 
-            // Section header: "Sessions  3 active · 45K tokens"
             var sessionCount = _lastSessions.Length;
-            var activeCount = _lastSessions.Count(s => string.Equals(s.Status, "active", StringComparison.OrdinalIgnoreCase));
             var totalTokensAll = _lastSessions.Sum(s => s.InputTokens + s.OutputTokens);
-            var sessionSummaryRight = $"{activeCount} active · {FormatTokenCount(totalTokensAll)} tokens";
-            menu.AddCustomElement(BuildSectionHeader("Sessions", sessionSummaryRight));
+            var summary = $"{sessionCount} · {FormatTokenCount(totalTokensAll)} tokens";
+            menu.AddCustomElement(BuildSessionsHeader(summary));
 
-            // Individual session cards
-            foreach (var session in _lastSessions.Take(5))
+            var recent = _lastSessions
+                .OrderByDescending(s => s.UpdatedAt ?? s.LastSeen)
+                .Take(2)
+                .ToList();
+            foreach (var s in recent)
             {
-                var card = BuildSessionCard(session);
-                var flyoutItems = BuildSessionFlyoutItems(session);
-                menu.AddFlyoutCustomItem(card, flyoutItems, action: "sessions");
+                menu.AddCustomElement(BuildSessionPreviewRow(s));
+            }
+
+            if (sessionCount > recent.Count)
+            {
+                var remaining = sessionCount - recent.Count;
+                menu.AddMenuItem($"More ({remaining} more)", "\uE712", "sessions", indent: true);
             }
         }
 
         // ── Pairing Pending ──
+        // Uses WinUI InfoBadge (numeric, attention style) on the right of an
+        // "Exec Approvals ›" row. Matches Action Center / Mail / Calendar conventions.
         var nodePendingCount = _lastNodePairList?.Pending.Count ?? 0;
         var devicePendingCount = _lastDevicePairList?.Pending.Count ?? 0;
         if (nodePendingCount + devicePendingCount > 0)
         {
             var total = nodePendingCount + devicePendingCount;
-            menu.AddMenuItem($"⚠️ Pairing approval pending ({total})", "🔗", "hub");
-        }
-
-        // ── Connected Devices with inline permission toggles ──
-        // Only show currently-connected nodes; offline/stale paired nodes
-        // remain visible on the full Nodes page where they can be renamed
-        // or forgotten.
-        var connectedNodes = _lastNodes.Where(n => n.IsOnline).ToArray();
-        if (connectedNodes.Length > 0)
-        {
-            menu.AddSeparator();
-
-            var totalCaps = connectedNodes.Sum(n => n.CapabilityCount);
-            var deviceSummaryRight = $"{connectedNodes.Length} online · {totalCaps} caps";
-            menu.AddCustomElement(BuildSectionHeader("Devices", deviceSummaryRight));
-
-            var currentHost = Environment.MachineName;
-
-            foreach (var node in connectedNodes.Take(5))
-            {
-                var card = BuildDeviceCard(node);
-                var flyoutItems = BuildDeviceFlyoutItems(node);
-                menu.AddFlyoutCustomItem(card, flyoutItems, action: "nodes");
-
-                // If this node is the local machine, show capability toggles underneath
-                bool isLocal = node.DisplayName?.Contains(currentHost, StringComparison.OrdinalIgnoreCase) == true
-                    || node.NodeId?.Contains(currentHost, StringComparison.OrdinalIgnoreCase) == true;
-                if (isLocal && _settings != null)
-                {
-                    // Build compact toggle button grid (3 columns)
-                    var capToggles = new Dictionary<string, (Func<bool> Get, Action<bool> Set)>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["browser"] = (() => _settings.NodeBrowserProxyEnabled, v => _settings.NodeBrowserProxyEnabled = v),
-                        ["camera"] = (() => _settings.NodeCameraEnabled, v => _settings.NodeCameraEnabled = v),
-                        ["canvas"] = (() => _settings.NodeCanvasEnabled, v => _settings.NodeCanvasEnabled = v),
-                        ["screen"] = (() => _settings.NodeScreenEnabled, v => _settings.NodeScreenEnabled = v),
-                        ["location"] = (() => _settings.NodeLocationEnabled, v => _settings.NodeLocationEnabled = v),
-                        ["tts"] = (() => _settings.NodeTtsEnabled, v => _settings.NodeTtsEnabled = v),
-                        ["system"] = (() => _settings.EnableNodeMode, v => _settings.EnableNodeMode = v),
-                    };
-
-                    // Show ALL possible capability toggles (not just gateway-reported ones)
-                    // so disabled capabilities like TTS appear as "off" buttons
-                    var allCaps = capToggles.Keys.ToList();
-
-                    if (allCaps.Count > 0)
-                    {
-                        var columns = 3;
-                        var grid = new Grid
-                        {
-                            Margin = new Thickness(28, 4, 14, 4),
-                            ColumnSpacing = 4,
-                            RowSpacing = 4,
-                            HorizontalAlignment = HorizontalAlignment.Stretch
-                        };
-                        for (int c = 0; c < columns; c++)
-                            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                        var rowCount = (allCaps.Count + columns - 1) / columns;
-                        for (int r = 0; r < rowCount; r++)
-                            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-                        for (int i = 0; i < allCaps.Count; i++)
-                        {
-                            var cap = allCaps[i];
-                            var capToggle = capToggles[cap];
-                            var icon = CapabilityIcons.TryGetValue(cap, out var emoji) ? emoji : "▪";
-                            var label = char.ToUpper(cap[0]) + cap[1..];
-                            var isOn = capToggle.Get();
-
-                            var btn = new ToggleButton
-                            {
-                                IsChecked = isOn,
-                                HorizontalAlignment = HorizontalAlignment.Stretch,
-                                HorizontalContentAlignment = HorizontalAlignment.Center,
-                                Padding = new Thickness(6, 5, 6, 5),
-                                MinHeight = 0,
-                                MinWidth = 0,
-                                Content = new TextBlock
-                                {
-                                    Text = $"{icon} {label}",
-                                    FontSize = 11,
-                                    TextTrimming = TextTrimming.CharacterEllipsis
-                                }
-                            };
-                            var capRef = capToggle; // capture for lambda
-                            btn.Click += (s, ev) =>
-                            {
-                                var on = ((ToggleButton)s!).IsChecked == true;
-                                capRef.Set(on); _settings.Save(); _ = _connectionManager?.ReconnectAsync();
-                            };
-                            Grid.SetRow(btn, i / columns);
-                            Grid.SetColumn(btn, i % columns);
-                            grid.Children.Add(btn);
-                        }
-                        menu.AddCustomElement(grid);
-                    }
-                }
-            }
+            menu.AddCustomElement(BuildPairingPendingRow(total));
         }
 
         // ── Actions ──
+        // Primary verbs first (Open *, Talk Mode, Companion Settings).
+        // Mnemonics: AccessKey letter shown on Alt; mapped to first distinct letter per row.
         menu.AddSeparator();
-        menu.AddMenuItem("Dashboard", "🌐", "dashboard");
-        menu.AddMenuItem("Chat", "💬", "openchat");
-        menu.AddMenuItem("Canvas", "🎨", "canvas");
-        menu.AddMenuItem("Voice", "🎙️", "voice");
-        menu.AddMenuItem("Companion Settings...", "🦞", "companion");
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_QuickSend"), "📤", "quicksend");
+        menu.AddMenuItem("Open Dashboard",      "\uE774", "dashboard", accessKey: "D"); // Globe
+        menu.AddMenuItem("Open Chat",           "\uE8BD", "openchat",  accessKey: "C"); // Message
+        menu.AddMenuItem("Open Canvas",         "\uE790", "canvas",    accessKey: "V"); // ColorLine
+        menu.AddMenuItem("Talk Mode",           "\uE720", "voice",     accessKey: "T"); // Microphone
+        menu.AddMenuItem("Companion Settings…", "\uE713", "companion", accessKey: "S", accelerator: "Ctrl+,"); // Settings
 
-        // Setup Guide / Reconfigure entry (PR #274 must-fix #6) — label flips
-        // based on whether prior config exists. Click dispatches "setup" which
-        // invokes the existing ShowOnboardingAsync handler (case in OnTrayMenuAction).
-        var setupMenuLabel = _settings != null
+        // ── More (less-frequent entry points) ──
+        // Setup Guide and QuickSend are Windows-only auxiliary surfaces — moved under
+        // a "More ›" submenu so the top level stays focused on primary actions.
+        var setupMenuLabel = ResolveSetupMenuLabel();
+        var moreItems = new List<TrayMenuFlyoutItem>
+        {
+            new(LocalizationHelper.GetString("Menu_QuickSend"), "\uE724", "quicksend"), // Send
+            new(setupMenuLabel,                                 "\uE9A9", "setup"),     // MapDirections
+        };
+        menu.AddFlyoutMenuItem("More", "\uE712", moreItems); // More glyph
+
+        // ── Footer (meta) ──
+        menu.AddSeparator();
+        menu.AddMenuItem("About OpenClaw", "\uE946", "about", accessKey: "A");
+        menu.AddMenuItem(LocalizationHelper.GetString("Menu_Exit"), "\uE7E8", "exit", accessKey: "X");
+    }
+
+    // Pre-computes the Setup Guide / Reconfigure label so it can be referenced
+    // by the More submenu without re-querying the guard inline.
+    private string ResolveSetupMenuLabel()
+    {
+        return _settings != null
             && new OpenClawTray.Onboarding.Services.OnboardingExistingConfigGuard(_settings, IdentityDataPath)
                 .HasExistingConfiguration()
             ? LocalizationHelper.GetString("Menu_Reconfigure")
             : LocalizationHelper.GetString("Menu_SetupGuide");
-        menu.AddMenuItem(setupMenuLabel, "🧭", "setup");
-
-        // ── Exit ──
-        menu.AddSeparator();
-        menu.AddMenuItem(LocalizationHelper.GetString("Menu_Exit"), "❌", "exit");
     }
 
     private static string FormatTokenCount(long n)
@@ -1528,18 +1586,94 @@ public partial class App : Application
 
     // ── Rich card builder helpers for tray menu ──
 
+    // Maps capability key → Segoe Fluent Icons glyph codepoint. Used by
+    // BuildIconElement (single PUA char) so the menu row renders a FontIcon
+    // in the 16px aligned column instead of variable-width emoji.
     private static readonly FrozenDictionary<string, string> CapabilityIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["screen"] = "🖥",
-        ["camera"] = "📷",
-        ["browser"] = "🌐",
-        ["clipboard"] = "📋",
-        ["tts"] = "🔊",
-        ["location"] = "📍",
-        ["canvas"] = "🎨",
-        ["system"] = "⚙",
-        ["device"] = "📱",
+        ["screen"]    = "\uE7F4", // TVMonitor
+        ["camera"]    = "\uE722", // Camera
+        ["browser"]   = "\uE774", // Globe
+        ["clipboard"] = "\uE77F", // Page2
+        ["tts"]       = "\uE767", // Volume
+        ["location"]  = "\uE707", // MapPin
+        ["canvas"]    = "\uE790", // ColorLine
+        ["system"]    = "\uE713", // Settings
+        ["device"]    = "\uE8EA", // Devices
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    private Grid BuildPairingPendingRow(int total)
+    {
+        var rowGrid = new Grid
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(16) },                 // icon
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },// label
+                new ColumnDefinition { Width = GridLength.Auto },                     // InfoBadge
+                new ColumnDefinition { Width = GridLength.Auto }                      // chevron
+            }
+        };
+
+        var pairHoverBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+        var pairTransparent = (Microsoft.UI.Xaml.Media.Brush)rowGrid.Background;
+        rowGrid.PointerEntered += (s, e) => rowGrid.Background = pairHoverBrush;
+        rowGrid.PointerExited += (s, e) => rowGrid.Background = pairTransparent;
+
+        var icon = new FontIcon
+        {
+            Glyph = "\uE7BA", // Warning
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 14,
+            Foreground = GetStatusBrush("SystemFillColorCautionBrush"),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            IsTextScaleFactorEnabled = false
+        };
+        Grid.SetColumn(icon, 0);
+        rowGrid.Children.Add(icon);
+
+        var label = new TextBlock
+        {
+            Text = "Exec Approvals",
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetColumn(label, 1);
+        rowGrid.Children.Add(label);
+
+        // WinUI InfoBadge — numeric attention style, themed automatically.
+        var badge = new Microsoft.UI.Xaml.Controls.InfoBadge
+        {
+            Value = total,
+            Style = (Style)Application.Current.Resources["AttentionValueInfoBadgeStyle"],
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        AutomationProperties.SetName(badge, $"{total} pending");
+        Grid.SetColumn(badge, 2);
+        rowGrid.Children.Add(badge);
+
+        var chevron = new FontIcon
+        {
+            Glyph = "\uE76C", // ChevronRight
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 12,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0),
+            IsTextScaleFactorEnabled = false
+        };
+        Grid.SetColumn(chevron, 3);
+        rowGrid.Children.Add(chevron);
+
+        AutomationProperties.SetName(rowGrid, $"Exec Approvals, {total} pending");
+        rowGrid.Tapped += (s, ev) => ShowHub();
+        return rowGrid;
+    }
 
     private static Grid BuildSectionHeader(string title, string summary)
     {
@@ -1551,8 +1685,8 @@ public partial class App : Application
         grid.Children.Add(new TextBlock
         {
             Text = title,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Opacity = 0.7,
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
             VerticalAlignment = VerticalAlignment.Center
         });
         grid.Children.Add(new TextBlock
@@ -1561,10 +1695,158 @@ public partial class App : Application
             HorizontalAlignment = HorizontalAlignment.Right,
             Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center
         });
         return grid;
+    }
+
+    /// <summary>
+    /// Sessions section header: bold "Sessions" label + right-aligned count·tokens
+    /// caption + chevron. Clicking opens the Hub sessions view (full list).
+    /// </summary>
+    private UIElement BuildSessionsHeader(string summary)
+    {
+        var rowGrid = new Grid
+        {
+            Padding = new Thickness(12, 8, 12, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(16) },
+                new ColumnDefinition { Width = GridLength.Auto },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
+            }
+        };
+        var hover = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+        var transparent = (Microsoft.UI.Xaml.Media.Brush)rowGrid.Background;
+        rowGrid.PointerEntered += (s, e) => rowGrid.Background = hover;
+        rowGrid.PointerExited += (s, e) => rowGrid.Background = transparent;
+
+        var icon = new FontIcon
+        {
+            Glyph = "\uE8BD", // Message
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 14,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            IsTextScaleFactorEnabled = false
+        };
+        Grid.SetColumn(icon, 0);
+        rowGrid.Children.Add(icon);
+
+        var label = new TextBlock
+        {
+            Text = "Sessions",
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetColumn(label, 1);
+        rowGrid.Children.Add(label);
+
+        var summaryText = new TextBlock
+        {
+            Text = summary,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(summaryText, 2);
+        rowGrid.Children.Add(summaryText);
+
+        var chevron = new FontIcon
+        {
+            Glyph = "\uE76C",
+            FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
+            FontSize = 12,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextScaleFactorEnabled = false
+        };
+        Grid.SetColumn(chevron, 3);
+        rowGrid.Children.Add(chevron);
+
+        AutomationProperties.SetName(rowGrid, $"Sessions, {summary}");
+        rowGrid.Tapped += (s, ev) => ShowHub("sessions");
+        return rowGrid;
+    }
+
+    /// <summary>
+    /// One-line session preview row: status dot + title + token usage on the right.
+    /// Clicking the row opens the Hub session detail for that session.
+    /// </summary>
+    private UIElement BuildSessionPreviewRow(SessionInfo session)
+    {
+        var isActive = string.Equals(session.Status, "active", StringComparison.OrdinalIgnoreCase);
+        var isIdle = string.Equals(session.Status, "idle", StringComparison.OrdinalIgnoreCase);
+        var statusBrushKey = isActive ? "SystemFillColorSuccessBrush"
+            : isIdle ? "SystemFillColorCautionBrush"
+            : "SystemFillColorNeutralBrush";
+
+        var usedTokens = session.InputTokens + session.OutputTokens;
+        var title = !string.IsNullOrEmpty(session.DisplayName)
+            ? session.DisplayName!
+            : (session.IsMain ? "Main" : "Sub");
+        var rightText = usedTokens > 0 ? $"{FormatTokenCount(usedTokens)} tokens" : session.Status;
+
+        var rowGrid = new Grid
+        {
+            Padding = new Thickness(24, 6, 12, 6),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnSpacing = 8,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(16) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
+            }
+        };
+        var hover = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+        var transparent = (Microsoft.UI.Xaml.Media.Brush)rowGrid.Background;
+        rowGrid.PointerEntered += (s, e) => rowGrid.Background = hover;
+        rowGrid.PointerExited += (s, e) => rowGrid.Background = transparent;
+
+        var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
+        {
+            Width = 8, Height = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Fill = GetStatusBrush(statusBrushKey)
+        };
+        Grid.SetColumn(dot, 0);
+        rowGrid.Children.Add(dot);
+
+        var titleText = new TextBlock
+        {
+            Text = title,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(titleText, 1);
+        rowGrid.Children.Add(titleText);
+
+        var rightCaption = new TextBlock
+        {
+            Text = rightText,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsTextSelectionEnabled = false
+        };
+        Grid.SetColumn(rightCaption, 2);
+        rowGrid.Children.Add(rightCaption);
+
+        AutomationProperties.SetName(rowGrid, $"{title}, {session.Status}, {rightText}");
+        rowGrid.Tapped += (s, ev) => ShowHub("sessions");
+        return rowGrid;
     }
 
     private static UIElement BuildSessionCard(SessionInfo session)
@@ -1577,40 +1859,41 @@ public partial class App : Application
 
         var grid = new Grid
         {
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(12, 8, 12, 8),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            RowSpacing = 2,
-            ColumnSpacing = 6
+            RowSpacing = 4,
+            ColumnSpacing = 8
         };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // status dot
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // model badge
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
 
-        // Row 0: status dot
+        // Row 0: status dot (theme-aware brush)
+        var statusBrushKey = isActive ? "SystemFillColorSuccessBrush"
+            : isIdle ? "SystemFillColorCautionBrush"
+            : "SystemFillColorNeutralBrush";
         var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
             VerticalAlignment = VerticalAlignment.Center,
-            Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                isActive ? Microsoft.UI.Colors.LimeGreen
-                : isIdle ? Microsoft.UI.Colors.Orange
-                : Microsoft.UI.Colors.Gray)
+            Fill = GetStatusBrush(statusBrushKey)
         };
+        AutomationProperties.SetName(dot, $"Session {session.Status}");
         Grid.SetRow(dot, 0);
         Grid.SetColumn(dot, 0);
         grid.Children.Add(dot);
 
-        // Row 0: session name
+        // Row 0: session name — explicit NoWrap (BodyStrong default is Wrap) + Caption for density
         var nameBlock = new TextBlock
         {
             Text = session.DisplayName ?? session.Key,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 12,
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
@@ -1618,35 +1901,30 @@ public partial class App : Application
         Grid.SetColumn(nameBlock, 1);
         grid.Children.Add(nameBlock);
 
-        // Row 0: model badge
-        if (!string.IsNullOrEmpty(session.Model))
-        {
-            var modelBadge = BuildBadge(session.Model);
-            Grid.SetRow(modelBadge, 0);
-            Grid.SetColumn(modelBadge, 2);
-            grid.Children.Add(modelBadge);
-        }
-
-        // Row 0: chevron
+        // Row 0: chevron — decorative, theme-aware secondary brush
         var chevron = new TextBlock
         {
             Text = "›",
-            FontSize = 14,
-            Opacity = 0.5,
+            Style = (Style)Application.Current.Resources["BodyTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
         Grid.SetRow(chevron, 0);
-        Grid.SetColumn(chevron, 3);
+        Grid.SetColumn(chevron, 2);
         grid.Children.Add(chevron);
 
-        // Row 1: token info + channel badge + status
+        // Row 1: model badge + token info + channel badge + status
         var row1 = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 6,
+            Spacing = 8,
             VerticalAlignment = VerticalAlignment.Center
         };
+        if (!string.IsNullOrEmpty(session.Model))
+        {
+            row1.Children.Add(BuildBadge(session.Model));
+        }
         var tokenText = usedTokens > 0
             ? $"{FormatTokenCount(usedTokens)}/{FormatTokenCount(contextTokens)} ({pct}%)"
             : "";
@@ -1655,7 +1933,7 @@ public partial class App : Application
             row1.Children.Add(new TextBlock
             {
                 Text = tokenText,
-                FontSize = 11,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                 Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 VerticalAlignment = VerticalAlignment.Center,
                 IsTextSelectionEnabled = false
@@ -1673,35 +1951,36 @@ public partial class App : Application
         row1.Children.Add(new TextBlock
         {
             Text = statusText,
-            FontSize = 11,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         });
         Grid.SetRow(row1, 1);
         Grid.SetColumn(row1, 1);
-        Grid.SetColumnSpan(row1, 3);
+        Grid.SetColumnSpan(row1, 2);
         grid.Children.Add(row1);
 
-        // Row 2: thin progress bar
+        // Row 2: thin progress bar — theme-aware foreground keyed on usage severity
         if (usedTokens > 0)
         {
+            var barBrushKey = pct > 80 ? "SystemFillColorCriticalBrush"
+                : pct > 50 ? "SystemFillColorCautionBrush"
+                : "SystemFillColorSuccessBrush";
             var bar = new ProgressBar
             {
                 Minimum = 0,
                 Maximum = 100,
                 Value = pct,
-                Height = 3,
+                Height = 4,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                CornerRadius = new CornerRadius(1.5),
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                    pct > 80 ? Microsoft.UI.Colors.Red
-                    : pct > 50 ? Microsoft.UI.Colors.Orange
-                    : Microsoft.UI.Colors.LimeGreen)
+                CornerRadius = new CornerRadius(2),
+                Foreground = GetStatusBrush(barBrushKey)
             };
+            AutomationProperties.SetName(bar, $"Context usage {pct} percent");
             Grid.SetRow(bar, 2);
             Grid.SetColumn(bar, 0);
-            Grid.SetColumnSpan(bar, 4);
+            Grid.SetColumnSpan(bar, 3);
             grid.Children.Add(bar);
         }
 
@@ -1776,10 +2055,10 @@ public partial class App : Application
 
         var grid = new Grid
         {
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(12, 8, 12, 8),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            RowSpacing = 2,
-            ColumnSpacing = 6
+            RowSpacing = 4,
+            ColumnSpacing = 8
         };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1788,25 +2067,26 @@ public partial class App : Application
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // platform badge
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // chevron
 
-        // Row 0: status dot
+        // Row 0: status dot (theme-aware)
         var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = 8, Height = 8,
             VerticalAlignment = VerticalAlignment.Center,
-            Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                node.IsOnline ? Microsoft.UI.Colors.LimeGreen : Microsoft.UI.Colors.Gray)
+            Fill = GetStatusBrush(node.IsOnline ? "SystemFillColorSuccessBrush" : "SystemFillColorNeutralBrush")
         };
+        AutomationProperties.SetName(dot, node.IsOnline ? "Online" : "Offline");
         Grid.SetRow(dot, 0);
         Grid.SetColumn(dot, 0);
         grid.Children.Add(dot);
 
-        // Row 0: device name
+        // Row 0: device name — explicit NoWrap (BodyStrong default is Wrap)
         var nameBlock = new TextBlock
         {
             Text = nodeName,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 12,
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
@@ -1823,12 +2103,12 @@ public partial class App : Application
             grid.Children.Add(badge);
         }
 
-        // Row 0: chevron
+        // Row 0: chevron — decorative, theme-aware
         var chevron = new TextBlock
         {
             Text = "›",
-            FontSize = 14,
-            Opacity = 0.5,
+            Style = (Style)Application.Current.Resources["BodyTextBlockStyle"],
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
         };
@@ -1836,7 +2116,7 @@ public partial class App : Application
         Grid.SetColumn(chevron, 3);
         grid.Children.Add(chevron);
 
-        // Row 1: capability icons + count + online/offline
+        // Row 1: status only (capability icons removed — covered by Capabilities section above)
         var row1 = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -1844,26 +2124,35 @@ public partial class App : Application
             VerticalAlignment = VerticalAlignment.Center
         };
 
-        // Capability emoji icons
-        var capIcons = new System.Text.StringBuilder();
-        if (node.Capabilities.Count > 0)
+        var statusLabel = node.IsOnline ? "Online" : "Offline";
+        var detailParts = new List<string> { statusLabel };
+        if (!string.IsNullOrEmpty(node.Mode)) detailParts.Add(node.Mode);
+
+        // Self device row shows OS + app version as a secondary detail line —
+        // matches macOS reference IA where the local device is identifiable at a glance.
+        var isLocalSelfNode = string.Equals(node.DisplayName, $"Windows Node ({Environment.MachineName})", StringComparison.OrdinalIgnoreCase);
+        if (isLocalSelfNode)
         {
-            foreach (var cap in node.Capabilities)
-            {
-                if (CapabilityIcons.TryGetValue(cap, out var icon))
-                    capIcons.Append(icon);
-            }
+            var osVersion = GetWindowsVersionLabel();
+            if (!string.IsNullOrEmpty(osVersion)) detailParts.Add(osVersion);
+            var appVersion = GetAppVersionLabel();
+            if (!string.IsNullOrEmpty(appVersion)) detailParts.Add($"app {appVersion}");
         }
-        var capText = capIcons.Length > 0
-            ? $"{capIcons} {node.CapabilityCount} caps"
-            : node.CapabilityCount > 0 ? $"{node.CapabilityCount} caps" : "";
-        var statusLabel = node.IsOnline ? "online" : "offline";
-        var row1Text = !string.IsNullOrEmpty(capText) ? $"{capText}  ·  {statusLabel}" : statusLabel;
+
+        if (node.LastSeen.HasValue && !node.IsOnline)
+        {
+            var age = DateTime.UtcNow - node.LastSeen.Value;
+            var seenText = age.TotalMinutes < 1 ? "just now"
+                : age.TotalHours < 1 ? $"{(int)age.TotalMinutes}m ago"
+                : age.TotalDays < 1 ? $"{(int)age.TotalHours}h ago"
+                : $"{(int)age.TotalDays}d ago";
+            detailParts.Add(seenText);
+        }
 
         row1.Children.Add(new TextBlock
         {
-            Text = row1Text,
-            FontSize = 11,
+            Text = string.Join(" · ", detailParts),
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
             VerticalAlignment = VerticalAlignment.Center,
             IsTextSelectionEnabled = false
@@ -1876,7 +2165,7 @@ public partial class App : Application
         return grid;
     }
 
-    private static List<TrayMenuFlyoutItem> BuildDeviceFlyoutItems(GatewayNodeInfo node)
+    private List<TrayMenuFlyoutItem> BuildDeviceFlyoutItems(GatewayNodeInfo node)
     {
         var nodeName = !string.IsNullOrWhiteSpace(node.DisplayName) ? node.DisplayName : node.ShortId;
         var items = new List<TrayMenuFlyoutItem>
@@ -1903,37 +2192,83 @@ public partial class App : Application
             items.Add(new() { Text = $"Last seen {seenText}" });
         }
 
-        // Capabilities + Commands merged — capability as header, commands as details
-        if (node.Capabilities.Count > 0 || node.Commands.Count > 0)
+        // ── Capability permissions (local self-node only) ──
+        // Settings (NodeCameraEnabled etc.) are app-local — they only apply to this device.
+        // Remote nodes get the read-only capability list below.
+        var isLocalSelfNode = _settings != null
+            && string.Equals(node.DisplayName, $"Windows Node ({Environment.MachineName})", StringComparison.OrdinalIgnoreCase);
+
+        if (isLocalSelfNode && _settings != null)
         {
+            items.Add(new() { Text = "Permissions", IsHeader = true });
+
+            var capToggles = new (string Key, string Label, string Tooltip, Func<bool> Get, Action<bool> Set)[]
+            {
+                ("system",   "Enable Windows node",   "Run a local node on this device so agents can act on it.",
+                    () => _settings.EnableNodeMode,          v => _settings.EnableNodeMode = v),
+                ("browser",  "Allow browser control", "Lets agents drive a web browser on this device.",
+                    () => _settings.NodeBrowserProxyEnabled, v => _settings.NodeBrowserProxyEnabled = v),
+                ("camera",   "Allow camera",          "Lets agents capture images from your camera.",
+                    () => _settings.NodeCameraEnabled,       v => _settings.NodeCameraEnabled = v),
+                ("canvas",   "Allow canvas",          "Lets agents render and capture the Canvas surface.",
+                    () => _settings.NodeCanvasEnabled,       v => _settings.NodeCanvasEnabled = v),
+                ("screen",   "Allow screen capture",  "Lets agents capture screenshots of this device.",
+                    () => _settings.NodeScreenEnabled,       v => _settings.NodeScreenEnabled = v),
+                ("location", "Allow location",        "Lets agents read this device's location.",
+                    () => _settings.NodeLocationEnabled,     v => _settings.NodeLocationEnabled = v),
+                ("tts",      "Allow voice (TTS)",     "Lets agents speak responses out loud.",
+                    () => _settings.NodeTtsEnabled,          v => _settings.NodeTtsEnabled = v),
+            };
+
+            var settings = _settings;
+            var connMgr = _connectionManager;
+            foreach (var (key, label, tooltip, get, set) in capToggles)
+            {
+                var icon = CapabilityIcons.TryGetValue(key, out var emoji) ? emoji : null;
+                items.Add(new TrayMenuFlyoutItem
+                {
+                    Text = label,
+                    Icon = icon,
+                    Tooltip = tooltip,
+                    IsCheck = true,
+                    IsChecked = get(),
+                    OnToggle = newState =>
+                    {
+                        set(newState);
+                        settings.Save();
+                        _ = connMgr?.ReconnectAsync();
+                    }
+                });
+            }
+        }
+        else if (node.Capabilities.Count > 0 || node.Commands.Count > 0)
+        {
+            // Remote device: read-only capability/command listing
             items.Add(new() { Text = $"Capabilities ({node.CapabilityCount}) · Commands ({node.CommandCount})", IsHeader = true });
 
             var cmdGroups = node.Commands
                 .GroupBy(c => c.Contains('.') ? c[..c.IndexOf('.')] : c, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.Select(c => c.Contains('.') ? c[(c.IndexOf('.') + 1)..] : c).ToList(), StringComparer.OrdinalIgnoreCase);
 
-            // Show each capability with its commands on separate lines
             var shownGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var cap in node.Capabilities)
             {
-                var icon = CapabilityIcons.TryGetValue(cap, out var emoji) ? emoji : "▪";
                 if (cmdGroups.TryGetValue(cap, out var cmds) && cmds.Count > 0)
                 {
-                    items.Add(new() { Text = $"{icon} {cap}" });
+                    items.Add(new() { Text = cap });
                     items.Add(new() { Text = $"    {string.Join(", ", cmds)}" });
                     shownGroups.Add(cap);
                 }
                 else
                 {
-                    items.Add(new() { Text = $"{icon} {cap}" });
+                    items.Add(new() { Text = cap });
                     shownGroups.Add(cap);
                 }
             }
 
-            // Show any command groups not covered by a capability
             foreach (var group in cmdGroups.Where(g => !shownGroups.Contains(g.Key)).OrderBy(g => g.Key))
             {
-                items.Add(new() { Text = $"▸ {group.Key}" });
+                items.Add(new() { Text = group.Key });
                 items.Add(new() { Text = $"    {string.Join(", ", group.Value)}" });
             }
         }
@@ -1941,18 +2276,48 @@ public partial class App : Application
         return items;
     }
 
+    private static string GetWindowsVersionLabel()
+    {
+        try
+        {
+            var ver = Environment.OSVersion.Version;
+            if (ver.Build >= 22000) return $"Windows 11";
+            if (ver.Major >= 10) return $"Windows 10";
+            return $"Windows {ver.Major}.{ver.Minor}";
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string GetAppVersionLabel()
+    {
+        try
+        {
+            var asm = typeof(App).Assembly;
+            var info = asm.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault();
+            if (info != null && !string.IsNullOrEmpty(info.InformationalVersion))
+            {
+                var v = info.InformationalVersion;
+                var plus = v.IndexOf('+');
+                return plus > 0 ? v[..plus] : v;
+            }
+            return asm.GetName().Version?.ToString(3) ?? string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+
     private static Border BuildBadge(string text)
     {
         return new Border
         {
             Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SubtleFillColorSecondaryBrush"],
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(5, 1, 5, 1),
+            CornerRadius = (CornerRadius)Application.Current.Resources["ControlCornerRadius"],
+            Padding = new Thickness(4, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
                 Text = text,
-                FontSize = 10,
+                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                 Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 IsTextSelectionEnabled = false
             }
