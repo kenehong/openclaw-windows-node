@@ -3528,7 +3528,10 @@ public partial class App : Application
             if (_trayMenuWindow == null || !_trayMenuWindow.IsShown) return;
             _trayMenuWindow.ClearItems();
             BuildTrayMenuPopup(_trayMenuWindow);
-            _trayMenuWindow.SizeToContent();
+            // Tray menu sits above the taskbar — when content shrinks/grows
+            // on rebuild, anchor the bottom edge so the menu doesn't appear
+            // to "jump up" away from the cursor / taskbar.
+            _trayMenuWindow.SizeToContentKeepBottom();
         }
         catch (Exception ex)
         {

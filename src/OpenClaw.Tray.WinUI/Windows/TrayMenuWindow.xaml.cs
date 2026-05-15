@@ -36,6 +36,9 @@ public sealed partial class TrayMenuWindow : WindowEx
     private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     [DllImport("user32.dll")]
@@ -909,6 +912,45 @@ public sealed partial class TrayMenuWindow : WindowEx
     /// <summary>
     /// Adjusts the window height to fit content and stores it for positioning.
     /// </summary>
+    /// <summary>
+    /// Re-measures content and resizes the window while keeping the bottom
+    /// edge anchored to its current screen position. Used when the menu is
+    /// rebuilt in place (e.g. after a connection toggle): tray menus sit
+    /// above the taskbar, so growing/shrinking upward feels more natural
+    /// than growing/shrinking downward into the taskbar.
+    /// </summary>
+    public void SizeToContentKeepBottom()
+    {
+        var oldPos = AppWindow.Position;
+        var oldSize = AppWindow.Size;
+        var oldBottom = oldPos.Y + oldSize.Height;
+
+        SizeToContent();
+
+        var newSize = AppWindow.Size;
+        var newY = oldBottom - newSize.Height;
+        // Keep within work area
+        if (TryGetCurrentMonitorWorkArea(out var workArea))
+        {
+            const int margin = 8;
+            newY = Math.Max(workArea.Top + margin, newY);
+            newY = Math.Min(workArea.Bottom - newSize.Height - margin, newY);
+        }
+        AppWindow.Move(new global::Windows.Graphics.PointInt32(oldPos.X, newY));
+        _lastMoveAndResizeRect = new global::Windows.Graphics.RectInt32(oldPos.X, newY, newSize.Width, newSize.Height);
+    }
+
+    private bool TryGetCurrentMonitorWorkArea(out RECT workArea)
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (hMonitor == IntPtr.Zero) { workArea = default; return false; }
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(hMonitor, ref info)) { workArea = default; return false; }
+        workArea = info.rcWork;
+        return true;
+    }
+
     public void SizeToContent() => SizeToContent(MenuWidthViewUnits);
 
     /// <summary>
