@@ -2002,6 +2002,7 @@ public partial class App : Application
                 items.Add(BuildKvRow("Devices", devicePending.ToString(), secondaryText, captionStyle));
         }
 
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 10 } });
         return items;
     }
 
@@ -2615,6 +2616,7 @@ public partial class App : Application
             }
         }
 
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 10 } });
         return items;
     }
 
