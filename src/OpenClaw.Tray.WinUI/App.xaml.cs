@@ -10,7 +10,7 @@ using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using OpenClawTray.Windows;
 using OpenClawTray.Onboarding;
-using OpenClawTray.Services.Connection;
+using OpenClaw.Connection;
 using OpenClawTray.Services.LocalGatewaySetup;
 using System;
 using System.Collections.Frozen;
@@ -78,7 +78,32 @@ public partial class App : Application
     /// Ensures the managed SSH tunnel is started using the current settings.
     /// Used by the onboarding ConnectionPage when the user picks the SSH topology.
     /// </summary>
-    public void EnsureSshTunnelStarted() => _sshTunnelService?.EnsureStarted(_settings);
+    public void EnsureSshTunnelStarted()
+    {
+        if (_sshTunnelService == null || _settings == null)
+            return;
+
+        if (!_settings.UseSshTunnel)
+        {
+            _sshTunnelService.ResetNotConfigured();
+            return;
+        }
+
+        var includeBrowserProxyForward =
+            _settings.NodeBrowserProxyEnabled &&
+            SshTunnelCommandLine.CanForwardBrowserProxyPort(_settings.SshTunnelRemotePort, _settings.SshTunnelLocalPort);
+        if (_settings.NodeBrowserProxyEnabled && !includeBrowserProxyForward)
+        {
+            Logger.Warn("SSH tunnel browser proxy forward disabled because the derived port would be invalid");
+        }
+
+        _sshTunnelService.EnsureStarted(
+            _settings.SshTunnelUser,
+            _settings.SshTunnelHost,
+            _settings.SshTunnelRemotePort,
+            _settings.SshTunnelLocalPort,
+            includeBrowserProxyForward);
+    }
 
     /// <summary>
     /// Creates the WSL local gateway setup engine using the current tray settings.
@@ -147,7 +172,7 @@ public partial class App : Application
             : IntPtr.Zero;
 
     private SettingsManager? _settings;
-    private SettingsData? _previousSettingsSnapshot;
+    private ConnectionSettingsSnapshot? _previousSettingsSnapshot;
     private SshTunnelService? _sshTunnelService;
     private GlobalHotkeyService? _globalHotkey;
     private Mutex? _mutex;
@@ -517,6 +542,8 @@ public partial class App : Application
         catch { }
     }
 
+    private void OnUiThread(Microsoft.UI.Dispatching.DispatcherQueueHandler action) => _dispatcherQueue?.TryEnqueue(action);
+
     /// <summary>
     /// Check if the app was launched via protocol activation (MSIX deep link).
     /// In WinUI 3, protocol activation is retrieved via AppInstance, not OnActivated.
@@ -596,7 +623,7 @@ public partial class App : Application
 
         // Initialize settings before update check so skip selections can be remembered.
         _settings = new SettingsManager();
-        _previousSettingsSnapshot = _settings.ToSettingsData();
+        _previousSettingsSnapshot = _settings.ToSettingsData().ToConnectionSnapshot();
         _chatCoordinator = new OpenClawTray.Chat.OpenClawChatCoordinator(
             _settings,
             () => _nodeService,
@@ -680,24 +707,29 @@ public partial class App : Application
         {
             try
             {
+                diagnostics.Record("node", $"ClientCreated fired, _nodeService null={_nodeService is null}");
                 _nodeService?.AttachClient(args.Client, args.BearerToken);
+                var client = args.Client;
+                diagnostics.Record("node", $"After AttachClient: caps={client.Capabilities.Count}, cmds={client.RegisteredCommandCount}");
+                if (client.RegisteredCommandCount > 0)
+                    diagnostics.Record("node", $"Commands sample: {string.Join(", ", client.RegisteredCommandsSample)}...");
+                else
+                    diagnostics.Record("node", "WARNING: 0 commands registered on node client before connect");
             }
             catch (Exception ex)
             {
                 Logger.Warn($"[App] NodeConnector.ClientCreated handler failed: {ex.Message}");
+                diagnostics.Record("node", $"ClientCreated handler THREW: {ex.Message}");
             }
         };
-        // Wrap the SSH tunnel service so the connection manager can start/stop the tunnel
-        var tunnelManager = _sshTunnelService != null
-            ? new SshTunnelManager(_sshTunnelService, appLogger)
-            : null;
+        // SshTunnelService implements ISshTunnelManager directly — no shim needed
         _connectionManager = new GatewayConnectionManager(
             credentialResolver, clientFactory, _gatewayRegistry, appLogger,
             identityStore: new DeviceIdentityFileStore(appLogger),
             nodeConnector: nodeConnector,
             isNodeEnabled: ShouldInitializeNodeService,
             diagnostics: diagnostics,
-            tunnelManager: tunnelManager,
+            tunnelManager: _sshTunnelService,
             shouldStartNodeConnection: ShouldInitializeNodeService);
         _connectionManager.OperatorClientChanged += OnOperatorClientChanged;
         _connectionManager.StateChanged += OnManagerStateChanged;
@@ -918,7 +950,7 @@ public partial class App : Application
             // Wire Settings button → open the Hub on the Voice & Audio page.
             _voiceOverlayWindow.SettingsRequested += () =>
             {
-                _dispatcherQueue?.TryEnqueue(() => ShowHub("voice"));
+                OnUiThread(() => ShowHub("voice"));
             };
         }
 
@@ -2834,7 +2866,7 @@ public partial class App : Application
         return true;
     }
 
-    private OpenClawTray.Services.Connection.GatewayCredential? ResolveStartupOperatorCredential(GatewayRecord record)
+    private OpenClaw.Connection.GatewayCredential? ResolveStartupOperatorCredential(GatewayRecord record)
     {
         if (_gatewayRegistry == null)
             return null;
@@ -2986,7 +3018,10 @@ public partial class App : Application
             client.AgentFilesListUpdated += OnAgentFilesListUpdated;
             client.AgentFileContentUpdated += OnAgentFileContentUpdated;
 
-            _chatCoordinator?.SetOperatorClient(client);
+            var concreteClient = client as OpenClawGatewayClient;
+            if (concreteClient == null)
+                Logger.Warn("[ConnMgr] NewClient is not OpenClawGatewayClient — chat coordinator disabled");
+            _chatCoordinator?.SetOperatorClient(concreteClient);
         }
         else
         {
@@ -2998,7 +3033,7 @@ public partial class App : Application
         _lastGatewaySelf = null;
 
         // Update UI references
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             if (_hubWindow != null && !_hubWindow.IsClosed)
             {
@@ -3035,7 +3070,7 @@ public partial class App : Application
         };
 
         _currentStatus = mapped;
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateStatus(mapped);
             UpdateTrayIcon();
@@ -3075,6 +3110,7 @@ public partial class App : Application
                 identityDataPath: IdentityDataPath);
             _nodeService.StatusChanged += OnNodeStatusChanged;
             _nodeService.NotificationRequested += OnNodeNotificationRequested;
+            _nodeService.ToastRequested += OnNodeToastRequested;
             _nodeService.PairingStatusChanged += OnPairingStatusChanged;
             _nodeService.ChannelHealthUpdated += OnChannelHealthUpdated;
             _nodeService.InvokeCompleted += OnNodeInvokeCompleted;
@@ -3267,7 +3303,7 @@ public partial class App : Application
             // Status field is maintained by OnManagerStateChanged — no write needed here.
             _hubWindow?.UpdateStatus(status);
             UpdateTrayIcon();
-            _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+            OnUiThread(UpdateStatusDetailWindow);
         }
 
         // Keep hub node state in sync for ConnectionPage
@@ -3437,6 +3473,10 @@ public partial class App : Application
         }
     }
 
+    private void OnNodeToastRequested(object? sender, Microsoft.Toolkit.Uwp.Notifications.ToastContentBuilder builder)
+        => OnUiThread(() =>
+            NonFatalAction.Run(() => ShowToast(builder), msg => Logger.Warn($"Failed to show node toast: {msg}")));
+
     private void OnNodeInvokeCompleted(object? sender, NodeInvokeCompletedEventArgs args)
     {
         var status = args.Ok ? "completed" : "failed";
@@ -3452,7 +3492,7 @@ public partial class App : Application
             details: details,
             nodeId: args.NodeId);
 
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        OnUiThread(UpdateStatusDetailWindow);
     }
 
     private static string GetNodeInvokePrivacyClass(string command)
@@ -3515,6 +3555,8 @@ public partial class App : Application
             _dispatcherQueue?.TryEnqueue(RefreshTrayMenuIfOpen);
         }
 
+        OnUiThread(UpdateStatusDetailWindow);
+        
         if (status == ConnectionStatus.Connected)
         {
             _ = RunHealthCheckAsync();
@@ -3663,7 +3705,7 @@ public partial class App : Application
             AddRecentActivity("Channel health updated", category: "channel", dashboardPath: "channels", details: summary);
         }
 
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateChannelHealth(channels);
             _hubWindow?.UpdateStatus(_currentStatus);
@@ -3673,9 +3715,9 @@ public partial class App : Application
     private void OnSessionsUpdated(object? sender, SessionInfo[] sessions)
     {
         _lastSessions = sessions;
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        OnUiThread(UpdateStatusDetailWindow);
 
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateSessions(sessions);
         });
@@ -3701,7 +3743,7 @@ public partial class App : Application
     private void OnUsageUpdated(object? sender, GatewayUsageInfo usage)
     {
         _lastUsage = usage;
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateUsage(usage);
         });
@@ -3710,7 +3752,7 @@ public partial class App : Application
     private void OnUsageStatusUpdated(object? sender, GatewayUsageStatusInfo usageStatus)
     {
         _lastUsageStatus = usageStatus;
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateUsageStatus(usageStatus);
         });
@@ -3719,9 +3761,9 @@ public partial class App : Application
     private void OnUsageCostUpdated(object? sender, GatewayCostUsageInfo usageCost)
     {
         _lastUsageCost = usageCost;
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        OnUiThread(UpdateStatusDetailWindow);
 
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateUsageCost(usageCost);
         });
@@ -3750,7 +3792,7 @@ public partial class App : Application
             stateVersionHealth = _lastGatewaySelf.StateVersionHealth,
             presenceCount = _lastGatewaySelf.PresenceCount
         });
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             UpdateStatusDetailWindow();
             _hubWindow?.UpdateGatewaySelf(_lastGatewaySelf);
@@ -3763,9 +3805,9 @@ public partial class App : Application
         var previousOnline = _lastNodes.Count(n => n.IsOnline);
         var online = nodes.Count(n => n.IsOnline);
         _lastNodes = nodes;
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        OnUiThread(UpdateStatusDetailWindow);
 
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _hubWindow?.UpdateNodes(nodes);
         });
@@ -3788,14 +3830,12 @@ public partial class App : Application
                 _sessionPreviews[preview.Key] = preview;
             }
         }
-        _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        OnUiThread(UpdateStatusDetailWindow);
     }
 
     private void OnSessionCommandCompleted(object? sender, SessionCommandResult result)
     {
-        if (_dispatcherQueue == null) return;
-
-        _dispatcherQueue.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             try
             {
@@ -3837,32 +3877,32 @@ public partial class App : Application
 
     private void OnCronListUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateCronList(data));
+        OnUiThread(() => _hubWindow?.UpdateCronList(data));
     }
 
     private void OnCronStatusUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateCronStatus(data));
+        OnUiThread(() => _hubWindow?.UpdateCronStatus(data));
     }
 
     private void OnCronRunsUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateCronRuns(data));
+        OnUiThread(() => _hubWindow?.UpdateCronRuns(data));
     }
 
     private void OnSkillsStatusUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateSkillsStatus(data));
+        OnUiThread(() => _hubWindow?.UpdateSkillsStatus(data));
     }
 
     private void OnConfigUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfig(data));
+        OnUiThread(() => _hubWindow?.UpdateConfig(data));
     }
 
     private void OnConfigSchemaUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateConfigSchema(data));
+        OnUiThread(() => _hubWindow?.UpdateConfigSchema(data));
     }
 
     private System.Text.Json.JsonElement? _lastAgentsList;
@@ -3870,22 +3910,22 @@ public partial class App : Application
     private void OnAgentsListUpdated(object? sender, System.Text.Json.JsonElement data)
     {
         _lastAgentsList = data.Clone();
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateAgentsList(data));
+        OnUiThread(() => _hubWindow?.UpdateAgentsList(data));
     }
 
     private void OnAgentFilesListUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateAgentFilesList(data));
+        OnUiThread(() => _hubWindow?.UpdateAgentFilesList(data));
     }
 
     private void OnAgentFileContentUpdated(object? sender, System.Text.Json.JsonElement data)
     {
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateAgentFileContent(data));
+        OnUiThread(() => _hubWindow?.UpdateAgentFileContent(data));
     }
 
     private void OnAgentEventReceived(object? sender, AgentEventInfo evt)
     {
-        _dispatcherQueue?.TryEnqueue(() =>
+        OnUiThread(() =>
         {
             _agentEventsCache.Insert(0, evt);
             if (_agentEventsCache.Count > MaxAppAgentEvents)
@@ -3897,25 +3937,25 @@ public partial class App : Application
     private void OnNodePairListUpdated(object? sender, PairingListInfo data)
     {
         _lastNodePairList = data;
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateNodePairList(data));
+        OnUiThread(() => _hubWindow?.UpdateNodePairList(data));
     }
 
     private void OnDevicePairListUpdated(object? sender, DevicePairingListInfo data)
     {
         _lastDevicePairList = data;
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateDevicePairList(data));
+        OnUiThread(() => _hubWindow?.UpdateDevicePairList(data));
     }
 
     private void OnModelsListUpdated(object? sender, ModelsListInfo data)
     {
         _lastModelsList = data;
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdateModelsList(data));
+        OnUiThread(() => _hubWindow?.UpdateModelsList(data));
     }
 
     private void OnPresenceUpdated(object? sender, PresenceEntry[] data)
     {
         _lastPresence = data;
-        _dispatcherQueue?.TryEnqueue(() => _hubWindow?.UpdatePresence(data));
+        OnUiThread(() => _hubWindow?.UpdatePresence(data));
     }
 
     private void OnNotificationReceived(object? sender, OpenClawNotification notification)
@@ -3933,7 +3973,7 @@ public partial class App : Application
         {
             if (_voiceOverlayWindow != null)
             {
-                _dispatcherQueue?.TryEnqueue(() =>
+                OnUiThread(() =>
                 {
                     try
                     {
@@ -4039,7 +4079,7 @@ public partial class App : Application
             if (_settings?.EnableNodeMode == true && _nodeService?.IsConnected == true)
             {
                 _lastCheckTime = DateTime.Now;
-                _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+                OnUiThread(UpdateStatusDetailWindow);
                 if (userInitiated)
                 {
                     ShowToast(new ToastContentBuilder()
@@ -4119,45 +4159,20 @@ public partial class App : Application
         _trayIcon.Tooltip = tooltip;
     }
 
-    private string BuildTrayTooltip()
+    private string BuildTrayTooltip() =>
+        new TrayTooltipBuilder(CaptureTraySnapshot()).Build();
+
+    private TrayStateSnapshot CaptureTraySnapshot() => new TrayStateSnapshot
     {
-        var topology = GatewayTopologyClassifier.Classify(
-            _settings?.GatewayUrl,
-            _settings?.UseSshTunnel == true,
-            _settings?.SshTunnelHost,
-            _settings?.SshTunnelLocalPort ?? 0,
-            _settings?.SshTunnelRemotePort ?? 0);
-        var channelReady = _lastChannels.Count(c => ChannelHealth.IsHealthyStatus(c.Status));
-        var nodeOnline = _lastNodes.Count(n => n.IsOnline);
-        var nodeTotal = _lastNodes.Length;
-        if (nodeTotal == 0 && _nodeService?.GetLocalNodeInfo() is { } localNode)
-        {
-            nodeTotal = 1;
-            nodeOnline = localNode.IsOnline ? 1 : 0;
-        }
-
-        var warningCount = 0;
-        if (_currentStatus != ConnectionStatus.Connected)
-            warningCount++;
-        if (_authFailureMessage != null)
-            warningCount++;
-        if (_lastChannels.Length == 0 && _currentStatus == ConnectionStatus.Connected)
-            warningCount++;
-
-        var tooltip = $"OpenClaw Tray - {_currentStatus}; " +
-            $"{topology.DisplayName}; " +
-            $"Channels {channelReady}/{_lastChannels.Length}; " +
-            $"Nodes {nodeOnline}/{nodeTotal}; " +
-            $"Warnings {warningCount}; " +
-            $"Last {_lastCheckTime:HH:mm:ss}";
-
-        if (_currentActivity != null && !string.IsNullOrEmpty(_currentActivity.DisplayText))
-        {
-            tooltip = $"OpenClaw Tray - {_currentActivity.DisplayText}; {_currentStatus}";
-        }
-
-        return TrayTooltipFormatter.FitShellTooltip(tooltip);
-    }
+        Status = _currentStatus,
+        CurrentActivity = _currentActivity,
+        Channels = _lastChannels,
+        Nodes = _lastNodes,
+        LocalNodeFallback = _nodeService?.GetLocalNodeInfo(),
+        AuthFailureMessage = _authFailureMessage,
+        LastCheckTime = _lastCheckTime,
+        Settings = _settings
+    };
 
     #endregion
 
@@ -4290,7 +4305,7 @@ public partial class App : Application
 
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
-        var currentSnapshot = _settings?.ToSettingsData();
+        var currentSnapshot = _settings?.ToSettingsData()?.ToConnectionSnapshot();
         var impact = SettingsChangeClassifier.Classify(_previousSettingsSnapshot, currentSnapshot);
         _previousSettingsSnapshot = currentSnapshot;
         Logger.Info($"[SETTINGS] Change impact: {impact}");
@@ -4537,7 +4552,7 @@ public partial class App : Application
         LastUpdateInfo = _lastUpdateInfo,
         Settings = _settings,
         NodeService = _nodeService,
-        SshTunnelService = _sshTunnelService,
+        SshTunnelSnapshot = _sshTunnelService?.CreateSnapshot(),
         HasGatewayClient = _connectionManager?.OperatorClient != null
     };
 
@@ -4721,10 +4736,12 @@ public partial class App : Application
             return false;
 
         if (!InteractiveGatewayCredentialResolver.TryResolve(
-            _settings,
             _gatewayRegistry,
             SettingsManager.SettingsDirectoryPath,
             DeviceIdentityFileReader.Instance,
+            _settings.GetEffectiveGatewayUrl(),
+            _settings.LegacyToken,
+            _settings.LegacyBootstrapToken,
             out var credential) ||
             credential == null)
         {
@@ -4744,8 +4761,16 @@ public partial class App : Application
     {
         if (_settings == null) return;
         if (!EnsureSshTunnelConfigured()) return;
-        
-        var baseUrl = _settings.GetEffectiveGatewayUrl()
+
+        if (!TryResolveChatCredentials(out var gatewayUrl, out var token, out var credentialSource, out var isBootstrapToken))
+        {
+            ShowConnectionSettingsForPairingIssue(
+                "Dashboard",
+                "Gateway URL or credential is not configured");
+            return;
+        }
+
+        var baseUrl = gatewayUrl
             .Replace("ws://", "http://")
             .Replace("wss://", "https://")
             .TrimEnd('/');
@@ -4754,11 +4779,12 @@ public partial class App : Application
             ? baseUrl
             : $"{baseUrl}/{path.TrimStart('/')}";
 
-        var activeToken = _gatewayRegistry?.GetActive()?.SharedGatewayToken;
-        if (!string.IsNullOrEmpty(activeToken))
+        if (!isBootstrapToken &&
+            credentialSource == CredentialResolver.SourceSharedGatewayToken &&
+            !string.IsNullOrEmpty(token))
         {
             var separator = url.Contains('?') ? "&" : "?";
-            url = $"{url}{separator}token={Uri.EscapeDataString(activeToken)}";
+            url = $"{url}{separator}token={Uri.EscapeDataString(token)}";
         }
 
         try
@@ -4915,14 +4941,12 @@ public partial class App : Application
 
     private void OnVoiceHotkeyPressed(object? sender, EventArgs e)
     {
-        if (_dispatcherQueue == null) return;
-        _dispatcherQueue.TryEnqueue(() => ShowVoiceOverlay());
+        OnUiThread(() => ShowVoiceOverlay());
     }
 
     private void OnSettingsHotkeyPressed(object? sender, EventArgs e)
     {
-        if (_dispatcherQueue == null) return;
-        _dispatcherQueue.TryEnqueue(() => ShowHub("companion"));
+        OnUiThread(() => ShowHub("companion"));
     }
 
     #endregion
@@ -5094,7 +5118,7 @@ public partial class App : Application
                     if (!string.IsNullOrEmpty(uri))
                     {
                         Logger.Info($"Received deep link via IPC: {uri}");
-                        _dispatcherQueue?.TryEnqueue(() => HandleDeepLink(uri));
+                        OnUiThread(() => HandleDeepLink(uri));
                     }
                 }
                 catch (OperationCanceledException)
@@ -5194,7 +5218,7 @@ public partial class App : Application
         
         if (arguments.TryGetValue("action", out var action))
         {
-            _dispatcherQueue?.TryEnqueue(() =>
+            OnUiThread(() =>
             {
                 switch (action)
                 {
@@ -5373,7 +5397,15 @@ public partial class App : Application
             try
             {
                 _sshTunnelService ??= new SshTunnelService(new AppLogger());
-                _sshTunnelService.EnsureStarted(_settings);
+                var includeBrowserProxy =
+                    _settings.NodeBrowserProxyEnabled &&
+                    SshTunnelCommandLine.CanForwardBrowserProxyPort(_settings.SshTunnelRemotePort, _settings.SshTunnelLocalPort);
+                _sshTunnelService.EnsureStarted(
+                    _settings.SshTunnelUser,
+                    _settings.SshTunnelHost,
+                    _settings.SshTunnelRemotePort,
+                    _settings.SshTunnelLocalPort,
+                    includeBrowserProxy);
                 DiagnosticsJsonlService.Write("tunnel.ensure_started", new
                 {
                     status = _sshTunnelService.Status.ToString(),
@@ -5417,7 +5449,15 @@ public partial class App : Application
         {
             try
             {
-                _sshTunnelService.EnsureStarted(_settings);
+                var restartBrowserProxy =
+                    _settings.NodeBrowserProxyEnabled &&
+                    SshTunnelCommandLine.CanForwardBrowserProxyPort(_settings.SshTunnelRemotePort, _settings.SshTunnelLocalPort);
+                _sshTunnelService.EnsureStarted(
+                    _settings.SshTunnelUser,
+                    _settings.SshTunnelHost,
+                    _settings.SshTunnelRemotePort,
+                    _settings.SshTunnelLocalPort,
+                    restartBrowserProxy);
                 Logger.Info("SSH tunnel restarted successfully");
                 DiagnosticsJsonlService.Write("tunnel.restart_succeeded", new
                 {
