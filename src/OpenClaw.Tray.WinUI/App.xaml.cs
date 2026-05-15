@@ -1325,6 +1325,11 @@ public partial class App : Application
             OffContent = string.Empty,
             VerticalAlignment = VerticalAlignment.Center,
             MinWidth = 0,
+            // Fixed width clips the (now-empty) on/off label area so the
+            // visible track + thumb right-aligns with the chevrons on the
+            // rows below. Default ToggleSwitch reserves ~80px label area.
+            Width = 40,
+            HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0)
         };
         // Only allow toggling when fully Connected or Disconnected; suppress
