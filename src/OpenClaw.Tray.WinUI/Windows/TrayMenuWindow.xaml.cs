@@ -288,6 +288,23 @@ public sealed partial class TrayMenuWindow : WindowEx
 
         const int overlap = 2;
         const int margin = 8;
+
+        // Cap the submenu height so the window always fits inside the work
+        // area with breathing room on both sides. If we let submenuHeightPx
+        // equal the full work area (CalculateWindowHeight's natural cap), the
+        // y-clamp anchors the top at workArea.Top + margin and the bottom
+        // spills `margin` pixels past workArea.Bottom — last row gets clipped
+        // under the taskbar. By clamping height first, the ScrollViewer inside
+        // the window can scroll instead.
+        var maxSubmenuHeightPx = (workArea.Bottom - workArea.Top) - (margin * 2);
+        if (maxSubmenuHeightPx < 100) maxSubmenuHeightPx = 100;
+        if (submenuHeightPx > maxSubmenuHeightPx)
+        {
+            submenuHeightPx = maxSubmenuHeightPx;
+            _menuHeight = MenuSizingHelper.ConvertPixelsToViewUnits(submenuHeightPx, dpi);
+            this.SetWindowSize(SubmenuWidthViewUnits, _menuHeight);
+        }
+
         var roomRight = workArea.Right - parentRect.Right;
         var roomLeft = parentRect.Left - workArea.Left;
         var openRight = roomRight >= submenuWidthPx + margin || roomRight >= roomLeft;
