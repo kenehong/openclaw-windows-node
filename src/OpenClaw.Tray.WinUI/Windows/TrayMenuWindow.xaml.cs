@@ -22,6 +22,7 @@ namespace OpenClawTray.Windows;
 public sealed partial class TrayMenuWindow : WindowEx
 {
     private const int MenuWidthViewUnits = 320;
+    private const int SubmenuWidthViewUnits = 280;
 
     #region Win32 Imports
     [DllImport("user32.dll")]
@@ -281,8 +282,8 @@ public sealed partial class TrayMenuWindow : WindowEx
 
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var dpi = GetEffectiveMonitorDpi(hMonitor, hwnd);
-        SizeToContent(monitorInfo.rcWork.Bottom - monitorInfo.rcWork.Top, dpi);
-        var submenuWidthPx = ConvertViewUnitsToPixels(280, dpi);
+        SizeToContent(monitorInfo.rcWork.Bottom - monitorInfo.rcWork.Top, dpi, SubmenuWidthViewUnits);
+        var submenuWidthPx = ConvertViewUnitsToPixels(SubmenuWidthViewUnits, dpi);
         var submenuHeightPx = ConvertViewUnitsToPixels(_menuHeight, dpi);
 
         const int overlap = 2;
@@ -889,25 +890,37 @@ public sealed partial class TrayMenuWindow : WindowEx
     }
 
     /// <summary>
-    /// Adjusts the window height to fit content and stores it for positioning
+    /// Adjusts the window height to fit content and stores it for positioning.
     /// </summary>
-    public void SizeToContent()
+    public void SizeToContent() => SizeToContent(MenuWidthViewUnits);
+
+    /// <summary>
+    /// Measures content at the given target width. Submenu flyouts are
+    /// rendered at <see cref="SubmenuWidthViewUnits"/> (narrower than the
+    /// root menu); measuring at the wrong width causes text-wrap-aware
+    /// content (long permission descriptions, etc.) to be under-estimated
+    /// and clipped at the bottom of the flyout window.
+    /// </summary>
+    public void SizeToContent(int widthViewUnits)
     {
         if (TryGetCurrentMonitorMetrics(out var workAreaHeightPx, out var dpi))
         {
-            SizeToContent(workAreaHeightPx, dpi);
+            SizeToContent(workAreaHeightPx, dpi, widthViewUnits);
             return;
         }
 
-        SizeToContent(0, 96);
+        SizeToContent(0, 96, widthViewUnits);
     }
 
     private void SizeToContent(int workAreaHeightPx, uint dpi)
+        => SizeToContent(workAreaHeightPx, dpi, MenuWidthViewUnits);
+
+    private void SizeToContent(int workAreaHeightPx, uint dpi, int widthViewUnits)
     {
         PrepareLayoutForMeasurement(dpi);
 
         // Measure the actual content size instead of estimating
-        MenuPanel.Measure(new global::Windows.Foundation.Size(MenuWidthViewUnits, double.PositiveInfinity));
+        MenuPanel.Measure(new global::Windows.Foundation.Size(widthViewUnits, double.PositiveInfinity));
         var desiredHeight = MenuPanel.DesiredSize.Height;
         
         // Add border chrome (1px border top+bottom = 2px, plus small rounding buffer)
@@ -920,7 +933,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             _menuHeight = MenuSizingHelper.CalculateWindowHeight(_menuHeight, workAreaHeight);
         }
 
-        this.SetWindowSize(MenuWidthViewUnits, _menuHeight);
+        this.SetWindowSize(widthViewUnits, _menuHeight);
         ApplyRoundedWindowRegion();
     }
 
@@ -1113,8 +1126,9 @@ public sealed partial class TrayMenuWindow : WindowEx
         // before ShowAdjacentTo computes the y clamp. Without this, the very
         // first show of a tall flyout (e.g. Permissions with 8 toggles) uses
         // a stale _menuHeight and the bottom rows get clipped under the
-        // taskbar.
-        flyoutWindow.SizeToContent();
+        // taskbar. Measure at the submenu width so text-wrap-aware content
+        // is sized for the *actual* rendered width.
+        flyoutWindow.SizeToContent(SubmenuWidthViewUnits);
 
         flyoutWindow.ShowAdjacentTo(ownerButton);
     }

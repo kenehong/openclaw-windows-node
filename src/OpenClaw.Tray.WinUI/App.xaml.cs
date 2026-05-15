@@ -1692,7 +1692,7 @@ public partial class App : Application
             "Dictate input by speaking",
             () => settings.NodeSttEnabled, v => settings.NodeSttEnabled = v);
 
-        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 10 } });
         return items;
     }
 
@@ -2074,7 +2074,7 @@ public partial class App : Application
             items.Add(new() { CustomContent = card });
         }
 
-        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 10 } });
         return items;
     }
 
@@ -2417,7 +2417,7 @@ public partial class App : Application
             }
         }
 
-        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 10 } });
         return items;
     }
 
