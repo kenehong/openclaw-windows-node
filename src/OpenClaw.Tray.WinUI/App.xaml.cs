@@ -1319,8 +1319,10 @@ public partial class App : Application
         var connectionToggle = new ToggleSwitch
         {
             IsOn = isConnected,
-            OnContent = "Connected",
-            OffContent = "Disconnected",
+            // Empty on/off labels — the brand-bar dot + gateway row already
+            // communicate state, and the toggle itself is self-explanatory.
+            OnContent = string.Empty,
+            OffContent = string.Empty,
             VerticalAlignment = VerticalAlignment.Center,
             MinWidth = 0,
             Margin = new Thickness(0)
@@ -3465,10 +3467,35 @@ public partial class App : Application
         UpdateTrayIcon();
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
         _dispatcherQueue?.TryEnqueue(() => SyncConnectionToggle(status));
-        
+        // When the tray menu is currently open and the connection reaches a
+        // terminal state, rebuild it in place so dependent rows (gateway dot,
+        // sessions, usage, permissions) reflect the new state without the
+        // user having to close & reopen the menu.
+        if (status == ConnectionStatus.Connected
+            || status == ConnectionStatus.Disconnected
+            || status == ConnectionStatus.Error)
+        {
+            _dispatcherQueue?.TryEnqueue(RefreshTrayMenuIfOpen);
+        }
+
         if (status == ConnectionStatus.Connected)
         {
             _ = RunHealthCheckAsync();
+        }
+    }
+
+    private void RefreshTrayMenuIfOpen()
+    {
+        try
+        {
+            if (_trayMenuWindow == null || !_trayMenuWindow.IsShown) return;
+            _trayMenuWindow.ClearItems();
+            BuildTrayMenuPopup(_trayMenuWindow);
+            _trayMenuWindow.SizeToContent();
+        }
+        catch (Exception ex)
+        {
+            LogCrash("RefreshTrayMenuIfOpen", ex);
         }
     }
 
