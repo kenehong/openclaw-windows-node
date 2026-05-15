@@ -1286,7 +1286,7 @@ public partial class App : Application
         // ── Brand Header with Disconnect/Connect on the right ──
         var brandGrid = new Grid
         {
-            Padding = new Thickness(14, 10, 14, 8),
+            Padding = new Thickness(12, 10, 12, 8),
             ColumnSpacing = 8
         };
         brandGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1503,7 +1503,7 @@ public partial class App : Application
         }
 
         // Tap the gateway block to open connection settings (button has its own click handler)
-        gwOuter.Padding = new Thickness(14, 6, 14, 8);
+        gwOuter.Padding = new Thickness(12, 6, 12, 8);
 
         AutomationProperties.SetName(gwOuter,
             $"Gateway {statusText}. Activate to open connection settings.");
@@ -2117,7 +2117,7 @@ public partial class App : Application
 
         var outer = new StackPanel
         {
-            Padding = new Thickness(14, 8, 14, 10),
+            Padding = new Thickness(12, 8, 12, 10),
             Spacing = 4,
             Margin = new Thickness(0, 0, 0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -2281,7 +2281,7 @@ public partial class App : Application
         {
             var totalsCard = new StackPanel
             {
-                Padding = new Thickness(14, 8, 14, 10),
+                Padding = new Thickness(12, 8, 12, 10),
                 Spacing = 2,
                 MinWidth = 260
             };
@@ -2326,7 +2326,7 @@ public partial class App : Application
             {
                 var provCard = new StackPanel
                 {
-                    Padding = new Thickness(14, 6, 14, 8),
+                    Padding = new Thickness(12, 6, 12, 8),
                     Spacing = 3,
                     MinWidth = 260
                 };
@@ -2412,7 +2412,7 @@ public partial class App : Application
             {
                 var row = new Grid
                 {
-                    Padding = new Thickness(14, 4, 14, 4),
+                    Padding = new Thickness(12, 4, 12, 4),
                     ColumnSpacing = 8,
                     MinWidth = 260
                 };

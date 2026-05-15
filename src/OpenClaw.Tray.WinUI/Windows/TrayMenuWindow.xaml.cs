@@ -503,7 +503,10 @@ public sealed partial class TrayMenuWindow : WindowEx
         {
             Text = text,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Padding = new Thickness(14, 12, 14, 8),
+            // Horizontal padding 12 matches BuildItemRow's leftPad and the
+            // sub-flyout cards (KvRow/statusCard) so headers don't appear
+            // indented 2 px further right than the body below them.
+            Padding = new Thickness(12, 12, 12, 8),
             Opacity = 0.7
         };
         AutomationProperties.SetHeadingLevel(tb, AutomationHeadingLevel.Level2);
