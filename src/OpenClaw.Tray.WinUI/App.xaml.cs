@@ -3526,12 +3526,22 @@ public partial class App : Application
         try
         {
             if (_trayMenuWindow == null || !_trayMenuWindow.IsShown) return;
+            // Preserve open cascade across rebuild: if user is hovering a
+            // sub-flyout (e.g. Permissions) and toggling something inside
+            // it triggers a reconnect → state-change → refresh, we don't
+            // want the panel to dismiss under their cursor. Capture the
+            // tag before ClearItems wipes it, then re-open after rebuild.
+            var openCascadeTag = _trayMenuWindow.ActiveFlyoutTag;
             _trayMenuWindow.ClearItems();
             BuildTrayMenuPopup(_trayMenuWindow);
             // Tray menu sits above the taskbar — when content shrinks/grows
             // on rebuild, anchor the bottom edge so the menu doesn't appear
             // to "jump up" away from the cursor / taskbar.
             _trayMenuWindow.SizeToContentKeepBottom();
+            if (!string.IsNullOrEmpty(openCascadeTag))
+            {
+                _trayMenuWindow.TryRestoreCascade(openCascadeTag);
+            }
         }
         catch (Exception ex)
         {

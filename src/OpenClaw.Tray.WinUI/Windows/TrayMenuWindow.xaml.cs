@@ -118,6 +118,16 @@ public sealed partial class TrayMenuWindow : WindowEx
     private TrayMenuWindow? _activeFlyoutWindow;
     private Button? _activeFlyoutOwner;
     private string? _activeFlyoutKey;
+    // Track the active cascade by a stable tag (action id) so that an
+    // in-place rebuild of the root menu (e.g. after a permission toggle
+    // triggers a reconnect → state change → RefreshTrayMenuIfOpen) can
+    // re-open the same sub-flyout instead of dismissing it.
+    private string? _activeFlyoutTag;
+    private readonly Dictionary<string, (Button button, IReadOnlyList<TrayMenuFlyoutItem> items)> _flyoutsByTag = new(StringComparer.Ordinal);
+    /// <summary>Tag (action id) of the currently open sub-flyout, or null
+    /// when no cascade is active. Used by RefreshTrayMenuIfOpen to restore
+    /// the same cascade after an in-place rebuild.</summary>
+    public string? ActiveFlyoutTag => _activeFlyoutTag;
     private bool _isShown;
     /// <summary>True while the menu window is visible. App can use this to
     /// trigger an in-place rebuild when backing state changes mid-display.</summary>
@@ -427,6 +437,13 @@ public sealed partial class TrayMenuWindow : WindowEx
         };
         AutomationProperties.SetName(button, text + " submenu");
         AutomationProperties.SetAutomationId(button, BuildMenuItemAutomationId(action ?? text, text));
+
+        // Register the flyout owner by a stable tag so an in-place rebuild
+        // (e.g. RefreshTrayMenuIfOpen after a permission toggle) can re-open
+        // the same cascade without dismissing it.
+        var flyoutTag = "flyout:" + (action ?? text);
+        button.Tag = flyoutTag;
+        _flyoutsByTag[flyoutTag] = (button, flyoutItems);
 
         button.PointerEntered += (s, e) =>
         {
@@ -900,6 +917,7 @@ public sealed partial class TrayMenuWindow : WindowEx
     {
         HideActiveFlyout();
         MenuPanel.Children.Clear();
+        _flyoutsByTag.Clear();
         _itemCount = 0;
         _separatorCount = 0;
         _headerCount = 0;
@@ -1183,6 +1201,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             _activeFlyoutOwner = ownerButton;
             _activeFlyoutKey = flyoutKey;
         }
+        _activeFlyoutTag = ownerButton.Tag as string;
 
         // Force a measure pass so _menuHeight reflects the just-added items
         // before ShowAdjacentTo computes the y clamp. Without this, the very
@@ -1201,6 +1220,24 @@ public sealed partial class TrayMenuWindow : WindowEx
         _activeFlyoutWindow = null;
         _activeFlyoutOwner = null;
         _activeFlyoutKey = null;
+        _activeFlyoutTag = null;
+    }
+
+    /// <summary>
+    /// Re-opens the sub-flyout identified by tag (action id), if a flyout
+    /// owner with that tag exists in the current menu. Used after an
+    /// in-place root menu rebuild to preserve the open cascade so a
+    /// permission toggle doesn't dismiss the panel under the user's cursor.
+    /// </summary>
+    public bool TryRestoreCascade(string? tag)
+    {
+        if (string.IsNullOrEmpty(tag)) return false;
+        if (_flyoutsByTag.TryGetValue(tag, out var entry))
+        {
+            ShowCascadingFlyout(entry.button, entry.items);
+            return true;
+        }
+        return false;
     }
 
     private static string CreateFlyoutKey(IEnumerable<TrayMenuFlyoutItem> items)
