@@ -482,7 +482,7 @@ public sealed partial class TrayMenuWindow : WindowEx
         {
             Text = text,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Padding = new Thickness(12, 10, 12, 4),
+            Padding = new Thickness(14, 12, 14, 8),
             Opacity = 0.7
         };
         AutomationProperties.SetHeadingLevel(tb, AutomationHeadingLevel.Level2);
@@ -1108,6 +1108,13 @@ public sealed partial class TrayMenuWindow : WindowEx
             _activeFlyoutOwner = ownerButton;
             _activeFlyoutKey = flyoutKey;
         }
+
+        // Force a measure pass so _menuHeight reflects the just-added items
+        // before ShowAdjacentTo computes the y clamp. Without this, the very
+        // first show of a tall flyout (e.g. Permissions with 8 toggles) uses
+        // a stale _menuHeight and the bottom rows get clipped under the
+        // taskbar.
+        flyoutWindow.SizeToContent();
 
         flyoutWindow.ShowAdjacentTo(ownerButton);
     }

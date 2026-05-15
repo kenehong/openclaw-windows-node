@@ -161,6 +161,10 @@ public partial class App : Application
     /// SSH tunnel errors in EnsureSshTunnelConfigured also write this temporarily (Phase 3 moves tunnel to manager).
     /// </summary>
     private ConnectionStatus _currentStatus = ConnectionStatus.Disconnected;
+    // Weak reference to the brand-bar connection ToggleSwitch so OnConnectionStatusChanged
+    // can update IsOn live without keeping the toggle alive across menu rebuilds.
+    private WeakReference<ToggleSwitch>? _connectionToggleRef;
+    private bool _suspendConnectionToggleEvent;
     private AgentActivity? _currentActivity;
     private ChannelHealth[] _lastChannels = Array.Empty<ChannelHealth>();
     private SessionInfo[] _lastSessions = Array.Empty<SessionInfo>();
@@ -977,13 +981,7 @@ public partial class App : Application
             case "reconnect": _ = _connectionManager?.ReconnectAsync(); break;
             case "disconnect":
                 _ = _connectionManager?.DisconnectAsync();
-                _lastSessions = Array.Empty<SessionInfo>();
-                _lastNodePairList = null;
-                _lastDevicePairList = null;
-                _lastModelsList = null;
-                _agentEventsCache.Clear();
-                UpdateTrayIcon();
-                _hubWindow?.UpdateStatus(ConnectionStatus.Disconnected);
+                LocalDisconnectCleanup();
                 break;
             case "connection": ShowHub("connection"); break;
             case "permissions": ShowHub("permissions"); break;
@@ -1230,6 +1228,17 @@ public partial class App : Application
             .ToList();
     }
 
+    private void LocalDisconnectCleanup()
+    {
+        _lastSessions = Array.Empty<SessionInfo>();
+        _lastNodePairList = null;
+        _lastDevicePairList = null;
+        _lastModelsList = null;
+        _agentEventsCache.Clear();
+        UpdateTrayIcon();
+        _hubWindow?.UpdateStatus(ConnectionStatus.Disconnected);
+    }
+
     private void BuildTrayMenuPopup(TrayMenuWindow menu)
     {
         // Render the whole menu inside a single update batch so layout
@@ -1307,24 +1316,42 @@ public partial class App : Application
         Grid.SetColumn(brandRow, 0);
         brandGrid.Children.Add(brandRow);
 
-        var brandBtn = new Button
+        var connectionToggle = new ToggleSwitch
         {
-            Content = isConnected ? "Disconnect" : "Connect",
+            IsOn = isConnected,
+            OnContent = "Connected",
+            OffContent = "Disconnected",
             VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(12, 4, 12, 4),
-            MinHeight = 0,
             MinWidth = 0,
-            FontSize = 12
+            Margin = new Thickness(0)
         };
-        AutomationProperties.SetName(brandBtn, isConnected ? "Disconnect from gateway" : "Connect to gateway");
-        ToolTipService.SetToolTip(brandBtn, isConnected ? "Disconnect from gateway" : "Connect to gateway");
-        brandBtn.Click += (s, ev) =>
+        // Only allow toggling when fully Connected or Disconnected; suppress
+        // user input while a connect attempt is in flight to avoid stacked
+        // reconnect/disconnect calls.
+        connectionToggle.IsEnabled =
+            _currentStatus == ConnectionStatus.Connected ||
+            _currentStatus == ConnectionStatus.Disconnected ||
+            _currentStatus == ConnectionStatus.Error;
+        AutomationProperties.SetName(connectionToggle, "Gateway connection");
+        ToolTipService.SetToolTip(connectionToggle,
+            isConnected ? "Connected — toggle off to disconnect" : "Disconnected — toggle on to connect");
+        connectionToggle.Toggled += (s, ev) =>
         {
-            _trayMenuWindow?.HideCascade();
-            OnTrayMenuItemClicked(this, isConnected ? "disconnect" : "reconnect");
+            if (_suspendConnectionToggleEvent) return;
+            if (connectionToggle.IsOn)
+            {
+                _ = _connectionManager?.ReconnectAsync();
+            }
+            else
+            {
+                _ = _connectionManager?.DisconnectAsync();
+                LocalDisconnectCleanup();
+            }
+            // Keep the menu open so the user sees the dot/sessions update live.
         };
-        Grid.SetColumn(brandBtn, 2);
-        brandGrid.Children.Add(brandBtn);
+        _connectionToggleRef = new WeakReference<ToggleSwitch>(connectionToggle);
+        Grid.SetColumn(connectionToggle, 2);
+        brandGrid.Children.Add(connectionToggle);
 
         menu.AddCustomElement(brandGrid);
 
@@ -1663,6 +1690,7 @@ public partial class App : Application
             "Dictate input by speaking",
             () => settings.NodeSttEnabled, v => settings.NodeSttEnabled = v);
 
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
         return items;
     }
 
@@ -1706,9 +1734,12 @@ public partial class App : Application
     {
         var p = Math.Min(100.0, Math.Max(0.0, percent));
         var resources = Application.Current.Resources;
-        // Two-tier color: green by default, red only once usage nearly maxed
-        // (≥ 95%). No amber middle band — keeps the signal binary and clear.
+        // Tri-state color: green by default, amber when getting close to the cap
+        // (≥ 80%), red near limit (≥ 95%). Matches the gateway dot's success/
+        // caution/critical semantics so users build one mental model across
+        // the menu.
         string accentKey = p >= 95 ? "SystemFillColorCriticalBrush"
+                         : p >= 80 ? "SystemFillColorCautionBrush"
                                    : "SystemFillColorSuccessBrush";
         var accent = (Microsoft.UI.Xaml.Media.Brush)resources[accentKey];
         var track = (Microsoft.UI.Xaml.Media.Brush)resources["ControlAltFillColorTertiaryBrush"];
@@ -2041,6 +2072,7 @@ public partial class App : Application
             items.Add(new() { CustomContent = card });
         }
 
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
         return items;
     }
 
@@ -2060,8 +2092,9 @@ public partial class App : Application
 
         var outer = new StackPanel
         {
-            Padding = new Thickness(12, 6, 12, 8),
+            Padding = new Thickness(14, 8, 14, 10),
             Spacing = 4,
+            Margin = new Thickness(0, 0, 0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MinWidth = 260
         };
@@ -2223,7 +2256,7 @@ public partial class App : Application
         {
             var totalsCard = new StackPanel
             {
-                Padding = new Thickness(12, 6, 12, 8),
+                Padding = new Thickness(14, 8, 14, 10),
                 Spacing = 2,
                 MinWidth = 260
             };
@@ -2268,7 +2301,7 @@ public partial class App : Application
             {
                 var provCard = new StackPanel
                 {
-                    Padding = new Thickness(12, 4, 12, 6),
+                    Padding = new Thickness(14, 6, 14, 8),
                     Spacing = 3,
                     MinWidth = 260
                 };
@@ -2354,7 +2387,7 @@ public partial class App : Application
             {
                 var row = new Grid
                 {
-                    Padding = new Thickness(12, 2, 12, 2),
+                    Padding = new Thickness(14, 4, 14, 4),
                     ColumnSpacing = 8,
                     MinWidth = 260
                 };
@@ -2382,6 +2415,7 @@ public partial class App : Application
             }
         }
 
+        items.Add(new() { CustomContent = new Microsoft.UI.Xaml.Controls.Border { Height = 6 } });
         return items;
     }
 
@@ -3430,10 +3464,43 @@ public partial class App : Application
 
         UpdateTrayIcon();
         _dispatcherQueue?.TryEnqueue(UpdateStatusDetailWindow);
+        _dispatcherQueue?.TryEnqueue(() => SyncConnectionToggle(status));
         
         if (status == ConnectionStatus.Connected)
         {
             _ = RunHealthCheckAsync();
+        }
+    }
+
+    private void SyncConnectionToggle(ConnectionStatus status)
+    {
+        if (_connectionToggleRef == null) return;
+        if (!_connectionToggleRef.TryGetTarget(out var toggle)) return;
+        // If the XamlRoot is gone, the toggle has been unloaded with the
+        // menu; drop the reference so we stop trying to update it.
+        if (toggle.XamlRoot == null)
+        {
+            _connectionToggleRef = null;
+            return;
+        }
+        var shouldBeOn = status == ConnectionStatus.Connected;
+        var canToggle = status == ConnectionStatus.Connected
+            || status == ConnectionStatus.Disconnected
+            || status == ConnectionStatus.Error;
+        _suspendConnectionToggleEvent = true;
+        try
+        {
+            if (toggle.IsOn != shouldBeOn) toggle.IsOn = shouldBeOn;
+            toggle.IsEnabled = canToggle;
+            ToolTipService.SetToolTip(toggle,
+                shouldBeOn ? "Connected — toggle off to disconnect"
+                           : status == ConnectionStatus.Connecting
+                             ? "Connecting…"
+                             : "Disconnected — toggle on to connect");
+        }
+        finally
+        {
+            _suspendConnectionToggleEvent = false;
         }
     }
 
