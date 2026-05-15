@@ -1231,9 +1231,13 @@ public partial class App : Application
     private void LocalDisconnectCleanup()
     {
         _lastSessions = Array.Empty<SessionInfo>();
+        _lastNodes = Array.Empty<GatewayNodeInfo>();
+        _lastPresence = Array.Empty<PresenceEntry>();
+        _lastChannels = Array.Empty<ChannelHealth>();
         _lastNodePairList = null;
         _lastDevicePairList = null;
         _lastModelsList = null;
+        _lastGatewaySelf = null;
         _agentEventsCache.Clear();
         UpdateTrayIcon();
         _hubWindow?.UpdateStatus(ConnectionStatus.Disconnected);
@@ -1342,17 +1346,30 @@ public partial class App : Application
         AutomationProperties.SetName(connectionToggle, "Gateway connection");
         ToolTipService.SetToolTip(connectionToggle,
             isConnected ? "Connected — toggle off to disconnect" : "Disconnected — toggle on to connect");
-        connectionToggle.Toggled += (s, ev) =>
+        connectionToggle.Toggled += async (s, ev) =>
         {
             if (_suspendConnectionToggleEvent) return;
-            if (connectionToggle.IsOn)
+            try
             {
-                _ = _connectionManager?.ReconnectAsync();
+                if (connectionToggle.IsOn)
+                {
+                    if (_connectionManager != null)
+                        await _connectionManager.ReconnectAsync();
+                }
+                else
+                {
+                    if (_connectionManager != null)
+                        await _connectionManager.DisconnectAsync();
+                    LocalDisconnectCleanup();
+                    // Refresh now to give immediate feedback in the menu; the
+                    // canonical refresh still happens from OnManagerStateChanged
+                    // once the state machine catches up.
+                    RefreshTrayMenuIfOpen();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _ = _connectionManager?.DisconnectAsync();
-                LocalDisconnectCleanup();
+                Logger.Error($"Connection toggle failed: {ex}");
             }
             // Keep the menu open so the user sees the dot/sessions update live.
         };
@@ -3022,6 +3039,19 @@ public partial class App : Application
         {
             _hubWindow?.UpdateStatus(mapped);
             UpdateTrayIcon();
+            SyncConnectionToggle(mapped);
+            // Rebuild the tray menu in place so dependent rows (Gateway dot/
+            // status line, Windows Node, Sessions, Usage) reflect the new
+            // _currentStatus immediately. The brand-bar ToggleSwitch updates
+            // live via SyncConnectionToggle, but the rest of the rows are
+            // built from cached fields and would otherwise stay stale until
+            // the user reopens the menu.
+            if (mapped == ConnectionStatus.Connected
+                || mapped == ConnectionStatus.Disconnected
+                || mapped == ConnectionStatus.Error)
+            {
+                RefreshTrayMenuIfOpen();
+            }
         });
     }
 
