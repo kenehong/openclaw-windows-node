@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:winex="using:WinUIEx"
+    xmlns:controls="using:OpenClawTray.Controls"
     Title="OpenClaw Component Library"
     MinWidth="720"
     MinHeight="640">
@@ -32,6 +33,8 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="NavTrayStatus" Tag="tray-status" Content="Status &amp; tooltip" IsSelected="True"/>
                 <NavigationViewItem x:Name="NavClickInteraction" Tag="click-interaction" Content="Click interaction"/>
+                <NavigationViewItem x:Name="NavChat" Tag="chat" Content="Chat"/>
+                <NavigationViewItem x:Name="NavAgentRunCard" Tag="agent-run-card" Content="Agent run card"/>
                 <NavigationViewItem Tag="lorem-1" Content="Lorem ipsum" IsEnabled="False"/>
             </NavigationView.MenuItems>
 
@@ -388,6 +391,137 @@
                     </StackPanel>
                 </Grid>
 
+                <ScrollViewer x:Name="ChatPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24" MaxWidth="1100">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Chat — Hub (full window)" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="Scope: the standalone full-window Hub chat. The tray popover variant comes later and will reuse the primitives we build here."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Layout sketch" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="Three-pane shell. Left = conversations + agents. Center = active thread. Right (optional) = run/tool/context detail. Composer pinned to the bottom of the center pane."/>
+
+                                <controls:ChatShell Height="520" x:Name="ChatPageShell">
+                                    <controls:ChatShell.ThreadContent>
+                                        <StackPanel Spacing="12">
+                                            <Border HorizontalAlignment="Right" Background="#0078D4" CornerRadius="10" Padding="10,6" MaxWidth="420">
+                                                <TextBlock Text="Hi" Foreground="White" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            </Border>
+                                            <TextBlock Text="You · May 4, 2026, 5:09 PM" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                            <Grid HorizontalAlignment="Left" ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" VerticalAlignment="Top" Margin="0,2,0,0">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="ms-appx:///Assets/Preview/claw.png" Stretch="UniformToFill"/>
+                                                    </Border.Background>
+                                                </Border>
+                                                <Border Grid.Column="1" Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="10" Padding="12,10" MaxWidth="640">
+                                                    <StackPanel Spacing="6">
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                                                   Text="Hey. I just came online — and honestly, I don't know who I am yet. This workspace is fresh, no memory, no name, nothing. So before I pretend to be anyone, let's figure it out together."/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,4,0,0" Text="A few quick things I'd love to know:"/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="1. What should I call you? (And how should I address you — first name, nickname, something else?)"/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="2. What should you call me? Pick a name, or I can suggest a few if you want."/>
+                                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Text="3. What kind of creature am I to you? Standard AI assistant is fine, but I could be something weirder."/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="Assistant · May 4, 2026, 5:09 PM" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Margin="36,0,0,0"/>
+                                        </StackPanel>
+                                    </controls:ChatShell.ThreadContent>
+                                </controls:ChatShell>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Reuse vs. rebuild (Hub-scoped)" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="The web chat in openclaw/ui is TypeScript + CSS. WinUI 3 cannot import it directly. For the Hub:"/>
+                                <StackPanel Spacing="6" Margin="8,0,0,0">
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="A. WebView2 — host the existing web chat. Fastest to ship, web team owns updates. Trade-offs: heavier, theming/Mica integration limited, IPC needed for native menus and file pickers."/>
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="B. Native XAML — rebuild the Hub chat in WinUI. Trade-offs: real OS-native feel, full theming/keyboard, but big rebuild and ongoing parity work."/>
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="C. Native shell + WebView2 thread (recommended start) — left rail, header, composer, right rail in XAML; embed WebView2 only for the message thread (markdown, tool cards, streaming) until those primitives are ported. Lets us own the chrome and ship soon."/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Hub chat sub-components" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="Each item below will become its own preview tile in this page."/>
+                                <ItemsControl>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="6"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <TextBlock Text="• Conversation list item (active / unread / running)"/>
+                                    <TextBlock Text="• Conversation header (title, agent, model, run controls)"/>
+                                    <TextBlock Text="• Message bubble (user / assistant / system, streaming variant)"/>
+                                    <TextBlock Text="• Tool / action card (collapsed + expanded, success / error / running)"/>
+                                    <TextBlock Text="• Inline diff / file preview"/>
+                                    <TextBlock Text="• Composer (input, attach, send, slash menu, stop)"/>
+                                    <TextBlock Text="• Slash command palette"/>
+                                    <TextBlock Text="• Run details panel (status, model, cost, context, recent tools)"/>
+                                    <TextBlock Text="• Inline error + retry"/>
+                                    <TextBlock Text="• Empty / welcome state"/>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Web code: how to handle each part" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock Text="Port to C# (pure logic)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,4,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="message-normalizer · role-normalizer · slash-commands · history-limits · message-extract"/>
+                                <TextBlock Text="Reference only (XAML rebuild)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="grouped-render · tool-cards · chat-avatar · status-indicators · run-controls"/>
+                                <TextBlock Text="Keep in WebView2 (for now)" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="message thread renderer · realtime-talk-* · attachment-* · export · pinned-messages"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <ScrollViewer x:Name="ClickInteractionPage" Padding="24" Visibility="Collapsed">
                     <StackPanel Spacing="24">
                         <StackPanel Spacing="8">
@@ -589,6 +723,46 @@
                                 </Grid>
                             </Border>
                         </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ===================== Agent run card page ===================== -->
+                <ScrollViewer x:Name="AgentRunCardPage" Padding="24" Visibility="Collapsed">
+                    <StackPanel Spacing="24" MaxWidth="1100">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Agent run card" Style="{StaticResource TitleTextBlockStyle}"/>
+                            <TextBlock Text="The agent run card lives inside a chat thread. Header (title + description) is glued to the steps card below it; the whole card hugs its content (no full-stretch) and aligns with assistant messages."
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Chat shell preview (reused primitives from the Chat page) -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource OverlayCornerRadius}"
+                                Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Thread preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="The agent card is rendered as an assistant turn in the running thread. Header + steps share a single rounded container, left-aligned with a max width so it does not stretch across the pane."/>
+
+                                <controls:ChatShell Height="560" x:Name="AgentRunCardPageShell">
+                                    <controls:ChatShell.ThreadContent>
+                                        <StackPanel Spacing="12">
+                                            <Border HorizontalAlignment="Right" Background="#0078D4" CornerRadius="10" Padding="10,6" MaxWidth="420">
+                                                <TextBlock Text="Move all the screenshots from my desktop into a Screenshots folder and clean up the rest" Foreground="White" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"/>
+                                            </Border>
+                                            <TextBlock Text="You · May 4, 2026, 6:45 PM" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                            <controls:AgentRunCard/>
+                                            <TextBlock Text="Assistant · running · May 4, 2026, 6:45 PM" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                        </StackPanel>
+                                    </controls:ChatShell.ThreadContent>
+                                </controls:ChatShell>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

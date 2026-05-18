@@ -152,6 +152,8 @@ public sealed partial class ComponentLibraryWindow : WindowEx
         var tag = item.Tag as string ?? string.Empty;
         TrayStatusPage.Visibility = Visibility.Collapsed;
         ClickInteractionPage.Visibility = Visibility.Collapsed;
+        ChatPage.Visibility = Visibility.Collapsed;
+        AgentRunCardPage.Visibility = Visibility.Collapsed;
         ComingSoonPage.Visibility = Visibility.Collapsed;
 
         if (tag == "tray-status")
@@ -163,12 +165,22 @@ public sealed partial class ComponentLibraryWindow : WindowEx
             ClickInteractionPage.Visibility = Visibility.Visible;
             EnsureClickInteractionInitialized();
         }
+        else if (tag == "chat")
+        {
+            ChatPage.Visibility = Visibility.Visible;
+        }
+        else if (tag == "agent-run-card")
+        {
+            AgentRunCardPage.Visibility = Visibility.Visible;
+        }
         else
         {
             ComingSoonPage.Visibility = Visibility.Visible;
             ComingSoonTitle.Text = item.Content as string ?? tag;
         }
     }
+
+    // Chat hamburger + agent run card toggle are handled inside the ChatShell / AgentRunCard UserControls.
 
     private void OnTrayIconPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
