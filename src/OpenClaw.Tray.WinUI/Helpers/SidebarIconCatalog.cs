@@ -73,9 +73,38 @@ public static class SidebarIconCatalog
     /// <summary>Group-parent path data for the "Advanced" expander (no Tag).</summary>
     public const string AdvancedGroupPathData = "M11.75 1.998a3.752 3.752 0 0 0-.75 7.43V11.5H7.75a2.25 2.25 0 0 0-2.25 2.25v.826a3.754 3.754 0 0 0 .752 7.429A3.752 3.752 0 0 0 7 14.575v-.825a.75.75 0 0 1 .75-.75h8a.75.75 0 0 1 .75.75v.826a3.754 3.754 0 0 0 .752 7.429a3.752 3.752 0 0 0 .748-7.43v-.825a2.25 2.25 0 0 0-2.25-2.25H12.5V9.428a3.754 3.754 0 0 0-.75-7.43M9.498 5.75a2.252 2.252 0 1 1 4.504 0a2.252 2.252 0 0 1-4.504 0M4 18.253a2.252 2.252 0 1 1 4.505 0a2.252 2.252 0 0 1-4.505 0M17.252 16a2.252 2.252 0 1 1 0 4.505a2.252 2.252 0 0 1 0-4.505";
 
+    /// <summary>Filename (relative to <c>Assets/SidebarIcons/Mono/</c>) of the
+    /// mono SVG for the "Advanced" expander.</summary>
+    public const string AdvancedGroupAssetName = "Advanced.svg";
+
     /// <summary>Group-parent path data for the "Agents" expander and every
     /// dynamic <c>agent:*</c> item.</summary>
     public const string AgentsGroupPathData = "M18.5 10.255q0 .067-.003.133A1.54 1.54 0 0 0 17.473 10q-.243 0-.473.074V5.75a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75v4.505c0 .414.336.75.75.75h8.276l-.01.025l-.003.012l-.45 1.384l-.01.026l-.019.053H7.75a2.25 2.25 0 0 1-2.25-2.25V5.75A2.25 2.25 0 0 1 7.75 3.5h3.5v-.75a.75.75 0 0 1 .649-.743L12 2a.75.75 0 0 1 .743.649l.007.101l-.001.75h3.5a2.25 2.25 0 0 1 2.25 2.25zm-5.457 3.781l.112-.036H6.254a2.25 2.25 0 0 0-2.25 2.25v.907a3.75 3.75 0 0 0 1.305 2.844c1.563 1.343 3.802 2 6.691 2c2.076 0 3.817-.339 5.213-1.028a1.55 1.55 0 0 1-1.169-1.003l-.004-.012l-.03-.093c-1.086.422-2.42.636-4.01.636c-2.559 0-4.455-.556-5.713-1.638a2.25 2.25 0 0 1-.783-1.706v-.907a.75.75 0 0 1 .75-.75H12v-.003a1.54 1.54 0 0 1 1.031-1.456zM10.999 7.75a1.25 1.25 0 1 0-2.499 0a1.25 1.25 0 0 0 2.499 0m3.243-1.25a1.25 1.25 0 1 1 0 2.499a1.25 1.25 0 0 1 0-2.499m1.847 10.912a2.83 2.83 0 0 0-1.348-.955l-1.377-.448a.544.544 0 0 1 0-1.025l1.377-.448a2.84 2.84 0 0 0 1.76-1.762l.01-.034l.449-1.377a.544.544 0 0 1 1.026 0l.448 1.377a2.84 2.84 0 0 0 1.798 1.796l1.378.448l.027.007a.544.544 0 0 1 0 1.025l-1.378.448a2.84 2.84 0 0 0-1.798 1.796l-.447 1.377a.55.55 0 0 1-.2.263a.544.544 0 0 1-.827-.263l-.448-1.377a2.8 2.8 0 0 0-.45-.848m7.694 3.801l-.765-.248a1.58 1.58 0 0 1-.999-.998l-.249-.765a.302.302 0 0 0-.57 0l-.249.764a1.58 1.58 0 0 1-.983.999l-.766.248a.302.302 0 0 0 0 .57l.766.249a1.58 1.58 0 0 1 .999 1.002l.248.764a.303.303 0 0 0 .57 0l.25-.764a1.58 1.58 0 0 1 .998-.999l.766-.248a.302.302 0 0 0 0-.57z";
+
+    /// <summary>Filename of the mono SVG for the "Agents" group / dynamic
+    /// <c>agent:*</c> rows.</summary>
+    public const string AgentsGroupAssetName = "Agents.svg";
+
+    /// <summary>Static map from <c>NavigationViewItem.Tag</c> →
+    /// <c>Assets/SidebarIcons/Mono/&lt;file&gt;.svg</c> filename. Derived
+    /// mechanically from <see cref="s_resourceKey"/> (resource key
+    /// <c>"Chat_Icon"</c> → asset <c>Chat.svg</c>).</summary>
+    private static readonly Dictionary<string, string> s_monoAssetName = BuildMonoAssetNameMap();
+
+    private static Dictionary<string, string> BuildMonoAssetNameMap()
+    {
+        var d = new Dictionary<string, string>(s_resourceKey.Count, StringComparer.Ordinal);
+        foreach (var kv in s_resourceKey)
+        {
+            // "Chat_Icon" → "Chat.svg"
+            var key = kv.Value;
+            var stem = key.EndsWith("_Icon", StringComparison.Ordinal)
+                ? key[..^"_Icon".Length]
+                : key;
+            d[kv.Key] = stem + ".svg";
+        }
+        return d;
+    }
 
     /// <summary>All tags expected to be present on static sidebar items.
     /// Used by tests to assert catalog completeness.</summary>
@@ -112,6 +141,28 @@ public static class SidebarIconCatalog
             }
         }
         pathData = string.Empty;
+        return false;
+    }
+
+    /// <summary>Looks up the mono SVG asset filename for a sidebar tag (relative
+    /// to <c>Assets/SidebarIcons/Mono/</c>). For dynamic <c>agent:*</c> tags,
+    /// returns <see cref="AgentsGroupAssetName"/>.</summary>
+    public static bool TryGetMonoAssetName(string? tag, out string assetName)
+    {
+        if (tag != null)
+        {
+            if (s_monoAssetName.TryGetValue(tag, out var name))
+            {
+                assetName = name;
+                return true;
+            }
+            if (tag.StartsWith("agent:", StringComparison.Ordinal))
+            {
+                assetName = AgentsGroupAssetName;
+                return true;
+            }
+        }
+        assetName = string.Empty;
         return false;
     }
 }

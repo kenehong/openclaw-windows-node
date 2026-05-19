@@ -814,8 +814,8 @@ public sealed partial class HubWindow : WindowEx
     // every dynamic agent:* row are handled here because they don't carry a
     // Tag the catalog can key on.
 
-    private const string AdvancedGroupPathData = SidebarIconCatalog.AdvancedGroupPathData;
-    private const string AgentsGroupPathData = SidebarIconCatalog.AgentsGroupPathData;
+    private const string AdvancedGroupAssetName = SidebarIconCatalog.AdvancedGroupAssetName;
+    private const string AgentsGroupAssetName = SidebarIconCatalog.AgentsGroupAssetName;
 
     private bool _isHighContrast;
     private SidebarIconStyle _appliedIconStyle = SidebarIconStyle.Color;
@@ -865,43 +865,103 @@ public sealed partial class HubWindow : WindowEx
 
     private IconElement ResolveMonoIcon(NavigationViewItem item)
     {
+        string? assetName = null;
         if (item.Tag is string tag)
         {
-            if (SidebarIconCatalog.TryGetMonoPathData(tag, out var pathData))
-                return BuildPathIcon(pathData);
+            if (SidebarIconCatalog.TryGetMonoAssetName(tag, out var name))
+                assetName = name;
         }
-        if (item == AgentsNavItem)
-            return BuildPathIcon(AgentsGroupPathData);
-        if (item.Content is string content && content.Equals("Advanced", StringComparison.OrdinalIgnoreCase))
-            return BuildPathIcon(AdvancedGroupPathData);
-        // Fall back to whatever the XAML provided (keeps the existing icon
-        // rather than blanking it out for unmapped items).
-        return item.Icon ?? new FontIcon { Glyph = "\uE700" };
+        if (assetName == null && item == AgentsNavItem)
+            assetName = SidebarIconCatalog.AgentsGroupAssetName;
+        if (assetName == null && item.Content is string content &&
+            content.Equals("Advanced", StringComparison.OrdinalIgnoreCase))
+            assetName = SidebarIconCatalog.AdvancedGroupAssetName;
+
+        if (assetName == null)
+            return item.Icon ?? new FontIcon { Glyph = "\uE700" };
+
+        return BuildMonoImageIcon(assetName);
     }
 
     /// <summary>
-    /// Build a <see cref="PathIcon"/> from an SVG path "d" mini-language string.
-    /// Geometry parsing uses the XAML type converter so the same syntax accepted
-    /// in markup (M, L, C, Z, …) works at runtime.
+    /// Build an <see cref="ImageIcon"/> for a mono sidebar asset, mirroring the
+    /// exact rendering pipeline used by the colored variant. The SVG file
+    /// content is loaded, <c>currentColor</c> is replaced with the active theme
+    /// foreground (white in Dark / HC dark, black in Light / HC light), and the
+    /// resulting markup is fed into an <see cref="SvgImageSource"/> via
+    /// <c>SetSourceAsync</c>. Using <see cref="ImageIcon"/> guarantees both
+    /// visual size parity with the colored icons and a robust SVG parser (the
+    /// XAML <c>PathIcon</c> mini-language parser chokes on some SVGO-optimized
+    /// path constructs such as <c>zh4.498z</c> emitted by Iconify).
     /// </summary>
-    /// <remarks>
-    /// The downloaded Fluent regular SVGs are drawn in a 0..24 viewBox. We
-    /// pin <c>Width</c>/<c>Height</c> to 24 here so <c>PathIcon</c>'s underlying
-    /// <c>Path</c> (Stretch=Uniform in the WinUI 3 default template) scales the
-    /// geometry to fill the same logical box the colored <c>ImageIcon</c> uses,
-    /// keeping mono and color icons visually the same size in the sidebar.
-    /// </remarks>
-    private static PathIcon BuildPathIcon(string pathData)
+    private ImageIcon BuildMonoImageIcon(string assetName)
     {
-        var geometry = (Microsoft.UI.Xaml.Media.Geometry)
-            Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
-                typeof(Microsoft.UI.Xaml.Media.Geometry), pathData);
-        return new PathIcon
+        var svgSource = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource();
+        var icon = new ImageIcon { Source = svgSource };
+        _ = LoadMonoSvgAsync(assetName, svgSource);
+        return icon;
+    }
+
+    private async System.Threading.Tasks.Task LoadMonoSvgAsync(
+        string assetName,
+        Microsoft.UI.Xaml.Media.Imaging.SvgImageSource target)
+    {
+        try
         {
-            Data = geometry,
-            Width = 24,
-            Height = 24,
-        };
+            var uri = new Uri($"ms-appx:///Assets/SidebarIcons/Mono/{assetName}");
+            var file = await global::Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(uri);
+            var text = await global::Windows.Storage.FileIO.ReadTextAsync(file);
+
+            // Substitute the SVG `currentColor` placeholder with a concrete
+            // theme-appropriate color. SvgImageSource does not honor
+            // `currentColor`, so without this every mono icon would render
+            // black (invisible on the dark sidebar).
+            var colorHex = ResolveMonoForegroundHex();
+            text = text.Replace("currentColor", colorHex, StringComparison.Ordinal);
+
+            using var stream = new global::Windows.Storage.Streams.InMemoryRandomAccessStream();
+            using (var writer = new global::Windows.Storage.Streams.DataWriter(stream))
+            {
+                writer.WriteString(text);
+                await writer.StoreAsync();
+                await writer.FlushAsync();
+                writer.DetachStream();
+            }
+            stream.Seek(0);
+            await target.SetSourceAsync(stream);
+        }
+        catch
+        {
+            // Best-effort: a missing asset just leaves the empty source in
+            // place; the navigation item still functions.
+        }
+    }
+
+    /// <summary>
+    /// Returns the hex color to substitute for `currentColor` in mono SVGs.
+    /// Mirrors WinUI's default foreground for the active theme so mono icons
+    /// match surrounding text and remain visible in High Contrast.
+    /// </summary>
+    private string ResolveMonoForegroundHex()
+    {
+        // High Contrast: use the system-defined window text color so the icons
+        // honor the user's chosen palette.
+        if (_isHighContrast)
+        {
+            try
+            {
+                var uiSettings = new global::Windows.UI.ViewManagement.UISettings();
+                var c = uiSettings.GetColorValue(
+                    global::Windows.UI.ViewManagement.UIColorType.Foreground);
+                return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+            }
+            catch { /* fall through to theme default */ }
+        }
+
+        var theme = (NavView as FrameworkElement)?.ActualTheme ?? ElementTheme.Default;
+        if (theme == ElementTheme.Default && Content is FrameworkElement root)
+            theme = root.ActualTheme;
+        return theme == ElementTheme.Light ? "#000000" : "#FFFFFF";
     }
 
     private IconElement ResolveColorIcon(NavigationViewItem item)
@@ -932,7 +992,7 @@ public sealed partial class HubWindow : WindowEx
     private IconElement BuildAgentItemIcon()
     {
         if (UseMonoIcons)
-            return BuildPathIcon(AgentsGroupPathData);
+            return BuildMonoImageIcon(AgentsGroupAssetName);
         return new ImageIcon
         {
             Source = (Microsoft.UI.Xaml.Media.ImageSource)NavView.Resources["Agents_Icon"]
