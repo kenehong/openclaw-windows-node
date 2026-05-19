@@ -140,33 +140,34 @@ public sealed partial class PermissionsPage : Page
         var settings = hub.Settings;
 
         // OnToggleSideEffect runs after the new value is persisted.
+        // Icon glyphs come from FluentIconCatalog (see docs/design/iconography.md).
         var capabilities = new (string Icon, string Label, string Description, bool Value, Action<bool> Setter, Action<bool>? OnToggleSideEffect)[]
         {
-            ("🌐",
+            (FluentIconCatalog.Browser,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Browser_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Browser_Description"),
                 settings.NodeBrowserProxyEnabled, v => settings.NodeBrowserProxyEnabled = v, null),
-            ("📷",
+            (FluentIconCatalog.Camera,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Camera_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Camera_Description"),
                 settings.NodeCameraEnabled, v => settings.NodeCameraEnabled = v, null),
-            ("🎨",
+            (FluentIconCatalog.Canvas,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Canvas_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Canvas_Description"),
                 settings.NodeCanvasEnabled, v => settings.NodeCanvasEnabled = v, null),
-            ("🖥️",
+            (FluentIconCatalog.Screen,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Screen_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Screen_Description"),
                 settings.NodeScreenEnabled, v => settings.NodeScreenEnabled = v, null),
-            ("📍",
+            (FluentIconCatalog.Location,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Location_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Location_Description"),
                 settings.NodeLocationEnabled, v => settings.NodeLocationEnabled = v, null),
-            ("🔊",
+            (FluentIconCatalog.Voice,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Tts_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Tts_Description"),
                 settings.NodeTtsEnabled, v => settings.NodeTtsEnabled = v, null),
-            ("🎤",
+            (FluentIconCatalog.Speech,
                 LocalizationHelper.GetString("PermissionsPage_Cap_Stt_Label"),
                 LocalizationHelper.GetString("PermissionsPage_Cap_Stt_Description"),
                 settings.NodeSttEnabled, v => settings.NodeSttEnabled = v,
@@ -201,6 +202,22 @@ public sealed partial class PermissionsPage : Page
         }
 
         CapabilityRepeater.ItemsSource = items;
+    }
+
+    /// <summary>
+    /// Builds a single capability row as a <c>SettingsCard</c> — the same
+    /// idiom Windows 11 Settings uses. The icon is a Segoe Fluent glyph
+    /// sourced from <see cref="FluentIconCatalog"/>.
+    /// </summary>
+    private static CommunityToolkit.WinUI.Controls.SettingsCard BuildCapabilityRow(string glyph, string label, string description, ToggleSwitch toggle)
+    {
+        return new CommunityToolkit.WinUI.Controls.SettingsCard
+        {
+            HeaderIcon = new FontIcon { Glyph = glyph },
+            Header = label,
+            Description = description,
+            Content = toggle,
+        };
     }
 
     private bool _isDownloadingWhisperModel;
@@ -256,53 +273,6 @@ public sealed partial class PermissionsPage : Page
             // Last-resort guard: log and swallow so async void can never crash the app.
             logger.Error($"[PermissionsPage] EnsureWhisperModelDownloadedAsync unexpected failure: {ex}");
         }
-    }
-
-    private static Border BuildCapabilityRow(string icon, string label, string description, ToggleSwitch toggle)
-    {
-        var grid = new Grid { ColumnSpacing = 14 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var iconText = new TextBlock
-        {
-            Text = icon,
-            FontSize = 22,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        Grid.SetColumn(iconText, 0);
-        grid.Children.Add(iconText);
-
-        var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock
-        {
-            Text = label,
-            Style = (Style)Application.Current.Resources["BodyTextBlockStyle"],
-        });
-        text.Children.Add(new TextBlock
-        {
-            Text = description,
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            TextWrapping = TextWrapping.Wrap,
-        });
-        Grid.SetColumn(text, 1);
-        grid.Children.Add(text);
-
-        Grid.SetColumn(toggle, 2);
-        grid.Children.Add(toggle);
-
-        return new Border
-        {
-            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(16, 14, 16, 14),
-            Child = grid,
-        };
     }
 
     // ── Speech-to-Text card ──────────────────────────────────────────
@@ -469,15 +439,19 @@ public sealed partial class PermissionsPage : Page
         var nodeEnabled = hub.Settings?.EnableNodeMode ?? false;
         var isConnected = hub.CurrentStatus == ConnectionStatus.Connected;
 
+        // Keep the Node mode SettingsExpander expanded only while node mode is on,
+        // so the status sub-row is hidden when there is nothing to report.
+        NodeStatusCard.IsExpanded = nodeEnabled;
+
         if (!nodeEnabled)
         {
-            NodeStatusDot.Fill = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+            NodeStatusDot.Fill = (Brush)Application.Current.Resources["SystemFillColorNeutralBrush"];
             NodeStatusText.Text = LocalizationHelper.GetString("PermissionsPage_NodeStatus_Disabled");
             NodeDetailsText.Text = LocalizationHelper.GetString("PermissionsPage_NodeStatus_DisabledDetails");
         }
         else if (isConnected)
         {
-            NodeStatusDot.Fill = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+            NodeStatusDot.Fill = (Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
             NodeStatusText.Text = LocalizationHelper.GetString("PermissionsPage_NodeStatus_Active");
 
             var caps = new List<string>();
@@ -496,7 +470,7 @@ public sealed partial class PermissionsPage : Page
         }
         else
         {
-            NodeStatusDot.Fill = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+            NodeStatusDot.Fill = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"];
             NodeStatusText.Text = LocalizationHelper.GetString("PermissionsPage_NodeStatus_NotConnected");
             NodeDetailsText.Text = LocalizationHelper.GetString("PermissionsPage_NodeStatus_NotConnectedDetails");
         }

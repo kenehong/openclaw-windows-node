@@ -35,7 +35,7 @@ public static class FluentIconCatalog
     public const string Location = "\uE707";       // MapPin (Globe2 alt)
     public const string Voice = "\uE767";          // Volume (speaker, for TTS)
     public const string Speech = "\uF12E";         // Dictate (speech-to-text)
-    public const string System = "\uE7F4";         // TVMonitor (Windows node = this desktop)
+    public const string System = "\uE839";         // PC1 — this PC offering itself as a node (see CDR-0001)
 
     // ── Actions ────────────────────────────────────────────────────
     public const string Dashboard = "\uE774";      // Globe
@@ -68,6 +68,7 @@ public static class FluentIconCatalog
             Glyph = glyph,
             FontFamily = (FontFamily)Application.Current.Resources["SymbolThemeFontFamily"],
             FontSize = size,
+            IsTextScaleFactorEnabled = false,
         };
     }
 

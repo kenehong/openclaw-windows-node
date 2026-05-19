@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page x:Class="OpenClawTray.Pages.PermissionsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls">
 
     <Page.Resources>
         <Thickness x:Key="PermSectionHeaderMargin">4,18,4,4</Thickness>
@@ -29,58 +30,37 @@
                        TextWrapping="Wrap" Margin="0,0,0,8"/>
 
             <!-- ═════════ Node Mode + Node Status ═════════ -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8"
-                    Padding="16"
-                    AutomationProperties.AutomationId="NodeStatusCard">
-                <StackPanel Spacing="12">
-                    <!-- Node Mode master toggle row -->
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="36"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Grid.Column="0" Glyph="&#xE839;" FontSize="22"
-                                  VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="Node mode"
-                                       Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Text="When on, this PC registers as a node and offers the capabilities below to agents over the gateway."
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <ToggleSwitch Grid.Column="2" x:Name="NodeModeToggle"
-                                      MinWidth="0" OnContent="" OffContent=""
-                                      Toggled="OnNodeModeToggled"
-                                      AutomationProperties.AutomationId="CapabilitiesNodeModeToggle"
-                                      AutomationProperties.Name="Node mode"/>
-                    </Grid>
-
-                    <!-- Subtle divider between master switch and status sub-row -->
-                    <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
-
-                    <!-- Live status sub-row -->
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="36"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Ellipse Grid.Column="0" x:Name="NodeStatusDot" Width="12" Height="12"
-                                 Fill="Gray" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock x:Uid="NodeStatusText" x:Name="NodeStatusText" Text="Node mode disabled"
-                                       Style="{StaticResource BodyTextBlockStyle}"/>
-                            <TextBlock x:Name="NodeDetailsText"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Border>
+            <tk:SettingsExpander x:Name="NodeStatusCard"
+                                 AutomationProperties.AutomationId="NodeStatusCard"
+                                 Header="Node mode"
+                                 Description="When on, this PC registers as a node and offers the capabilities below to agents over the gateway."
+                                 IsExpanded="False">
+                <tk:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE839;"/>
+                </tk:SettingsExpander.HeaderIcon>
+                <ToggleSwitch x:Name="NodeModeToggle"
+                              MinWidth="0" OnContent="" OffContent=""
+                              Toggled="OnNodeModeToggled"
+                              AutomationProperties.AutomationId="CapabilitiesNodeModeToggle"
+                              AutomationProperties.Name="Node mode"/>
+                <tk:SettingsExpander.Items>
+                    <tk:SettingsCard>
+                        <tk:SettingsCard.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <Ellipse x:Name="NodeStatusDot" Width="10" Height="10"
+                                         Fill="{ThemeResource SystemFillColorNeutralBrush}"
+                                         VerticalAlignment="Center"/>
+                                <TextBlock x:Name="NodeStatusText" x:Uid="NodeStatusText"
+                                           Text="Node mode disabled"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </tk:SettingsCard.Header>
+                        <tk:SettingsCard.Description>
+                            <TextBlock x:Name="NodeDetailsText" TextWrapping="Wrap"/>
+                        </tk:SettingsCard.Description>
+                    </tk:SettingsCard>
+                </tk:SettingsExpander.Items>
+            </tk:SettingsExpander>
 
             <!-- ═════════ Capability features ═════════ -->
             <TextBlock x:Name="FeaturesSectionHeader" Text="Capabilities" Style="{StaticResource BodyStrongTextBlockStyle}"
