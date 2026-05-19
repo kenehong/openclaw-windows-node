@@ -248,8 +248,8 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         Element dropdownsRow = composerLayout switch
         {
             ChatComposerLayout.Minimal    => Empty(),
-            ChatComposerLayout.InlinePill => (FlexRow(modelCombo) with { ColumnGap = 4 }),
-            _                             => (FlexRow(channelCombo, modelCombo, reasoningCombo) with { ColumnGap = 4 }),
+            ChatComposerLayout.InlinePill => (FlexRow(modelCombo) with { ColumnGap = 6 }),
+            _                             => (FlexRow(channelCombo, modelCombo, reasoningCombo) with { ColumnGap = 6 }),
         };
 
         // ── Row 2: multi-line composer textbox ─────────────────────────
@@ -745,7 +745,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 permissionBanner,
                 Border(
                     VStack(8, textbox, attachmentChip, bottomRow)
-                ).Padding(14, 12, 8, 12)
+                ).Padding(14, 12, 14, 12)
                  .Set(b =>
                  {
                      b.BorderThickness = new Thickness(0, 1, 0, 0);
@@ -770,7 +770,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
             permissionBanner2,
             Border(
                 VStack(8, dropdownsRow, textbox, voiceIndicator, attachmentChip, actionsRow)
-            ).Padding(14, 12, 8, 12)
+            ).Padding(14, 12, 14, 12)
              .Set(b =>
              {
                  // Top divider only — mirrors Kenny's ChatShell ComposerBorder.

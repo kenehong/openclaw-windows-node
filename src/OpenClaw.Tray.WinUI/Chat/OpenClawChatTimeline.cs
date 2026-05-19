@@ -1187,7 +1187,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
                 .Background(toolCardBgBrush)
                 .WithBorder(toolCardBorderBrush, 1)
-                .CornerRadius(8);
+                .CornerRadius(8)
+                .Set(b => { b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
 
             // Build the per-step rows once — used by Plain, TaskHeader, and
             // CompactSummary (when expanded).
@@ -1469,7 +1470,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ).Background(toolCardBgBrush)
                  .WithBorder(toolCardBorderBrush, 1)
                  .CornerRadius(8)
-                 .Set(b => { b.HorizontalAlignment = HorizontalAlignment.Left; });
+                 .Set(b => { b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
 
                 // Wrap with the assistant avatar slot so the burst visually
                 // anchors to the agent that produced it (and lines up with the
