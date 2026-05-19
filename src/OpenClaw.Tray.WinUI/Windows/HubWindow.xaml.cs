@@ -167,7 +167,26 @@ public sealed partial class HubWindow : WindowEx
         RefreshSidebarIcons(settings);
         settings.Saved -= OnSettingsSavedForSidebar;
         settings.Saved += OnSettingsSavedForSidebar;
-        Closed += (_, _) => settings.Saved -= OnSettingsSavedForSidebar;
+        // Refresh mono icons when the user toggles light/dark so the
+        // pre-baked-foreground SVG variant matches the new chrome color.
+        NavView.ActualThemeChanged -= OnNavThemeChangedForSidebar;
+        NavView.ActualThemeChanged += OnNavThemeChangedForSidebar;
+        Closed += (_, _) =>
+        {
+            settings.Saved -= OnSettingsSavedForSidebar;
+            NavView.ActualThemeChanged -= OnNavThemeChangedForSidebar;
+        };
+    }
+
+    private void OnNavThemeChangedForSidebar(FrameworkElement sender, object args)
+    {
+        if (IsClosed) return;
+        DispatcherQueue?.TryEnqueue(() =>
+        {
+            if (IsClosed) return;
+            try { RefreshSidebarIcons(CurrentApp.Settings); }
+            catch { /* best effort */ }
+        });
     }
 
     private void OnSettingsSavedForSidebar(object? sender, EventArgs e)
@@ -885,83 +904,34 @@ public sealed partial class HubWindow : WindowEx
 
     /// <summary>
     /// Build an <see cref="ImageIcon"/> for a mono sidebar asset, mirroring the
-    /// exact rendering pipeline used by the colored variant. The SVG file
-    /// content is loaded, <c>currentColor</c> is replaced with the active theme
-    /// foreground (white in Dark / HC dark, black in Light / HC light), and the
-    /// resulting markup is fed into an <see cref="SvgImageSource"/> via
-    /// <c>SetSourceAsync</c>. Using <see cref="ImageIcon"/> guarantees both
-    /// visual size parity with the colored icons and a robust SVG parser (the
-    /// XAML <c>PathIcon</c> mini-language parser chokes on some SVGO-optimized
-    /// path constructs such as <c>zh4.498z</c> emitted by Iconify).
+    /// exact rendering pipeline used by the colored variant. Picks the
+    /// pre-baked light- or dark-foreground SVG from the
+    /// <c>Assets/SidebarIcons/Mono/&lt;Theme&gt;/</c> sub-folder based on the
+    /// current theme (and falls back to the dark variant in High Contrast,
+    /// matching the rest of the dark-on-light Hub chrome).
     /// </summary>
     private ImageIcon BuildMonoImageIcon(string assetName)
     {
-        var svgSource = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource();
-        var icon = new ImageIcon { Source = svgSource };
-        _ = LoadMonoSvgAsync(assetName, svgSource);
-        return icon;
-    }
-
-    private async System.Threading.Tasks.Task LoadMonoSvgAsync(
-        string assetName,
-        Microsoft.UI.Xaml.Media.Imaging.SvgImageSource target)
-    {
-        try
+        var folder = ResolveMonoThemeFolder();
+        var uri = new Uri($"ms-appx:///Assets/SidebarIcons/Mono/{folder}/{assetName}");
+        return new ImageIcon
         {
-            var uri = new Uri($"ms-appx:///Assets/SidebarIcons/Mono/{assetName}");
-            var file = await global::Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(uri);
-            var text = await global::Windows.Storage.FileIO.ReadTextAsync(file);
-
-            // Substitute the SVG `currentColor` placeholder with a concrete
-            // theme-appropriate color. SvgImageSource does not honor
-            // `currentColor`, so without this every mono icon would render
-            // black (invisible on the dark sidebar).
-            var colorHex = ResolveMonoForegroundHex();
-            text = text.Replace("currentColor", colorHex, StringComparison.Ordinal);
-
-            using var stream = new global::Windows.Storage.Streams.InMemoryRandomAccessStream();
-            using (var writer = new global::Windows.Storage.Streams.DataWriter(stream))
-            {
-                writer.WriteString(text);
-                await writer.StoreAsync();
-                await writer.FlushAsync();
-                writer.DetachStream();
-            }
-            stream.Seek(0);
-            await target.SetSourceAsync(stream);
-        }
-        catch
-        {
-            // Best-effort: a missing asset just leaves the empty source in
-            // place; the navigation item still functions.
-        }
+            Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(uri),
+        };
     }
 
     /// <summary>
-    /// Returns the hex color to substitute for `currentColor` in mono SVGs.
-    /// Mirrors WinUI's default foreground for the active theme so mono icons
-    /// match surrounding text and remain visible in High Contrast.
+    /// Picks the mono-icon sub-folder ("Light" / "Dark") whose pre-baked fill
+    /// color matches the current sidebar foreground. Mirrors WinUI's
+    /// <see cref="ElementTheme"/> resolution so the icons follow the rest of
+    /// the navigation chrome on theme switch.
     /// </summary>
-    private string ResolveMonoForegroundHex()
+    private string ResolveMonoThemeFolder()
     {
-        // High Contrast: use the system-defined window text color so the icons
-        // honor the user's chosen palette.
-        if (_isHighContrast)
-        {
-            try
-            {
-                var uiSettings = new global::Windows.UI.ViewManagement.UISettings();
-                var c = uiSettings.GetColorValue(
-                    global::Windows.UI.ViewManagement.UIColorType.Foreground);
-                return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-            }
-            catch { /* fall through to theme default */ }
-        }
-
         var theme = (NavView as FrameworkElement)?.ActualTheme ?? ElementTheme.Default;
         if (theme == ElementTheme.Default && Content is FrameworkElement root)
             theme = root.ActualTheme;
-        return theme == ElementTheme.Light ? "#000000" : "#FFFFFF";
+        return theme == ElementTheme.Light ? "Light" : "Dark";
     }
 
     private IconElement ResolveColorIcon(NavigationViewItem item)
