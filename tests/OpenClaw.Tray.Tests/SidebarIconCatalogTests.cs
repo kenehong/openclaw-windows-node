@@ -5,8 +5,14 @@ namespace OpenClaw.Tray.Tests;
 /// <summary>
 /// Pins the <c>SidebarIconCatalog</c> contract: every <c>NavigationViewItem</c>
 /// tag used in <c>HubWindow.xaml</c> is covered by both the colorful SVG
-/// resource-key map (for <c>SidebarIconStyle.Color</c>) and the Segoe Fluent
-/// glyph map (for <c>SidebarIconStyle.Mono</c> and High Contrast fallback).
+/// resource-key map (for <c>SidebarIconStyle.Color</c>) and the SVG path-data
+/// map (for <c>SidebarIconStyle.Mono</c>, rendered via <c>PathIcon</c> so the
+/// foreground brush inherits the current theme / High Contrast color).
+///
+/// The Mono path data is derived from the matching "regular" variant of the
+/// <c>microsoft/fluentui-system-icons</c> SVGs shipped under
+/// <c>Assets/SidebarIcons/Mono/</c>. These tests also enforce that the on-disk
+/// SVGs stay in sync with the path strings baked into the catalog.
 ///
 /// We parse the XAML + catalog source rather than reflect on the WinUI
 /// assembly because this test project is pure net10.0.
@@ -28,6 +34,10 @@ public sealed class SidebarIconCatalogTests
             "src", "OpenClaw.Tray.WinUI", "Windows", "HubWindow.xaml");
         return File.ReadAllText(path);
     }
+
+    private static string MonoAssetsDirectory() => Path.Combine(
+        GetRepositoryRoot(),
+        "src", "OpenClaw.Tray.WinUI", "Assets", "SidebarIcons", "Mono");
 
     /// <summary>Tags present on every top-level / sub-item <c>NavigationViewItem</c>
     /// in <c>HubWindow.xaml</c> (excluding the dynamic <c>agent:*</c> rows,
@@ -63,7 +73,7 @@ public sealed class SidebarIconCatalogTests
             Assert.True(
                 src.Contains($"\"{tag}\"", System.StringComparison.Ordinal),
                 $"SidebarIconCatalog must mention tag \"{tag}\" found in HubWindow.xaml " +
-                "(missing from either the resource-key or mono-glyph map).");
+                "(missing from either the resource-key or mono-path-data map).");
         }
     }
 
@@ -91,28 +101,81 @@ public sealed class SidebarIconCatalogTests
     }
 
     [Fact]
-    public void Catalog_MonoGlyphs_ArePuaCharacters()
+    public void Catalog_MonoPathData_LooksLikeSvgPath()
     {
+        // Each mono entry must be a non-empty SVG path "d" mini-language
+        // string starting with a "MoveTo" command (M/m), which the
+        // PathIcon/Geometry parser accepts at runtime.
         var src = ReadCatalogSource();
         var rx = new Regex(
-            "{\\s*\"[^\"]+\",\\s*\"\\\\u(?<code>[0-9A-Fa-f]{4})\"\\s*}",
+            "{\\s*\"(?<tag>[a-z]+)\",\\s*\"(?<d>M[^\"]+)\"\\s*}",
             RegexOptions.Compiled);
         var matches = rx.Matches(src);
         Assert.NotEmpty(matches);
         foreach (Match m in matches)
         {
-            var code = int.Parse(m.Groups["code"].Value,
-                System.Globalization.NumberStyles.HexNumber);
-            Assert.InRange(code, 0xE000, 0xF8FF);
+            var d = m.Groups["d"].Value;
+            Assert.StartsWith("M", d, System.StringComparison.Ordinal);
+            Assert.True(d.Length > 20,
+                $"Mono path data for tag \"{m.Groups["tag"].Value}\" looks too short.");
         }
     }
 
     [Fact]
-    public void Catalog_DefinesGroupGlyphConstants()
+    public void Catalog_DefinesGroupPathConstants()
     {
         var src = ReadCatalogSource();
-        Assert.Contains("AdvancedGroupGlyph", src);
-        Assert.Contains("AgentsGroupGlyph", src);
+        Assert.Contains("AdvancedGroupPathData", src);
+        Assert.Contains("AgentsGroupPathData", src);
+    }
+
+    [Fact]
+    public void MonoAssetFolder_ContainsSvgForEveryColorIcon()
+    {
+        // Every color SVG under Assets/SidebarIcons/ must have a same-named
+        // companion under Assets/SidebarIcons/Mono/ so the catalog mapping
+        // (and any future tooling that regenerates path data from the SVGs)
+        // stays 1:1.
+        var colorDir = Path.Combine(
+            GetRepositoryRoot(),
+            "src", "OpenClaw.Tray.WinUI", "Assets", "SidebarIcons");
+        var monoDir = MonoAssetsDirectory();
+        Assert.True(Directory.Exists(monoDir),
+            $"Mono asset directory must exist at {monoDir}.");
+
+        var colorNames = Directory.GetFiles(colorDir, "*.svg")
+            .Select(Path.GetFileName)
+            .ToHashSet();
+        Assert.NotEmpty(colorNames);
+
+        foreach (var name in colorNames)
+        {
+            Assert.True(File.Exists(Path.Combine(monoDir, name!)),
+                $"Missing mono SVG companion: Assets/SidebarIcons/Mono/{name}");
+        }
+    }
+
+    [Fact]
+    public void MonoSvgFiles_AreWellFormedAndHavePathData()
+    {
+        // Each mono SVG must be valid XML containing at least one <path d="…"/>.
+        // This is the source of truth the catalog's path strings are derived
+        // from.
+        var monoDir = MonoAssetsDirectory();
+        var files = Directory.GetFiles(monoDir, "*.svg");
+        Assert.NotEmpty(files);
+
+        var pathRx = new Regex(@"<path\b[^>]*\bd=""([^""]+)""", RegexOptions.Compiled);
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            // Parses → well-formed XML.
+            var doc = System.Xml.Linq.XDocument.Parse(text);
+            Assert.NotNull(doc.Root);
+
+            Assert.True(pathRx.IsMatch(text),
+                $"{Path.GetFileName(file)} must contain at least one <path d=\"…\"/>.");
+        }
     }
 
     private static string GetRepositoryRoot()

@@ -800,18 +800,22 @@ public sealed partial class HubWindow : WindowEx
 
     // The Hub sidebar supports three icon-rendering states, ordered by
     // precedence:
-    //   1. Windows High Contrast active → always Mono (FontIcon, theme brush).
+    //   1. Windows High Contrast active → always Mono (PathIcon, theme brush).
     //   2. User picked SidebarIconStyle.Mono in Settings → Mono.
     //   3. Default → Color (ImageIcon backed by Assets/SidebarIcons SVGs).
     //
-    // Tag → SVG resource key and Tag → Fluent glyph mappings live in
+    // var2: Mono icons reuse the *same* Fluent UI System Icons used by the
+    // colored set, but the "regular" (single-color) 24px variant, rendered
+    // through PathIcon so the foreground brush is theme- and HC-aware.
+    //
+    // Tag → SVG resource key and Tag → SVG path "d" mappings live in
     // SidebarIconCatalog so they can be unit-tested independently. The two
     // group-parent items ("Advanced" expander and "Agents" expander) and
     // every dynamic agent:* row are handled here because they don't carry a
     // Tag the catalog can key on.
 
-    private const string AdvancedGroupGlyph = SidebarIconCatalog.AdvancedGroupGlyph;
-    private const string AgentsGroupGlyph = SidebarIconCatalog.AgentsGroupGlyph;
+    private const string AdvancedGroupPathData = SidebarIconCatalog.AdvancedGroupPathData;
+    private const string AgentsGroupPathData = SidebarIconCatalog.AgentsGroupPathData;
 
     private bool _isHighContrast;
     private SidebarIconStyle _appliedIconStyle = SidebarIconStyle.Color;
@@ -863,16 +867,29 @@ public sealed partial class HubWindow : WindowEx
     {
         if (item.Tag is string tag)
         {
-            if (SidebarIconCatalog.TryGetMonoGlyph(tag, out var glyph))
-                return new FontIcon { Glyph = glyph };
+            if (SidebarIconCatalog.TryGetMonoPathData(tag, out var pathData))
+                return BuildPathIcon(pathData);
         }
         if (item == AgentsNavItem)
-            return new FontIcon { Glyph = AgentsGroupGlyph };
+            return BuildPathIcon(AgentsGroupPathData);
         if (item.Content is string content && content.Equals("Advanced", StringComparison.OrdinalIgnoreCase))
-            return new FontIcon { Glyph = AdvancedGroupGlyph };
+            return BuildPathIcon(AdvancedGroupPathData);
         // Fall back to whatever the XAML provided (keeps the existing icon
         // rather than blanking it out for unmapped items).
         return item.Icon ?? new FontIcon { Glyph = "\uE700" };
+    }
+
+    /// <summary>
+    /// Build a <see cref="PathIcon"/> from an SVG path "d" mini-language string.
+    /// Geometry parsing uses the XAML type converter so the same syntax accepted
+    /// in markup (M, L, C, Z, …) works at runtime.
+    /// </summary>
+    private static PathIcon BuildPathIcon(string pathData)
+    {
+        var geometry = (Microsoft.UI.Xaml.Media.Geometry)
+            Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
+                typeof(Microsoft.UI.Xaml.Media.Geometry), pathData);
+        return new PathIcon { Data = geometry };
     }
 
     private IconElement ResolveColorIcon(NavigationViewItem item)
@@ -903,7 +920,7 @@ public sealed partial class HubWindow : WindowEx
     private IconElement BuildAgentItemIcon()
     {
         if (UseMonoIcons)
-            return new FontIcon { Glyph = AgentsGroupGlyph };
+            return BuildPathIcon(AgentsGroupPathData);
         return new ImageIcon
         {
             Source = (Microsoft.UI.Xaml.Media.ImageSource)NavView.Resources["Agents_Icon"]
