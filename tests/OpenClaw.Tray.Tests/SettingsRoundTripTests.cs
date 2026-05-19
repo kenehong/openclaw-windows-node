@@ -51,6 +51,7 @@ public class SettingsRoundTripTests
             TtsWindowsVoiceId = "Microsoft Zira Desktop",
             HubNavPaneOpen = false,
             TtsPiperVoiceId = "fr_FR-siwis-low",
+            SidebarIconStyle = SidebarIconStyle.Mono,
             HasSeenActivityStreamTip = true,
             SkippedUpdateTag = "v1.2.3",
             NotifyChatResponses = false,
@@ -105,6 +106,7 @@ public class SettingsRoundTripTests
         Assert.Equal(original.TtsWindowsVoiceId, restored.TtsWindowsVoiceId);
         Assert.Equal(original.HubNavPaneOpen, restored.HubNavPaneOpen);
         Assert.Equal(original.TtsPiperVoiceId, restored.TtsPiperVoiceId);
+        Assert.Equal(original.SidebarIconStyle, restored.SidebarIconStyle);
         Assert.Equal(original.HasSeenActivityStreamTip, restored.HasSeenActivityStreamTip);
         Assert.Equal(original.SkippedUpdateTag, restored.SkippedUpdateTag);
         Assert.Equal(original.NotifyChatResponses, restored.NotifyChatResponses);
@@ -189,6 +191,32 @@ public class SettingsRoundTripTests
         var settings = SettingsData.FromJson("{}");
         Assert.NotNull(settings);
         Assert.True(settings!.HubNavPaneOpen);
+    }
+
+    [Fact]
+    public void SidebarIconStyle_DefaultsColor_ForEmptyJson()
+    {
+        // Existing settings.json files predate the SidebarIconStyle field —
+        // they must deserialize to Color so users don't get a silent visual
+        // change on upgrade.
+        var settings = SettingsData.FromJson("{}");
+        Assert.NotNull(settings);
+        Assert.Equal(SidebarIconStyle.Color, settings!.SidebarIconStyle);
+    }
+
+    [Fact]
+    public void SidebarIconStyle_SerializesAsString()
+    {
+        // The enum is annotated with JsonStringEnumConverter; settings.json
+        // must remain human-readable, and tests/scripts can match on the
+        // literal "Color"/"Mono" values rather than a brittle integer.
+        var data = new SettingsData { SidebarIconStyle = SidebarIconStyle.Mono };
+        var json = data.ToJson();
+        Assert.Contains("\"SidebarIconStyle\": \"Mono\"", json);
+
+        var restored = SettingsData.FromJson(json);
+        Assert.NotNull(restored);
+        Assert.Equal(SidebarIconStyle.Mono, restored!.SidebarIconStyle);
     }
 
     [Fact]

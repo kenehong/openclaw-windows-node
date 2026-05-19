@@ -56,6 +56,14 @@ public class SettingsData
     /// <summary>Persisted: whether the Hub's NavigationView pane is expanded
     /// (true) or collapsed/compact (false). Default true.</summary>
     public bool HubNavPaneOpen { get; set; } = true;
+    /// <summary>
+    /// Visual style for the Hub sidebar (NavigationView) icons. <c>Color</c>
+    /// uses the colorful SVGs under <c>Assets/SidebarIcons/</c>; <c>Mono</c>
+    /// uses Segoe Fluent Icons glyphs that inherit the theme foreground brush.
+    /// Default <c>Color</c> — existing users see no change on upgrade.
+    /// High Contrast always forces Mono regardless of this setting.
+    /// </summary>
+    public SidebarIconStyle SidebarIconStyle { get; set; } = SidebarIconStyle.Color;
     /// <summary>Optional Windows TTS voice id (or display name). Empty = system default.</summary>
     public string? TtsWindowsVoiceId { get; set; }
     /// <summary>

@@ -72,7 +72,6 @@ public sealed partial class HubWindow : WindowEx
     public HubWindow()
     {
         InitializeComponent();
-        ApplyHighContrastFallbackIfNeeded();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         Closed += (s, e) =>
@@ -160,6 +159,25 @@ public sealed partial class HubWindow : WindowEx
         {
             NavView.IsPaneOpen = settings.HubNavPaneOpen;
         }
+
+        // Initial sidebar icon application, and subscribe to live updates from
+        // the Settings page. Done here (rather than in the ctor) because we
+        // need the SettingsManager instance and want it to run after the
+        // NavigationView is fully realized.
+        RefreshSidebarIcons(settings);
+        settings.Saved -= OnSettingsSavedForSidebar;
+        settings.Saved += OnSettingsSavedForSidebar;
+        Closed += (_, _) => settings.Saved -= OnSettingsSavedForSidebar;
+    }
+
+    private void OnSettingsSavedForSidebar(object? sender, EventArgs e)
+    {
+        if (IsClosed) return;
+        DispatcherQueue?.TryEnqueue(() =>
+        {
+            if (IsClosed) return;
+            if (sender is SettingsManager s) RefreshSidebarIcons(s);
+        });
     }
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
@@ -778,93 +796,113 @@ public sealed partial class HubWindow : WindowEx
     /// <summary>Action to open the QuickSend dialog, set by App.xaml.cs.</summary>
     public Action? QuickSendAction { get; set; }
 
-    #region High Contrast icon fallback
+    #region Sidebar icon style (Color / Mono / High Contrast fallback)
 
-    // Maps NavigationViewItem.Tag -> Segoe Fluent Icons glyph used as fallback
-    // when Windows High Contrast is active. FontIcon uses the system foreground
-    // brush so it auto-adapts to every HC variant (HC Black/White/#1/#2); our
-    // multi-color SVGs don't, so we swap them out at construction. This mirrors
-    // the original gray Segoe Fluent Icons that were here before the colorful
-    // refresh — same glyphs as those Windows users learned in earlier builds.
-    private static readonly Dictionary<string, string> s_highContrastGlyphFallback = new()
-    {
-        { "chat",        "\uE8BD" },
-        { "connection",  "\uE839" },
-        { "sessions",    "\uE8F2" },
-        { "skills",      "\uE945" },
-        { "channels",    "\uEC05" },
-        { "instances",   "\uE977" },
-        { "agentevents", "\uE943" },
-        { "bindings",    "\uE8AD" },
-        { "config",      "\uE90F" },
-        { "usage",       "\uE9D9" },
-        { "cron",        "\uE787" },
-        { "voice",       "\uE720" },
-        { "settings",    "\uE713" },
-        { "permissions", "\uEA18" },
-        { "sandbox",     "\uE72E" },
-        { "activity",    "\uEA95" },
-        { "debug",       "\uEBE8" },
-        { "info",        "\uE946" },
-    };
+    // The Hub sidebar supports three icon-rendering states, ordered by
+    // precedence:
+    //   1. Windows High Contrast active → always Mono (FontIcon, theme brush).
+    //   2. User picked SidebarIconStyle.Mono in Settings → Mono.
+    //   3. Default → Color (ImageIcon backed by Assets/SidebarIcons SVGs).
+    //
+    // Tag → SVG resource key and Tag → Fluent glyph mappings live in
+    // SidebarIconCatalog so they can be unit-tested independently. The two
+    // group-parent items ("Advanced" expander and "Agents" expander) and
+    // every dynamic agent:* row are handled here because they don't carry a
+    // Tag the catalog can key on.
 
-    // Glyphs for the two parent NavigationViewItems that don't carry a Tag
-    // ("Advanced" group and "Agents" group). These also feed the dynamic agent
-    // items added at runtime.
-    private const string AdvancedGroupGlyph = "\uE950";
-    private const string AgentsGroupGlyph = "\uE99A";
+    private const string AdvancedGroupGlyph = SidebarIconCatalog.AdvancedGroupGlyph;
+    private const string AgentsGroupGlyph = SidebarIconCatalog.AgentsGroupGlyph;
 
     private bool _isHighContrast;
+    private SidebarIconStyle _appliedIconStyle = SidebarIconStyle.Color;
 
-    private void ApplyHighContrastFallbackIfNeeded()
+    private bool UseMonoIcons => _isHighContrast || _appliedIconStyle == SidebarIconStyle.Mono;
+
+    /// <summary>
+    /// (Re)apply icons for every sidebar item based on the current High
+    /// Contrast state and the user's <see cref="SettingsManager.SidebarIconStyle"/>.
+    /// Safe to call repeatedly; flips items in either direction.
+    /// </summary>
+    private void RefreshSidebarIcons(SettingsManager settings)
     {
         try
         {
-            var settings = new global::Windows.UI.ViewManagement.AccessibilitySettings();
-            _isHighContrast = settings.HighContrast;
+            var a11y = new global::Windows.UI.ViewManagement.AccessibilitySettings();
+            _isHighContrast = a11y.HighContrast;
         }
         catch
         {
             _isHighContrast = false;
-            return;
         }
-        if (!_isHighContrast) return;
-        SwapToFontIcons(NavView.MenuItems);
-        SwapToFontIcons(NavView.FooterMenuItems);
+        _appliedIconStyle = settings.SidebarIconStyle;
+
+        if (NavView == null) return;
+        ApplyIconStyleToItems(NavView.MenuItems);
+        ApplyIconStyleToItems(NavView.FooterMenuItems);
     }
 
-    private void SwapToFontIcons(IList<object> items)
+    private void ApplyIconStyleToItems(IList<object> items)
     {
         foreach (var obj in items)
         {
             if (obj is not NavigationViewItem item) continue;
-            item.Icon = ResolveHighContrastIcon(item);
+            item.Icon = ResolveSidebarIcon(item);
             if (item.MenuItems.Count > 0)
-                SwapToFontIcons(item.MenuItems);
+                ApplyIconStyleToItems(item.MenuItems);
         }
     }
 
-    private IconElement ResolveHighContrastIcon(NavigationViewItem item)
+    private IconElement ResolveSidebarIcon(NavigationViewItem item)
+    {
+        if (UseMonoIcons)
+            return ResolveMonoIcon(item);
+        return ResolveColorIcon(item);
+    }
+
+    private IconElement ResolveMonoIcon(NavigationViewItem item)
     {
         if (item.Tag is string tag)
         {
-            if (s_highContrastGlyphFallback.TryGetValue(tag, out var glyph))
+            if (SidebarIconCatalog.TryGetMonoGlyph(tag, out var glyph))
                 return new FontIcon { Glyph = glyph };
-            if (tag.StartsWith("agent:", StringComparison.Ordinal))
-                return new FontIcon { Glyph = AgentsGroupGlyph };
         }
         if (item == AgentsNavItem)
             return new FontIcon { Glyph = AgentsGroupGlyph };
         if (item.Content is string content && content.Equals("Advanced", StringComparison.OrdinalIgnoreCase))
             return new FontIcon { Glyph = AdvancedGroupGlyph };
-        // Fall back to whatever the XAML provided (keeps the colorful icon
+        // Fall back to whatever the XAML provided (keeps the existing icon
         // rather than blanking it out for unmapped items).
+        return item.Icon ?? new FontIcon { Glyph = "\uE700" };
+    }
+
+    private IconElement ResolveColorIcon(NavigationViewItem item)
+    {
+        string? resourceKey = null;
+        if (item.Tag is string tag)
+        {
+            if (SidebarIconCatalog.TryGetResourceKey(tag, out var key))
+                resourceKey = key;
+            else if (tag.StartsWith("agent:", StringComparison.Ordinal))
+                resourceKey = "Agents_Icon";
+        }
+        if (resourceKey == null && item == AgentsNavItem)
+            resourceKey = "Agents_Icon";
+        if (resourceKey == null && item.Content is string content &&
+            content.Equals("Advanced", StringComparison.OrdinalIgnoreCase))
+            resourceKey = "Advanced_Icon";
+
+        if (resourceKey != null &&
+            NavView.Resources.TryGetValue(resourceKey, out var resource) &&
+            resource is Microsoft.UI.Xaml.Media.ImageSource source)
+        {
+            return new ImageIcon { Source = source };
+        }
         return item.Icon ?? new FontIcon { Glyph = "\uE700" };
     }
 
     private IconElement BuildAgentItemIcon()
     {
-        if (_isHighContrast)
+        if (UseMonoIcons)
             return new FontIcon { Glyph = AgentsGroupGlyph };
         return new ImageIcon
         {

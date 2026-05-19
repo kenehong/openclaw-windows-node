@@ -93,6 +93,31 @@
                     </Grid>
                 </Border>
 
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="{StaticResource SettingsRowPadding}">
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock x:Uid="SettingsRow_SidebarIconStyle_Header" Text="Sidebar icons" Style="{StaticResource BodyTextBlockStyle}"/>
+                            <TextBlock x:Uid="SettingsRow_SidebarIconStyle_Description"
+                                       Text="Color uses the illustrated SVGs; Mono uses Segoe Fluent glyphs that match the theme. High Contrast always uses Mono."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" x:Name="SidebarIconStyleComboBox" MinWidth="120"
+                                  AutomationProperties.AutomationId="SettingsPageSidebarIconStyle"
+                                  AutomationProperties.Name="Sidebar icon style">
+                            <ComboBoxItem x:Uid="SettingsPage_SidebarIconStyle_Color" Content="Color" Tag="Color"/>
+                            <ComboBoxItem x:Uid="SettingsPage_SidebarIconStyle_Mono" Content="Mono" Tag="Mono"/>
+                        </ComboBox>
+                    </Grid>
+                </Border>
+
                 <!-- ═════════ Notifications ═════════ -->
                 <TextBlock Text="Notifications" Style="{StaticResource BodyStrongTextBlockStyle}"
                            Margin="{StaticResource SectionHeaderMargin}"/>

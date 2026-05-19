@@ -3372,6 +3372,15 @@ On your gateway host (Mac/Linux), run:
   <data name="SettingsRow_LegacyChat_Header.Text" xml:space="preserve">
     <value>Use gateway's web chat interface</value>
   </data>
+  <data name="SettingsRow_SidebarIconStyle_Header.Text" xml:space="preserve">
+    <value>Sidebar icons</value>
+  </data>
+  <data name="SettingsPage_SidebarIconStyle_Color.Content" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="SettingsPage_SidebarIconStyle_Mono.Content" xml:space="preserve">
+    <value>Mono</value>
+  </data>
   <data name="SettingsRow_Notifications_Header.Text" xml:space="preserve">
     <value>Show notifications</value>
   </data>
@@ -3545,6 +3554,9 @@ On your gateway host (Mac/Linux), run:
   </data>
   <data name="SettingsRow_LegacyChat_Description.Text" xml:space="preserve">
     <value>When on, Chat hosts the gateway's web chat instead of the native Windows experience.</value>
+  </data>
+  <data name="SettingsRow_SidebarIconStyle_Description.Text" xml:space="preserve">
+    <value>Color uses the illustrated SVGs; Mono uses Segoe Fluent glyphs that match the theme. High Contrast always uses Mono.</value>
   </data>
   <data name="SettingsRow_Notifications_Description.Text" xml:space="preserve">
     <value>Show toast notifications for events you've subscribed to below.</value>

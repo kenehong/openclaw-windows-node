@@ -105,6 +105,8 @@ public class SettingsManager
     public string TtsWindowsVoiceId { get; set; } = "";
     /// <summary>Hub NavigationView pane expanded (true) vs compact (false). Default true.</summary>
     public bool HubNavPaneOpen { get; set; } = true;
+    /// <summary>User-selected sidebar icon style. Default Color.</summary>
+    public SidebarIconStyle SidebarIconStyle { get; set; } = SidebarIconStyle.Color;
     /// <summary>Piper voice identifier, e.g. "en_US-amy-low".</summary>
     public string TtsPiperVoiceId { get; set; } = "en_US-amy-low";
     // Local MCP HTTP server (independent of EnableNodeMode)
@@ -212,6 +214,7 @@ public class SettingsManager
                     TtsElevenLabsVoiceId = loaded.TtsElevenLabsVoiceId ?? TtsElevenLabsVoiceId;
                     TtsWindowsVoiceId = loaded.TtsWindowsVoiceId ?? TtsWindowsVoiceId;
                     HubNavPaneOpen = loaded.HubNavPaneOpen;
+                    SidebarIconStyle = loaded.SidebarIconStyle;
                     TtsPiperVoiceId = string.IsNullOrWhiteSpace(loaded.TtsPiperVoiceId) ? TtsPiperVoiceId : loaded.TtsPiperVoiceId;
                     EnableMcpServer = loaded.EnableMcpServer;
                     A2UIImageHosts = loaded.A2UIImageHosts ?? new List<string>();
@@ -333,6 +336,7 @@ public class SettingsManager
         TtsElevenLabsVoiceId = string.IsNullOrWhiteSpace(TtsElevenLabsVoiceId) ? null : TtsElevenLabsVoiceId,
         TtsWindowsVoiceId = string.IsNullOrWhiteSpace(TtsWindowsVoiceId) ? null : TtsWindowsVoiceId,
         HubNavPaneOpen = HubNavPaneOpen,
+        SidebarIconStyle = SidebarIconStyle,
         TtsPiperVoiceId = TtsPiperVoiceId,
         EnableMcpServer = EnableMcpServer,
         A2UIImageHosts = A2UIImageHosts.Count == 0 ? null : new List<string>(A2UIImageHosts),

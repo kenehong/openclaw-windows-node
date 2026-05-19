@@ -73,6 +73,14 @@ public sealed partial class SettingsPage : Page
         AutoStartToggle.Toggled += (_, _) => PersistAutoStart();
         GlobalHotkeyToggle.Toggled += (_, _) => Persist(s => s.GlobalHotkeyEnabled = GlobalHotkeyToggle.IsOn);
         UseLegacyWebChatToggle.Toggled += (_, _) => Persist(s => s.UseLegacyWebChat = UseLegacyWebChatToggle.IsOn);
+        SidebarIconStyleComboBox.SelectionChanged += (_, _) =>
+        {
+            if (SidebarIconStyleComboBox.SelectedItem is ComboBoxItem item &&
+                Enum.TryParse<SidebarIconStyle>(item.Tag?.ToString(), out var style))
+            {
+                Persist(s => s.SidebarIconStyle = style);
+            }
+        };
         NotificationsToggle.Toggled += (_, _) => Persist(s => s.ShowNotifications = NotificationsToggle.IsOn);
         NotificationSoundComboBox.SelectionChanged += (_, _) =>
         {
@@ -171,6 +179,17 @@ public sealed partial class SettingsPage : Page
         AutoStartToggle.IsOn = settings.AutoStart;
         GlobalHotkeyToggle.IsOn = settings.GlobalHotkeyEnabled;
         UseLegacyWebChatToggle.IsOn = settings.UseLegacyWebChat;
+        for (int i = 0; i < SidebarIconStyleComboBox.Items.Count; i++)
+        {
+            if (SidebarIconStyleComboBox.Items[i] is ComboBoxItem item &&
+                item.Tag?.ToString() == settings.SidebarIconStyle.ToString())
+            {
+                SidebarIconStyleComboBox.SelectedIndex = i;
+                break;
+            }
+        }
+        if (SidebarIconStyleComboBox.SelectedIndex < 0)
+            SidebarIconStyleComboBox.SelectedIndex = 0;
         NotificationsToggle.IsOn = settings.ShowNotifications;
 
         for (int i = 0; i < NotificationSoundComboBox.Items.Count; i++)

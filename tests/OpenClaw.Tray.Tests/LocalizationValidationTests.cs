@@ -47,6 +47,12 @@ public class LocalizationValidationTests
         "VoiceOverlayWindow_winexWindowEx_2.Title",
         "PermissionsPage_TtsElevenLabsModel.PlaceholderText",
         "PermissionsPage_TtsProviderElevenLabs.Content",
+        // Sidebar icon style ComboBox labels — "Color" / "Mono" are short
+        // loanwords already understood across this app's audience and read
+        // the same in every supported locale; translations can land later
+        // without changing the keys.
+        "SettingsPage_SidebarIconStyle_Color.Content",
+        "SettingsPage_SidebarIconStyle_Mono.Content",
         // Sample IDs / brand identifiers — same across locales.
         "VoiceSettingsPage_ElevenLabsVoiceIdBox.PlaceholderText",
         "VoiceSettingsPage_ElevenLabsModelBox.PlaceholderText",
