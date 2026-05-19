@@ -884,12 +884,24 @@ public sealed partial class HubWindow : WindowEx
     /// Geometry parsing uses the XAML type converter so the same syntax accepted
     /// in markup (M, L, C, Z, …) works at runtime.
     /// </summary>
+    /// <remarks>
+    /// The downloaded Fluent regular SVGs are drawn in a 0..24 viewBox. We
+    /// pin <c>Width</c>/<c>Height</c> to 24 here so <c>PathIcon</c>'s underlying
+    /// <c>Path</c> (Stretch=Uniform in the WinUI 3 default template) scales the
+    /// geometry to fill the same logical box the colored <c>ImageIcon</c> uses,
+    /// keeping mono and color icons visually the same size in the sidebar.
+    /// </remarks>
     private static PathIcon BuildPathIcon(string pathData)
     {
         var geometry = (Microsoft.UI.Xaml.Media.Geometry)
             Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
                 typeof(Microsoft.UI.Xaml.Media.Geometry), pathData);
-        return new PathIcon { Data = geometry };
+        return new PathIcon
+        {
+            Data = geometry,
+            Width = 24,
+            Height = 24,
+        };
     }
 
     private IconElement ResolveColorIcon(NavigationViewItem item)
