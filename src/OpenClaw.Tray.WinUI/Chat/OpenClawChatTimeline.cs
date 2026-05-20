@@ -875,9 +875,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             // Assistant bubble — subtle gray with primary text. Radius/Padding
             // come from ChatExplorationState (BubbleCornerRadius + PaddingDensity).
-            // MaxWidth+Stretch so the bubble's right stroke lines up with the
-            // tool burst card's right stroke (tool card sits indented inside
-            // the same column with HAlign=Stretch and MaxWidth = 720 - indent).
+            // HAlign=Left keeps the bubble anchored next to the avatar/timestamp
+            // column. MaxWidth=720 caps the growth so long messages stop where
+            // the tool burst card's max right edge lands.
             var card = Border(
                 SafeMarkdownText(entry.Text)
             ).Background(assistantBubbleBg)
@@ -892,7 +892,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 [GridSize.Auto, GridSize.Star()],
                 [GridSize.Auto],
                 leftSlot.Grid(row: 0, column: 0).Margin(0, 0, showAssistAvatar && showAvatar ? bubbleSideMargin : 0, 0),
-                card.HAlign(HorizontalAlignment.Stretch).Grid(row: 0, column: 1)
+                card.HAlign(HorizontalAlignment.Left).Grid(row: 0, column: 1)
             ).HAlign(HorizontalAlignment.Stretch);
 
             Element footer = Empty();
