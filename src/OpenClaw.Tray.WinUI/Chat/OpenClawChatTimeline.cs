@@ -1201,7 +1201,20 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
                 .Background(toolCardBgBrush)
                 .WithBorder(toolCardBorderBrush, 1)
-                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720 - toolIndent; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720 - toolIndent; b.HorizontalAlignment = HorizontalAlignment.Stretch; });
+
+            // Wrap the card in a left-anchored Auto/Star Grid so its 704-wide
+            // slot stays pinned to toolLeftMargin instead of being centered
+            // inside the wider timeline column (WinUI's quirk: HAlign=Stretch
+            // with finite MaxWidth centers when the slot is bigger than the
+            // MaxWidth). The Auto column sizes to the card's MaxWidth, the
+            // Star column eats the remaining width on the right.
+            Element AnchorLeft(Element card) => Grid(
+                [GridSize.Auto, GridSize.Star()],
+                [GridSize.Auto],
+                card.Grid(row: 0, column: 0),
+                Empty().Grid(row: 0, column: 1)
+            ).HAlign(HorizontalAlignment.Stretch);
 
             // Build the per-step rows once — used by Plain, TaskHeader, and
             // CompactSummary (when expanded).
@@ -1274,9 +1287,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     pieces.AddRange(rows);
                 }
                 return VStack(2,
-                    CardOf(pieces.ToArray()),
+                    AnchorLeft(CardOf(pieces.ToArray())),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskHeader: prepend a non-clickable header row to the card.
@@ -1306,9 +1319,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 Array.Copy(rows, 0, combined, 1, rows.Length);
 
                 return VStack(2,
-                    CardOf(combined),
+                    AnchorLeft(CardOf(combined)),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskList: per-step rows with a status icon (✓ / spinner / ✕)
@@ -1517,13 +1530,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             if (style == ToolBurstStyle.FooterReframe)
             {
                 return VStack(2,
-                    CardOf(rows),
+                    AnchorLeft(CardOf(rows)),
                     FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
-            return CardOf(rows)
-                .HAlign(HorizontalAlignment.Left)
+            return AnchorLeft(CardOf(rows))
                 .Margin(toolLeftMargin, 6, gutter, 6);
         }
 
