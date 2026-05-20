@@ -106,6 +106,13 @@ public enum ToolBurstStyle
     /// Mirrors the AgentRunCard "Running steps / Completed steps" pattern
     /// from native-chat-v2.</summary>
     TaskList,
+    /// <summary>Smart default — picks per burst state:
+    /// running bursts render Plain (per-step status visible);
+    /// terminal multi-step bursts collapse to CompactSummary (1-line summary,
+    /// click chevron to expand); single-step bursts stay Plain.
+    /// Matches Scott's feedback: keep live progress visible, fold completed
+    /// work into a tidy one-liner once the turn finishes.</summary>
+    Auto,
 }
 
 /// <summary>
@@ -394,7 +401,7 @@ public static class ChatExplorationState
 
     // ---- Tool burst (H) ----
 
-    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Plain;
+    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Auto;
     private static bool _showStepNumbers;
 
     /// <summary>

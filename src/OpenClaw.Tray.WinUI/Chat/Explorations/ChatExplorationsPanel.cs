@@ -212,6 +212,7 @@ public class ChatExplorationsPanel : Component
 
         // ── H. Tool burst (multi-step task framing) ──────────────────
         // Variants explored here mirror competitor patterns:
+        //   Auto           — smart default: Plain while running, CompactSummary when done
         //   Plain          — current Cursor-lite (no task framing)
         //   TaskHeader     — Cursor's "Tool calls (N steps)" + per-row list
         //   CompactSummary — single collapsed "Task · 3 steps" row, expands
@@ -219,6 +220,7 @@ public class ChatExplorationsPanel : Component
         var toolBurstSection = Section("H. Tool burst style",
             EnumCombo("Burst style", ChatExplorationState.ToolBurstStyle,
                 v => ChatExplorationState.ToolBurstStyle = v,
+                ToolBurstStyle.Auto,
                 ToolBurstStyle.Plain,
                 ToolBurstStyle.TaskHeader,
                 ToolBurstStyle.CompactSummary,

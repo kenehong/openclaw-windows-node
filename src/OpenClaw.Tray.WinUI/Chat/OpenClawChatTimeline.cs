@@ -1157,8 +1157,25 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             // ── Style-aware composition ──────────────────────────────
             // Read the live exploration state for the burst variant.
-            // Defaults to Plain when not explicitly toggled.
+            // Defaults to Auto, which picks the best variant per burst:
+            //   - single-step  → Plain (one inline row, nothing to fold)
+            //   - all terminal → CompactSummary (1-line collapsed summary,
+            //                    click chevron to expand the steps)
+            //   - any running  → Plain (per-step status visible in real time)
+            // Matches Scott's feedback: keep live progress legible while
+            // executing, then tidy up to a one-liner once the turn finishes.
             var style = ChatExplorationState.ToolBurstStyle;
+            if (style == ToolBurstStyle.Auto)
+            {
+                bool allTerminal = true;
+                foreach (var e in entries)
+                {
+                    if (e.ToolResult == ChatToolCallStatus.InProgress) { allTerminal = false; break; }
+                }
+                style = (entries.Count >= 2 && allTerminal)
+                    ? ToolBurstStyle.CompactSummary
+                    : ToolBurstStyle.Plain;
+            }
             var showStepNumbers = ChatExplorationState.ShowStepNumbers && entries.Count > 1;
             var stepCount = entries.Count;
 
