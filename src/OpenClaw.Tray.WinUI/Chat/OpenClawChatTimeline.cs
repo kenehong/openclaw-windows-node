@@ -1292,25 +1292,50 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 };
 
                 var summaryHeader = Border(
-                    (FlexRow(
+                    Grid(
+                        [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Star(), GridSize.Auto],
+                        [GridSize.Auto],
                         Caption(summaryChevron).Foreground(TertiaryText)
-                            .Set(t => { t.FontSize = 12; }).VAlign(VerticalAlignment.Center),
+                            .Set(t => { t.FontSize = 12; })
+                            .VAlign(VerticalAlignment.Center)
+                            .Grid(row: 0, column: 0),
                         Caption("⚡").Foreground(taskStatusBg)
-                            .Set(t => { t.FontSize = 12; }).VAlign(VerticalAlignment.Center),
+                            .Set(t => { t.FontSize = 12; })
+                            .VAlign(VerticalAlignment.Center)
+                            .Margin(6, 0, 0, 0)
+                            .Grid(row: 0, column: 1),
                         Caption($"Task · {stepCount} steps").Foreground(SecondaryText)
-                            .Set(t => { t.FontSize = 12; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
-                            .VAlign(VerticalAlignment.Center),
+                            .Set(t =>
+                            {
+                                t.FontSize = 12;
+                                t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                            })
+                            .VAlign(VerticalAlignment.Center)
+                            .Margin(6, 0, 0, 0)
+                            .Grid(row: 0, column: 2),
                         Caption("· " + toolList).Foreground(TertiaryText)
-                            .Set(t => { t.FontSize = 12; t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxLines = 1; })
-                            .VAlign(VerticalAlignment.Center).Flex(grow: 1),
+                            .Set(t =>
+                            {
+                                t.FontSize = 12;
+                                t.TextTrimming = TextTrimming.CharacterEllipsis;
+                                t.MaxLines = 1;
+                            })
+                            .VAlign(VerticalAlignment.Center)
+                            .Margin(6, 0, 12, 0)
+                            .Grid(row: 0, column: 3),
                         Border(
                             Caption(taskStatusText).Foreground(new SolidColorBrush(Colors.White))
                                 .Set(t => { t.FontSize = 10; t.LineHeight = 16; })
                                 .VAlign(VerticalAlignment.Center)
-                        ).Background(taskStatusBg).CornerRadius(10).Padding(8, 0, 8, 0)
-                         .Set(b => b.MinHeight = 18).VAlign(VerticalAlignment.Center)
-                    ) with { ColumnGap = 6 }).Padding(12, 8, 12, 8)
-                ).Set(b => b.MinHeight = 22);
+                        ).Background(taskStatusBg)
+                         .CornerRadius(10)
+                         .Padding(8, 0, 8, 0)
+                         .Set(b => b.MinHeight = 18)
+                         .VAlign(VerticalAlignment.Center)
+                         .HAlign(HorizontalAlignment.Right)
+                         .Grid(row: 0, column: 4)
+                    ).HAlign(HorizontalAlignment.Stretch).Padding(bubblePadding.Left, bubblePadding.Top, bubblePadding.Right, bubblePadding.Bottom)
+                ).Set(b => b.MinHeight = 32);
 
                 var summaryButton = Button(summaryHeader, toggleSummary).Set(b =>
                 {
@@ -1333,10 +1358,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     // the summary header inside the same card.
                     pieces.AddRange(rows);
                 }
-                return VStack(2,
-                    AnchorLeft(CardOf(pieces.ToArray())),
-                    FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
+                return AnchorLeft(CardOf(pieces.ToArray()))
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskHeader: prepend a non-clickable header row to the card.
@@ -1365,10 +1389,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 combined[0] = taskHeader;
                 Array.Copy(rows, 0, combined, 1, rows.Length);
 
-                return VStack(2,
-                    AnchorLeft(CardOf(combined)),
-                    FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
+                return AnchorLeft(CardOf(combined))
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskList: per-step rows with a status icon (✓ / spinner / ✕)
@@ -1576,10 +1599,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // assistant bubble it follows.
             if (style == ToolBurstStyle.FooterReframe)
             {
-                return VStack(2,
-                    AnchorLeft(CardOf(rows)),
-                    FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
+                return AnchorLeft(CardOf(rows))
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             return AnchorLeft(CardOf(rows))
