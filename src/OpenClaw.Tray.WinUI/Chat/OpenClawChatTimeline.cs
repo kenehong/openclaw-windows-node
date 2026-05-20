@@ -840,6 +840,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 var entryMeta = MetaFor(entry.Id);
                 var timeStr = FormatTime(entryMeta?.Timestamp);
                 var rightInset = showUserAvatar ? (36 + bubbleSideMargin) : 0;
+                rightInset += (int)bubblePadding.Right;
                 footer = BuildUserFooter(userSender, timeStr, chatStampFg, entry.Id, entry.Text ?? "")
                     .Margin(0, 2, rightInset, 0);
             }
@@ -901,6 +902,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     entryMeta?.ResponseTokens, entryMeta?.ContextPercent,
                     chatStampFg, entry.Id, entry.Text ?? "");
                 var leftInset = (showAssistAvatar && showAvatar) ? (36 + bubbleSideMargin) : 0;
+                leftInset += (int)bubblePadding.Left;
                 footer = footer.Margin(leftInset, 2, 0, 0);
             }
 
