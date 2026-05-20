@@ -439,9 +439,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             ? themeBrush("TextFillColorTertiaryBrush")
             : themeBrush("TextFillColorSecondaryBrush");
         var chatTextFg          = themeBrush("TextFillColorPrimaryBrush");
-        // Tool chips kept in a slightly cooler/dim shade so they read as
-        // secondary content next to the assistant bubble.
-        var toolCardBgBrush     = themeBrush("SubtleFillColorTertiaryBrush");
+        // Tool chips: outline-only so they clearly differ from the filled
+        // assistant bubble (per visual feedback — make tool cards distinct
+        // from chat bubbles instead of looking like a slightly dimmer copy).
+        var toolCardBgBrush     = (Brush)new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         var toolCardBorderBrush = themeBrush("ControlStrokeColorDefaultBrush");
 
         // Avatar: 36×36 circle (Kenny uses circular avatars). Same constructor
@@ -850,7 +851,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     VStack(2, bubbleRow, footer)
                         .HAlign(HorizontalAlignment.Stretch)
                 ).Background(new SolidColorBrush(Colors.Transparent))
-                 .Margin(gutter, topMargin, 8, bottomMargin),
+                 .Margin(gutter, topMargin, 16, bottomMargin),
                 entry.Id);
         }
 
@@ -913,7 +914,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         .HAlign(HorizontalAlignment.Stretch)
                         .AutomationName(entry.Text ?? "")
                 ).Background(new SolidColorBrush(Colors.Transparent))
-                 .Margin(8, topMargin, gutter, bottomMargin),
+                 .Margin(16, topMargin, gutter, bottomMargin),
                 entry.Id);
         }
 
@@ -1167,14 +1168,11 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
             string? StepPrefix(int i) => showStepNumbers ? $"{i + 1}." : null;
 
-            // Footer reflects the *last* entry's timestamp — that's when the
-            // burst finished from the user's POV.
+            // Footer (when shown) reflects the *last* entry's timestamp —
+            // that's when the burst finished from the user's POV.
             var lastEntry = entries[entries.Count - 1];
             var entryMeta = MetaFor(lastEntry.Id);
             var timeStr = FormatTime(entryMeta?.Timestamp);
-            var plainFooter = string.IsNullOrEmpty(timeStr)
-                ? LocalizationHelper.GetString("Chat_Tool_FooterLabel")
-                : string.Format(LocalizationHelper.GetString("Chat_Tool_FooterWithTimeFormat"), timeStr);
             // "Task · 3 steps · 8:16 PM" — used by FooterReframe + as the
             // companion line under the TaskHeader card. Keeps the time so
             // users still get the chronology.
@@ -1187,8 +1185,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
                 .Background(toolCardBgBrush)
                 .WithBorder(toolCardBorderBrush, 1)
-                .CornerRadius(8)
-                .Set(b => { b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
 
             // Build the per-step rows once — used by Plain, TaskHeader, and
             // CompactSummary (when expanded).
@@ -1244,7 +1241,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     b.HorizontalAlignment = HorizontalAlignment.Stretch;
                     b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                     b.Padding = new Thickness(0);
-                    b.CornerRadius = new CornerRadius(8, 8, summaryExpanded ? 0 : 8, summaryExpanded ? 0 : 8);
+                    b.CornerRadius = new CornerRadius(bubbleRadius.TopLeft, bubbleRadius.TopRight, summaryExpanded ? 0 : bubbleRadius.BottomRight, summaryExpanded ? 0 : bubbleRadius.BottomLeft);
                 }).Resources(r => r
                     .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
@@ -1440,7 +1437,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     b.HorizontalAlignment = HorizontalAlignment.Stretch;
                     b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                     b.Padding = bubblePadding;
-                    b.CornerRadius = new CornerRadius(8, 8, effectiveExpanded ? 0 : 8, effectiveExpanded ? 0 : 8);
+                    b.CornerRadius = new CornerRadius(bubbleRadius.TopLeft, bubbleRadius.TopRight, effectiveExpanded ? 0 : bubbleRadius.BottomRight, effectiveExpanded ? 0 : bubbleRadius.BottomLeft);
                 }).Resources(r => r
                     .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
@@ -1469,8 +1466,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     VStack(0, cardChildren.ToArray())
                 ).Background(toolCardBgBrush)
                  .WithBorder(toolCardBorderBrush, 1)
-                 .CornerRadius(8)
-                 .Set(b => { b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                 .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
 
                 // Wrap with the assistant avatar slot so the burst visually
                 // anchors to the agent that produced it (and lines up with the
@@ -1490,23 +1486,26 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     listCard.HAlign(HorizontalAlignment.Left).Grid(row: 0, column: 1)
                 ).HAlign(HorizontalAlignment.Stretch);
 
-                // When avatar is present, drop the left margin to 0 so the
-                // avatar fills the indent slot. Otherwise keep the original 36.
-                // No trailing footer — assistant follow-up bubble below carries
-                // the timestamp for the whole turn.
-                var leftMargin = showAssistAvatar ? 8.0 : 36.0;
-                return burstRow.HAlign(HorizontalAlignment.Stretch).Margin(leftMargin, 6, gutter, 6);
+                // Match assistant bubble's outer inset so user/assistant/tool
+                // share the same left edge. Avatar slot lives inside burstRow.
+                return burstRow.HAlign(HorizontalAlignment.Stretch).Margin(16, 6, gutter, 6);
             }
 
-            // FooterReframe: rows unchanged, footer becomes "Task · N steps · time".
-            // Plain: original — "Tool · time".
-            var footerText = style == ToolBurstStyle.FooterReframe ? TaskFooter() : plainFooter;
+            // FooterReframe keeps the "Task · N steps · time" caption.
+            // Plain drops the footer entirely — the assistant follow-up
+            // bubble below carries the timestamp for the whole turn, and
+            // labelling each tool card with "Tool · time" added visual noise.
+            if (style == ToolBurstStyle.FooterReframe)
+            {
+                return VStack(2,
+                    CardOf(rows),
+                    FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
+                ).HAlign(HorizontalAlignment.Stretch)
+                 .Margin(16, 6, gutter, 6);
+            }
 
-            return VStack(2,
-                CardOf(rows),
-                FooterCaption(footerText, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-            ).HAlign(HorizontalAlignment.Stretch)
-             .Margin(36, 6, gutter, 6);
+            return CardOf(rows).HAlign(HorizontalAlignment.Left)
+                .Margin(16, 6, gutter, 6);
         }
 
         // Legacy single-entry RenderToolEntry removed — all ToolCall rendering
