@@ -394,7 +394,13 @@ public static class ChatExplorationState
 
     // ---- Tool burst (H) ----
 
-    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Plain;
+    // Default to TaskList so tool bursts auto-collapse into a one-line
+    // summary when finished (with chevron to expand). Matches the "show
+    // work is happening, hide verbose logs unless asked" UX Scott
+    // requested — TaskList stays expanded while a step is InProgress and
+    // collapses to "Ran N steps" / result snippet when done. Per-step
+    // rows can still be expanded individually for full args/output.
+    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.TaskList;
     private static bool _showStepNumbers;
 
     /// <summary>
