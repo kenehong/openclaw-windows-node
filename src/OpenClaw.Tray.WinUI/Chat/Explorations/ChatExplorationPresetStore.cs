@@ -43,10 +43,10 @@ public sealed record ChatExplorationPreset
     public double BubbleSideMargin { get; init; } = 8;
 
     // Footer
-    public bool ShowSenderName { get; init; } = true;
-    public bool ShowModelName { get; init; } = true;
-    public bool ShowTokens { get; init; }
-    public bool ShowContextPercent { get; init; }
+    public bool ShowSenderName { get; init; } = false;
+    public bool ShowModelName { get; init; } = false;
+    public bool ShowTokens { get; init; } = true;
+    public bool ShowContextPercent { get; init; } = true;
 
     // Avatar
     public bool   ShowAvatars { get; init; } = true;
