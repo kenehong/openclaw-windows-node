@@ -1197,7 +1197,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
                 .Background(toolCardBgBrush)
                 .WithBorder(toolCardBorderBrush, 1)
-                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720 - toolIndent; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720 - toolIndent; b.HorizontalAlignment = HorizontalAlignment.Stretch; });
 
             // Build the per-step rows once — used by Plain, TaskHeader, and
             // CompactSummary (when expanded).
@@ -1272,7 +1272,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(pieces.ToArray()),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskHeader: prepend a non-clickable header row to the card.
@@ -1304,7 +1304,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(combined),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskList: per-step rows with a status icon (✓ / spinner / ✕)
@@ -1515,11 +1515,11 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(rows),
                     FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             return CardOf(rows)
-                .HAlign(HorizontalAlignment.Left)
+                .HAlign(HorizontalAlignment.Stretch)
                 .Margin(toolLeftMargin, 6, gutter, 6);
         }
 
@@ -1628,11 +1628,42 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             k == ChatTimelineItemKind.Assistant || k == ChatTimelineItemKind.ToolCall;
 
         var renderedEntries = new Element[Props.Entries.Count];
-        for (int i = 0; i < Props.Entries.Count; i++)
+        // Reorder display so that within each turn (segment between User entries)
+        // ToolCall bursts render AFTER the assistant reply (or the thinking
+        // indicator if no reply has streamed yet). Gateway emits tool_start
+        // before assistant_delta, but the desired visual flow is
+        //   [User] → [Assistant reply / thinking] → [Tool burst]
+        // so the assistant message reads first and the tool work hangs below it.
+        var orderedIdx = new int[Props.Entries.Count];
         {
+            int outPos = 0;
+            int turnStart = 0;
+            void Flush(int endExclusive)
+            {
+                for (int j = turnStart; j < endExclusive; j++)
+                    if (Props.Entries[j].Kind != ChatTimelineItemKind.ToolCall)
+                        orderedIdx[outPos++] = j;
+                for (int j = turnStart; j < endExclusive; j++)
+                    if (Props.Entries[j].Kind == ChatTimelineItemKind.ToolCall)
+                        orderedIdx[outPos++] = j;
+            }
+            for (int i = 0; i < Props.Entries.Count; i++)
+            {
+                if (Props.Entries[i].Kind == ChatTimelineItemKind.User && i > turnStart)
+                {
+                    Flush(i);
+                    turnStart = i;
+                }
+            }
+            Flush(Props.Entries.Count);
+        }
+
+        for (int k = 0; k < orderedIdx.Length; k++)
+        {
+            int i = orderedIdx[k];
             var entry = Props.Entries[i];
-            var prevKind = i > 0 ? Props.Entries[i - 1].Kind : (ChatTimelineItemKind?)null;
-            var nextKind = i < Props.Entries.Count - 1 ? Props.Entries[i + 1].Kind : (ChatTimelineItemKind?)null;
+            var prevKind = k > 0 ? Props.Entries[orderedIdx[k - 1]].Kind : (ChatTimelineItemKind?)null;
+            var nextKind = k < orderedIdx.Length - 1 ? Props.Entries[orderedIdx[k + 1]].Kind : (ChatTimelineItemKind?)null;
             var startsBurst = prevKind is null || !SameBurstKind(prevKind.Value, entry.Kind);
             var endsBurst = nextKind is null || !SameBurstKind(entry.Kind, nextKind.Value);
             var showAvatar = !(prevKind is { } pk && IsAgentSide(pk) && IsAgentSide(entry.Kind));
@@ -1644,28 +1675,26 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             {
                 if (!showToolCalls)
                 {
-                    renderedEntries[i] = Empty().WithKey(entry.Id);
+                    renderedEntries[k] = Empty().WithKey(entry.Id);
                     continue;
                 }
                 if (!startsBurst)
                 {
-                    // Non-start tool entries collapsed into the burst rendered
-                    // at startsBurst; render Empty here to avoid duplication.
-                    renderedEntries[i] = Empty().WithKey(entry.Id);
+                    renderedEntries[k] = Empty().WithKey(entry.Id);
                     continue;
                 }
                 var burst = new System.Collections.Generic.List<ChatTimelineItem> { entry };
-                int j = i + 1;
-                while (j < Props.Entries.Count && Props.Entries[j].Kind == ChatTimelineItemKind.ToolCall)
+                int kj = k + 1;
+                while (kj < orderedIdx.Length && Props.Entries[orderedIdx[kj]].Kind == ChatTimelineItemKind.ToolCall)
                 {
-                    burst.Add(Props.Entries[j]);
-                    j++;
+                    burst.Add(Props.Entries[orderedIdx[kj]]);
+                    kj++;
                 }
-                renderedEntries[i] = RenderToolBurst(burst, showAvatar).WithKey(entry.Id);
+                renderedEntries[k] = RenderToolBurst(burst, showAvatar).WithKey(entry.Id);
                 continue;
             }
 
-            renderedEntries[i] = RenderEntry(entry, startsBurst, endsBurst, showAvatar).WithKey(entry.Id);
+            renderedEntries[k] = RenderEntry(entry, startsBurst, endsBurst, showAvatar).WithKey(entry.Id);
         }
 
         // Inline "thinking" indicator rendered just below the last entry
@@ -1694,14 +1723,44 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
              .LiveRegion(Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
         }
 
+        // Build the final element list, splicing the thinking indicator
+        // inline RIGHT AFTER the most recent User entry so tool bursts that
+        // follow it visually hang below "Agent is thinking…" (and below the
+        // assistant reply once one streams in).
+        Element[] timelineRows;
+        if (Props.ShowThinkingIndicator && renderedEntries.Length > 0)
+        {
+            int insertAfter = -1;
+            for (int k = orderedIdx.Length - 1; k >= 0; k--)
+            {
+                if (Props.Entries[orderedIdx[k]].Kind == ChatTimelineItemKind.User)
+                {
+                    insertAfter = k;
+                    break;
+                }
+            }
+            var spliced = new System.Collections.Generic.List<Element>(renderedEntries.Length + 1);
+            for (int k = 0; k < renderedEntries.Length; k++)
+            {
+                spliced.Add(renderedEntries[k]);
+                if (k == insertAfter) spliced.Add(thinkingIndicator);
+            }
+            if (insertAfter < 0) spliced.Insert(0, thinkingIndicator);
+            timelineRows = spliced.ToArray();
+        }
+        else
+        {
+            timelineRows = renderedEntries;
+        }
+
         return Grid([GridSize.Star()], [GridSize.Star()],
             // Page background matches dash-light --bg so bubbles stand out.
             Border(
                 ScrollView(
-                    Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
+                    Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
                         loadMoreButton.Grid(row: 0, column: 0),
                         Border(Empty()).Height(20).Grid(row: 1, column: 0),
-                        VStack(2, renderedEntries).Set(sp =>
+                        VStack(2, timelineRows).Set(sp =>
                         {
                             if (contentRef.Current != sp)
                             {
@@ -1713,8 +1772,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                                 };
                             }
                         }).Grid(row: 2, column: 0),
-                        thinkingIndicator.Grid(row: 3, column: 0),
-                        Border(Empty()).Height(24).Grid(row: 4, column: 0)
+                        Border(Empty()).Height(24).Grid(row: 3, column: 0)
                     )
                 ).Set(sv =>
             {
