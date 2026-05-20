@@ -439,10 +439,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             ? themeBrush("TextFillColorTertiaryBrush")
             : themeBrush("TextFillColorSecondaryBrush");
         var chatTextFg          = themeBrush("TextFillColorPrimaryBrush");
-        // Tool chips: outline-only so they clearly differ from the filled
-        // assistant bubble (per visual feedback — make tool cards distinct
-        // from chat bubbles instead of looking like a slightly dimmer copy).
-        var toolCardBgBrush     = (Brush)new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        // Tool chips: very subtle background tint + light border so they
+        // read as a secondary surface distinct from the filled assistant
+        // bubble without looking like an empty outlined box.
+        var toolCardBgBrush     = themeBrush("LayerOnAcrylicFillColorDefaultBrush");
         var toolCardBorderBrush = themeBrush("ControlStrokeColorDefaultBrush");
 
         // Avatar: 36×36 circle (Kenny uses circular avatars). Same constructor
@@ -900,7 +900,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     entryMeta?.InputTokens, entryMeta?.OutputTokens,
                     entryMeta?.ResponseTokens, entryMeta?.ContextPercent,
                     chatStampFg, entry.Id, entry.Text ?? "");
-                var leftInset = showAssistAvatar ? (36 + bubbleSideMargin) : 0;
+                var leftInset = (showAssistAvatar && showAvatar) ? (36 + bubbleSideMargin) : 0;
                 footer = footer.Margin(leftInset, 2, 0, 0);
             }
 
@@ -1135,8 +1135,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     })
                     .Resources(r => r
                         .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
-                        .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
-                        .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                        .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00)))
+                        .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x1C, 0x00, 0x00, 0x00)))
                         .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
                         .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
                         .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
@@ -1242,8 +1242,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     b.CornerRadius = new CornerRadius(bubbleRadius.TopLeft, bubbleRadius.TopRight, summaryExpanded ? 0 : bubbleRadius.BottomRight, summaryExpanded ? 0 : bubbleRadius.BottomLeft);
                 }).Resources(r => r
                     .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
-                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
-                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x1C, 0x00, 0x00, 0x00)))
                     .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
@@ -1438,8 +1438,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     b.CornerRadius = new CornerRadius(bubbleRadius.TopLeft, bubbleRadius.TopRight, effectiveExpanded ? 0 : bubbleRadius.BottomRight, effectiveExpanded ? 0 : bubbleRadius.BottomLeft);
                 }).Resources(r => r
                     .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
-                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
-                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x10, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x1C, 0x00, 0x00, 0x00)))
                     .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
                     .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
