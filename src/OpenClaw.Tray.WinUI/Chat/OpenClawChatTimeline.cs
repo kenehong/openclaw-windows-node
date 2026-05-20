@@ -865,14 +865,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return Empty();
 
             // Avatar shown only on the FIRST entry of a contiguous agent-side
-            // run (Assistant + ToolCall task cards count as one agent block).
-            // Mid-run entries get a spacer so the bubble stays aligned with
-            // the first bubble that does carry the avatar.
-            Element leftSlot = !showAssistAvatar
+            // run. Continuation entries get no spacer — they align flush with
+            // the tool burst cards above (which also sit at the left inset),
+            // so the agent column reads as a single vertical edge.
+            Element leftSlot = !showAssistAvatar || !showAvatar
                 ? Empty()
-                : (showAvatar
-                    ? AssistantAvatar().VAlign(VerticalAlignment.Top)
-                    : Border(Empty()).Size(36, 36));
+                : AssistantAvatar().VAlign(VerticalAlignment.Top);
 
             // Assistant bubble — subtle gray with primary text. Radius/Padding
             // come from ChatExplorationState (BubbleCornerRadius + PaddingDensity).
@@ -1683,8 +1681,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // Page background matches dash-light --bg so bubbles stand out.
             Border(
                 ScrollView(
-                    Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
+                    Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
                         loadMoreButton.Grid(row: 0, column: 0),
+                        Border(Empty()).Height(20).Grid(row: 1, column: 0),
                         VStack(2, renderedEntries).Set(sp =>
                         {
                             if (contentRef.Current != sp)
@@ -1696,9 +1695,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                                         QueueScrollToBottom(sv, prevSessionIdRef.Current, disableAnimation: true);
                                 };
                             }
-                        }).Grid(row: 1, column: 0),
-                        thinkingIndicator.Grid(row: 2, column: 0),
-                        Border(Empty()).Height(24).Grid(row: 3, column: 0)
+                        }).Grid(row: 2, column: 0),
+                        thinkingIndicator.Grid(row: 3, column: 0),
+                        Border(Empty()).Height(24).Grid(row: 4, column: 0)
                     )
                 ).Set(sv =>
             {
