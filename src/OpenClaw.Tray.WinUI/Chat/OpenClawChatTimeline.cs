@@ -1491,20 +1491,40 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return burstRow.HAlign(HorizontalAlignment.Stretch).Margin(16, 6, gutter, 6);
             }
 
+            // Helper: wrap a tool burst card with the same avatar/spacer slot
+            // that TaskHeader uses, so Plain/FooterReframe align with the
+            // assistant bubble's text edge instead of starting at the gutter.
+            Element WrapWithAvatarSlot(Element card)
+            {
+                Element leftSlot = !showAssistAvatar
+                    ? Empty()
+                    : (showAvatar
+                        ? AssistantAvatar().VAlign(VerticalAlignment.Top)
+                        : Border(Empty()).Size(36, 36));
+
+                return Grid(
+                    [GridSize.Auto, GridSize.Star()],
+                    [GridSize.Auto],
+                    leftSlot.Grid(row: 0, column: 0).Margin(0, 0, showAssistAvatar && showAvatar ? bubbleSideMargin : 0, 0),
+                    card.HAlign(HorizontalAlignment.Left).Grid(row: 0, column: 1)
+                ).HAlign(HorizontalAlignment.Stretch);
+            }
+
             // FooterReframe keeps the "Task · N steps · time" caption.
             // Plain drops the footer entirely — the assistant follow-up
             // bubble below carries the timestamp for the whole turn, and
             // labelling each tool card with "Tool · time" added visual noise.
             if (style == ToolBurstStyle.FooterReframe)
             {
-                return VStack(2,
-                    CardOf(rows),
-                    FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch)
-                 .Margin(16, 6, gutter, 6);
+                return WrapWithAvatarSlot(
+                    VStack(2,
+                        CardOf(rows),
+                        FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
+                    )
+                ).Margin(16, 6, gutter, 6);
             }
 
-            return CardOf(rows).HAlign(HorizontalAlignment.Left)
+            return WrapWithAvatarSlot(CardOf(rows))
                 .Margin(16, 6, gutter, 6);
         }
 
