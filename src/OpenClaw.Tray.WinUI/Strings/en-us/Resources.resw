@@ -816,25 +816,6 @@ Use one of these options:
   <data name="CameraRecordingToggle.Header" xml:space="preserve">
     <value>Allow camera recording</value>
   </data>
-  <!-- ==================== Activity Stream: Recording ==================== -->
-  <data name="Activity_ScreenRecordingStarted" xml:space="preserve">
-    <value>Screen recording started</value>
-  </data>
-  <data name="Activity_ScreenRecordingComplete" xml:space="preserve">
-    <value>Screen recording complete</value>
-  </data>
-  <data name="Activity_CameraRecordingStarted" xml:space="preserve">
-    <value>Camera recording started</value>
-  </data>
-  <data name="Activity_CameraRecordingComplete" xml:space="preserve">
-    <value>Camera recording complete</value>
-  </data>
-  <data name="Activity_RecordingRequestedByAgent" xml:space="preserve">
-    <value>{0} recording requested by agent</value>
-  </data>
-  <data name="Activity_RecordingSentToAgent" xml:space="preserve">
-    <value>{0} recording sent to agent</value>
-  </data>
   <!-- ==================== Toast: Activity Stream Tip ==================== -->
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ New: Activity Stream</value>

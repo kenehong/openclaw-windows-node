@@ -772,25 +772,6 @@ Utilisez l'une de ces options :
   <data name="CameraRecordingToggle.Header" xml:space="preserve">
     <value>Autoriser l'enregistrement caméra</value>
   </data>
-  <!-- ==================== Activity Stream: Recording ==================== -->
-  <data name="Activity_ScreenRecordingStarted" xml:space="preserve">
-    <value>Enregistrement d'écran démarré</value>
-  </data>
-  <data name="Activity_ScreenRecordingComplete" xml:space="preserve">
-    <value>Enregistrement d'écran terminé</value>
-  </data>
-  <data name="Activity_CameraRecordingStarted" xml:space="preserve">
-    <value>Enregistrement caméra démarré</value>
-  </data>
-  <data name="Activity_CameraRecordingComplete" xml:space="preserve">
-    <value>Enregistrement caméra terminé</value>
-  </data>
-  <data name="Activity_RecordingRequestedByAgent" xml:space="preserve">
-    <value>Enregistrement {0} demandé par l'agent</value>
-  </data>
-  <data name="Activity_RecordingSentToAgent" xml:space="preserve">
-    <value>Enregistrement {0} envoyé à l'agent</value>
-  </data>
   <!-- ==================== Toast: Activity Stream Tip ==================== -->
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ Nouveau: Fil d'activité</value>
