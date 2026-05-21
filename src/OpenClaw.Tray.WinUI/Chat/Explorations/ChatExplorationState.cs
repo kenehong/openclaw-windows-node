@@ -155,10 +155,10 @@ public static class ChatExplorationState
     private static double _bubbleMaxWidth = 560d;
     private static double _bubbleSideMargin = 8d;
 
-    private static bool _showSenderName = true;
-    private static bool _showModelName = true;
-    private static bool _showTokens;
-    private static bool _showContextPercent;
+    private static bool _showSenderName = false;
+    private static bool _showModelName = false;
+    private static bool _showTokens = true;
+    private static bool _showContextPercent = true;
 
     // Default icon glyphs match production OpenClawComposer.cs.
     private static string _sendIconGlyph   = "\uE724";
@@ -394,13 +394,7 @@ public static class ChatExplorationState
 
     // ---- Tool burst (H) ----
 
-    // Default to TaskList so tool bursts auto-collapse into a one-line
-    // summary when finished (with chevron to expand). Matches the "show
-    // work is happening, hide verbose logs unless asked" UX Scott
-    // requested — TaskList stays expanded while a step is InProgress and
-    // collapses to "Ran N steps" / result snippet when done. Per-step
-    // rows can still be expanded individually for full args/output.
-    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.TaskList;
+    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Plain;
     private static bool _showStepNumbers;
 
     /// <summary>

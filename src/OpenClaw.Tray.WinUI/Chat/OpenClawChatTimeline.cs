@@ -1151,6 +1151,18 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var showStepNumbers = ChatExplorationState.ShowStepNumbers && entries.Count > 1;
             var stepCount = entries.Count;
 
+            // Tool burst alignment: align outer left to the assistant bubble's
+            // outer left edge + a small indent so the card visually reads as
+            // "owned by" the assistant bubble above. Width math:
+            //   bubble outer left = gutter(16) + avatar(36) + sideMargin
+            //   tool card outer left = bubble outer left + indent
+            // When avatars are globally hidden, drop the avatar slot but still
+            // keep the indent so the tool card sits inside the bubble's reading
+            // column rather than aligning to the gutter.
+            const int toolIndent = 16;
+            var toolAvatarSlot = showAssistAvatar ? (36 + (int)bubbleSideMargin) : 0;
+            var toolLeftMargin = 16 + toolAvatarSlot + toolIndent;
+
             // Aggregate burst status: Error if any errored, Running if any
             // not-yet-finished, Interrupted if any interrupted (but not running),
             // otherwise Done. Drives the task header pill.
@@ -1185,7 +1197,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element CardOf(Element[] rowEls) => Border(VStack(0, rowEls))
                 .Background(toolCardBgBrush)
                 .WithBorder(toolCardBorderBrush, 1)
-                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720 - toolIndent; b.HorizontalAlignment = HorizontalAlignment.Left; });
 
             // Build the per-step rows once — used by Plain, TaskHeader, and
             // CompactSummary (when expanded).
@@ -1260,7 +1272,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(pieces.ToArray()),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskHeader: prepend a non-clickable header row to the card.
@@ -1292,7 +1304,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(combined),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, gutter, 6);
+                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
             // TaskList: per-step rows with a status icon (✓ / spinner / ✕)
@@ -1491,41 +1503,24 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return burstRow.HAlign(HorizontalAlignment.Stretch).Margin(16, 6, gutter, 6);
             }
 
-            // Helper: wrap a tool burst card with the same avatar/spacer slot
-            // that TaskHeader uses, so Plain/FooterReframe align with the
-            // assistant bubble's text edge instead of starting at the gutter.
-            Element WrapWithAvatarSlot(Element card)
-            {
-                Element leftSlot = !showAssistAvatar
-                    ? Empty()
-                    : (showAvatar
-                        ? AssistantAvatar().VAlign(VerticalAlignment.Top)
-                        : Border(Empty()).Size(36, 36));
-
-                return Grid(
-                    [GridSize.Auto, GridSize.Star()],
-                    [GridSize.Auto],
-                    leftSlot.Grid(row: 0, column: 0).Margin(0, 0, showAssistAvatar && showAvatar ? bubbleSideMargin : 0, 0),
-                    card.HAlign(HorizontalAlignment.Left).Grid(row: 0, column: 1)
-                ).HAlign(HorizontalAlignment.Stretch);
-            }
-
             // FooterReframe keeps the "Task · N steps · time" caption.
             // Plain drops the footer entirely — the assistant follow-up
             // bubble below carries the timestamp for the whole turn, and
             // labelling each tool card with "Tool · time" added visual noise.
+            // Both styles align the card to the bubble's text edge + indent
+            // (see toolLeftMargin) so the burst visually belongs to the
+            // assistant bubble it follows.
             if (style == ToolBurstStyle.FooterReframe)
             {
-                return WrapWithAvatarSlot(
-                    VStack(2,
-                        CardOf(rows),
-                        FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                    )
-                ).Margin(16, 6, gutter, 6);
+                return VStack(2,
+                    CardOf(rows),
+                    FooterCaption(TaskFooter(), HorizontalAlignment.Left).Margin(0, 2, 0, 0)
+                ).HAlign(HorizontalAlignment.Left).Margin(toolLeftMargin, 6, gutter, 6);
             }
 
-            return WrapWithAvatarSlot(CardOf(rows))
-                .Margin(16, 6, gutter, 6);
+            return CardOf(rows)
+                .HAlign(HorizontalAlignment.Left)
+                .Margin(toolLeftMargin, 6, gutter, 6);
         }
 
         // Legacy single-entry RenderToolEntry removed — all ToolCall rendering
