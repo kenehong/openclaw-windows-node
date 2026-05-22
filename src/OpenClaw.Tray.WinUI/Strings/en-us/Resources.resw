@@ -4275,13 +4275,13 @@ On your gateway host (Mac/Linux), run:
   <data name="SessionsPage_NoActiveSessions.Text" xml:space="preserve">
     <value>No active sessions</value>
   </data>
-  <data name="SessionsPage_Reset.Content" xml:space="preserve">
+  <data name="SessionsPage_Reset.Text" xml:space="preserve">
     <value>Reset</value>
   </data>
-  <data name="SessionsPage_Compact.Content" xml:space="preserve">
+  <data name="SessionsPage_Compact.Text" xml:space="preserve">
     <value>Compact</value>
   </data>
-  <data name="SessionsPage_Delete.Content" xml:space="preserve">
+  <data name="SessionsPage_Delete.Text" xml:space="preserve">
     <value>Delete</value>
   </data>
   <data name="SettingsPage_Settings.Text" xml:space="preserve">

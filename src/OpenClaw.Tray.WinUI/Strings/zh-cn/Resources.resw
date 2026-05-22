@@ -4227,13 +4227,13 @@
   <data name="SessionsPage_NoActiveSessions.Text" xml:space="preserve">
     <value>æ— æ´»åŠ¨ä¼šè¯</value>
   </data>
-  <data name="SessionsPage_Reset.Content" xml:space="preserve">
+  <data name="SessionsPage_Reset.Text" xml:space="preserve">
     <value>é‡ç½®</value>
   </data>
-  <data name="SessionsPage_Compact.Content" xml:space="preserve">
+  <data name="SessionsPage_Compact.Text" xml:space="preserve">
     <value>åŽ‹ç¼©</value>
   </data>
-  <data name="SessionsPage_Delete.Content" xml:space="preserve">
+  <data name="SessionsPage_Delete.Text" xml:space="preserve">
     <value>åˆ é™¤</value>
   </data>
   <data name="SettingsPage_Settings.Text" xml:space="preserve">

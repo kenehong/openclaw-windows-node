@@ -4228,13 +4228,13 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="SessionsPage_NoActiveSessions.Text" xml:space="preserve">
     <value>Geen actieve sessies</value>
   </data>
-  <data name="SessionsPage_Reset.Content" xml:space="preserve">
+  <data name="SessionsPage_Reset.Text" xml:space="preserve">
     <value>Resetten</value>
   </data>
-  <data name="SessionsPage_Compact.Content" xml:space="preserve">
+  <data name="SessionsPage_Compact.Text" xml:space="preserve">
     <value>Compact maken</value>
   </data>
-  <data name="SessionsPage_Delete.Content" xml:space="preserve">
+  <data name="SessionsPage_Delete.Text" xml:space="preserve">
     <value>Verwijderen</value>
   </data>
   <data name="SettingsPage_Settings.Text" xml:space="preserve">
