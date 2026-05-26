@@ -97,7 +97,7 @@ internal sealed class TrayMenuStateBuilder
         var canToggleConnection = _snapshot.CurrentStatus == ConnectionStatus.Connected
             || _snapshot.CurrentStatus == ConnectionStatus.Disconnected
             || _snapshot.CurrentStatus == ConnectionStatus.Error;
-        var connectionToggle = TrayMenuWindow.CreateMenuToggleSwitch(isConnected, "Gateway connection", canToggleConnection);
+        var connectionToggle = menu.CreateMenuToggleSwitch(isConnected, "Gateway connection", canToggleConnection);
         connectionToggle.Margin = new Thickness(0);
         ToolTipService.SetToolTip(connectionToggle,
             isConnected ? "Connected - toggle off to disconnect" : "Disconnected - toggle on to connect");

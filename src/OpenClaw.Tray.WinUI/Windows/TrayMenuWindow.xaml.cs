@@ -147,7 +147,7 @@ public sealed partial class TrayMenuWindow : WindowEx
     private Brush SecondaryTextBrush =>
         _secondaryTextBrush ??= (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
 
-    internal static ToggleSwitch CreateMenuToggleSwitch(bool isOn, string automationName, bool isEnabled = true)
+    internal ToggleSwitch CreateMenuToggleSwitch(bool isOn, string automationName, bool isEnabled = true)
     {
         var toggle = new ToggleSwitch
         {
@@ -159,7 +159,7 @@ public sealed partial class TrayMenuWindow : WindowEx
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             IsEnabled = isEnabled,
-            Style = (Style)Application.Current.Resources["TrayMenuInstantToggleSwitchStyle"]
+            Style = (Style)RootGrid.Resources["TrayMenuInstantToggleSwitchStyle"]
         };
         AutomationProperties.SetName(toggle, automationName);
         return toggle;
