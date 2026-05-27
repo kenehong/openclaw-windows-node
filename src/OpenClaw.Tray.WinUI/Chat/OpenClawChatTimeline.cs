@@ -431,9 +431,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         var showToolCalls    = !Props.EnableExplorationControls || ChatVisualResolver.ShowToolCalls();
         var gutter           = ChatExplorationState.Gutter;
         var messageGap       = ChatExplorationState.MessageGap;
-        var showUserAvatar   = ChatVisualResolver.ShowUserAvatar();
-        var showAssistAvatar = ChatVisualResolver.ShowAssistantAvatar();
-        var showTimestamps   = ChatVisualResolver.ShowTimestamps();
+        var showUserAvatar   = Props.EnableExplorationControls && ChatVisualResolver.ShowUserAvatar();
+        var showAssistAvatar = !Props.EnableExplorationControls || ChatVisualResolver.ShowAssistantAvatar();
+        var showTimestamps   = !Props.EnableExplorationControls || ChatVisualResolver.ShowTimestamps();
 
         var scrollViewRef = UseRef<Microsoft.UI.Xaml.Controls.ScrollViewer?>(null);
         var isFollowingRef = UseRef(true);
@@ -923,10 +923,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             string entryId, string entryText)
         {
             // Honor per-field toggles from ChatExplorationState.
-            var showSender   = ChatExplorationState.ShowSenderName;
-            var showModel    = ChatExplorationState.ShowModelName;
-            var showTokens   = Props.ShowUsageMetadata && ChatExplorationState.ShowTokens;
-            var showCtxPct   = Props.ShowUsageMetadata && ChatExplorationState.ShowContextPercent;
+            var showSender   = Props.EnableExplorationControls && ChatExplorationState.ShowSenderName;
+            var showModel    = Props.EnableExplorationControls && ChatExplorationState.ShowModelName;
+            var showTokens   = Props.ShowUsageMetadata && Props.EnableExplorationControls && ChatExplorationState.ShowTokens;
+            var showCtxPct   = Props.ShowUsageMetadata && Props.EnableExplorationControls && ChatExplorationState.ShowContextPercent;
 
             var parts = new List<Element>();
             void AddPill(string text)
@@ -1249,7 +1249,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             bool suppressFooter = false,
             bool forceVisible = false)
         {
-            if (string.IsNullOrEmpty(entry.Text))
+            if (string.IsNullOrEmpty(entry.Text) && nestedTool is null && overrideBubbleContent is null)
                 return Empty();
 
             // Hidden by user toggle — collapses entire assistant block.
