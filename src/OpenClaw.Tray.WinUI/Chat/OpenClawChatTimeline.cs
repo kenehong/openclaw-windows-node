@@ -1756,18 +1756,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // sides). In external mode the card is anchored to toolLeftMargin
             // so its right edge stays parallel to the bubble's, with 6/6
             // vertical breathing room and the gutter on the right.
-            // Nested mode: pull the card in from the assistant bubble's
-            // rounded corner so the bubble's CornerRadius arc doesn't clip
-            // the card's right edge (and the Done pill inside it). The
-            // bubble's content area is rectangular only when bubblePadding
-            // ≥ bubbleRadius — when they're equal (Cozy preset: 16/16) the
-            // bottom-right corner arc reaches the content edge and the
-            // status pill gets visually truncated to "Do…". A full
-            // bubbleRadius inset (≈16) keeps the card and pill safely
-            // outside the arc on both sides.
-            var nestedSideInset = (int)Math.Round(bubbleRadius.TopLeft);
+            // Nested mode lives inside the assistant bubble's padded content
+            // area, so no extra side inset is needed.
             Element Wrap(Element card) => nested
-                ? card.HAlign(HorizontalAlignment.Stretch).Margin(0, 0, nestedSideInset, 0)
+                ? card.HAlign(HorizontalAlignment.Stretch)
                 : AnchorLeft(card).HAlign(HorizontalAlignment.Stretch).Margin(toolLeftMargin, 6, gutter, 6);
 
             // Wrap the card in a left-anchored single-Star Grid so the card
@@ -2094,7 +2086,22 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                  .WithBorder(toolCardBorderBrush, toolCardBorderThickness)
                  // CornerRadius is uniform (single value from ChatVisualResolver
                  // broadcast to all four corners); safe to assign directly.
-                 .Set(b => { b.CornerRadius = bubbleRadius; b.MaxWidth = 720; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                 .Set(b =>
+                 {
+                     b.CornerRadius = bubbleRadius;
+                     if (nested)
+                     {
+                         b.HorizontalAlignment = HorizontalAlignment.Stretch;
+                     }
+                     else
+                     {
+                         b.MaxWidth = 720;
+                         b.HorizontalAlignment = HorizontalAlignment.Left;
+                     }
+                 });
+
+                if (nested)
+                    return listCard.HAlign(HorizontalAlignment.Stretch);
 
                 // Wrap with the assistant avatar slot so the burst visually
                 // anchors to the agent that produced it (and lines up with the
@@ -2298,13 +2305,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // once below it).
         var nestedConsumed = new System.Collections.Generic.HashSet<int>();
 
-        // Nestable rule: a burst nests inside the assistant bubble when it
-        // renders as a single visible row — one chip (count==1) or a
-        // collapsed multi-step CompactSummary header (count>=2, under
-        // Auto / CompactSummary). In-flight multi-step bursts also nest;
-        // their aggregate status pill flips Running → Done so live progress
-        // is visible without expanding the group. Error rows stay external
-        // (see check below) so failures remain prominent.
+        // Nestable rule: tool calls belong to the assistant turn, so render
+        // them inside the assistant/thinking bubble whenever they can fit as
+        // a compact row. Keep error bursts external so failures remain
+        // visually prominent.
         bool BurstIsNestable(System.Collections.Generic.List<ChatTimelineItem> b)
         {
             if (b.Count == 0) return false;
@@ -2321,7 +2325,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // under Auto / CompactSummary, so they fit comfortably inside
             // an assistant bubble even while a step is in-flight — the
             // aggregate status pill on the header shows Running/Done.
-            var s = ChatExplorationState.ToolBurstStyle;
+            var s = Props.EnableExplorationControls ? ChatExplorationState.ToolBurstStyle : ToolBurstStyle.Auto;
             return s == ToolBurstStyle.Auto || s == ToolBurstStyle.CompactSummary;
         }
 
@@ -2412,6 +2416,39 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             renderedEntries[k] = RenderEntry(entry, startsBurst, endsBurst, showAvatar).WithKey(entry.Id);
         }
 
+        var thinkingNestedConsumed = new System.Collections.Generic.HashSet<int>();
+        Element? thinkingNestedTool = null;
+        if (Props.ShowThinkingIndicator && showToolCalls && renderedEntries.Length > 0)
+        {
+            int lastUser = -1;
+            for (int k = orderedIdx.Length - 1; k >= 0; k--)
+            {
+                if (Props.Entries[orderedIdx[k]].Kind == ChatTimelineItemKind.User)
+                {
+                    lastUser = k;
+                    break;
+                }
+            }
+
+            var start = lastUser + 1;
+            if (start >= 0
+                && start < orderedIdx.Length
+                && Props.Entries[orderedIdx[start]].Kind == ChatTimelineItemKind.ToolCall)
+            {
+                var lookahead = new System.Collections.Generic.List<ChatTimelineItem>();
+                int kj = start;
+                while (kj < orderedIdx.Length && Props.Entries[orderedIdx[kj]].Kind == ChatTimelineItemKind.ToolCall)
+                {
+                    lookahead.Add(Props.Entries[orderedIdx[kj]]);
+                    thinkingNestedConsumed.Add(kj);
+                    kj++;
+                }
+
+                if (lookahead.Count > 0)
+                    thinkingNestedTool = RenderToolBurst(lookahead, showAvatar: false, bubbleSlot: null, nested: true);
+            }
+        }
+
         // Inline "thinking" indicator rendered as a real assistant bubble
         // when caller signals we're between turn-start and the first byte.
         Element thinkingIndicator = Empty();
@@ -2438,8 +2475,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         t.TextWrapping = TextWrapping.Wrap;
                         t.IsTextSelectionEnabled = true;
                         t.FontStyle = global::Windows.UI.Text.FontStyle.Italic;
-                        t.Foreground = chatTextFg;
+                        t.Foreground = themeBrush("TextFillColorSecondaryBrush");
                     }),
+                nestedTool: thinkingNestedTool,
                 suppressFooter: true,
                 forceVisible: true)
                 .LiveRegion(Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
@@ -2464,6 +2502,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var spliced = new System.Collections.Generic.List<Element>(renderedEntries.Length + 1);
             for (int k = 0; k < renderedEntries.Length; k++)
             {
+                if (thinkingNestedConsumed.Contains(k))
+                    continue;
                 spliced.Add(renderedEntries[k]);
                 if (k == insertAfter) spliced.Add(thinkingIndicator);
             }
