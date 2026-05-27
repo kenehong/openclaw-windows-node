@@ -148,7 +148,9 @@ public sealed partial class VoiceSettingsPage : Page
         }
         else
         {
-            ModelStatusText.Text = L("VoiceSettingsPage_StatusDownloadRequired");
+            ModelStatusText.Text = SttEnabledToggle.IsOn
+                ? L("VoiceSettingsPage_StatusDownloadRequiredActive")
+                : L("VoiceSettingsPage_StatusDownloadRequired");
             DownloadButtonText.Text = L("VoiceSettingsPage_ButtonDownloadModel");
             TestVoiceButton.Visibility = Visibility.Collapsed;
         }
@@ -166,6 +168,8 @@ public sealed partial class VoiceSettingsPage : Page
         CurrentApp.Settings.NodeSttEnabled = SttEnabledToggle.IsOn;
         CurrentApp.Settings.Save();
         UpdateCardVisibility();
+        UpdateModelStatus();
+        ((IAppCommands)CurrentApp).NotifySettingsSaved();
     }
 
     private void OnModelChanged(object sender, SelectionChangedEventArgs e)
