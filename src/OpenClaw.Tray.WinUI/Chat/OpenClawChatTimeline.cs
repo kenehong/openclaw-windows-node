@@ -45,7 +45,6 @@ public record OpenClawChatTimelineProps(
     string UserSenderLabel = "OpenClaw Windows Tray",
     string AssistantSenderLabel = "Field",
     string? DefaultModel = null,
-    long DefaultContextTokens = 0,
     string? DefaultUsageSummary = null,
     bool ShowThinkingIndicator = false,
     Func<string, Task>? OnReadAloud = null,
@@ -794,12 +793,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var showTokens   = ChatExplorationState.ShowTokens;
             var showCtxPct   = ChatExplorationState.ShowContextPercent;
             var showToolDetails = ChatExplorationState.ShowToolCalls;
-            var usagePlacement = ChatExplorationState.UsagePlacement;
-            var hideFooterUsage = usagePlacement == ChatUsagePlacement.AboveComposerCentered
-                || usagePlacement == ChatUsagePlacement.AssistantFooterInline;
             var entryUsageSummary = fallbackUsageSummary;
-            var showInlineUsage = usagePlacement == ChatUsagePlacement.AssistantFooterInline
-                && showToolDetails
+            var showInlineUsage = showToolDetails
                 && !string.IsNullOrWhiteSpace(entryUsageSummary);
 
             var parts = new List<Element>();
@@ -826,7 +821,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 AddPill("·");
                 AddPill(entryUsageSummary!);
             }
-            else if (!hideFooterUsage)
+            else
             {
                 if (showTokens && inputTokens   is int inN)   AddPill($"↑{FormatTokenCount(inN)}");
                 if (showTokens && outputTokens  is int outN)  AddPill($"↓{FormatTokenCount(outN)}");

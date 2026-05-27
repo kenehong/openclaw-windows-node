@@ -652,27 +652,6 @@ public sealed partial class DebugPage : Page
         DebugChatSurfaceOverrides.TrayChat = ParseOverride(TrayChatOverrideCombo);
     }
 
-    private ChatExplorationsWindow? _explorationsWindow;
-
-    private void OnOpenChatExplorations(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (_explorationsWindow is { } existing)
-            {
-                try { existing.Activate(); return; }
-                catch { _explorationsWindow = null; }
-            }
-            _explorationsWindow = new ChatExplorationsWindow();
-            _explorationsWindow.Closed += (_, _) => _explorationsWindow = null;
-            _explorationsWindow.Activate();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"OnOpenChatExplorations failed: {ex}");
-        }
-    }
-
     private async void OnRelaunchOnboarding(object sender, RoutedEventArgs e)
     {
         if (XamlRoot == null) return;
