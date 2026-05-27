@@ -2659,7 +2659,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>La reconnaissance vocale est activée, mais la saisie vocale ne fonctionnera pas tant qu'au moins un modèle vocal n'aura pas été téléchargé.</value>
   </data>
   <data name="ChatVoiceDialog_OpenVoiceSettings" xml:space="preserve">
-    <value>Ouvrir les paramètres Voix</value>
+    <value>Ouvrir les paramètres Voix et audio</value>
   </data>
   <data name="ChatVoiceDialog_Dismiss" xml:space="preserve">
     <value>Fermer</value>

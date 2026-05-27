@@ -2707,7 +2707,7 @@ On your gateway host (Mac/Linux), run:
     <value>Speech-to-Text is on, but voice input will not work until at least one speech model is downloaded.</value>
   </data>
   <data name="ChatVoiceDialog_OpenVoiceSettings" xml:space="preserve">
-    <value>Open Voice Settings</value>
+    <value>Open Voice &amp; Audio Settings</value>
   </data>
   <data name="ChatVoiceDialog_Dismiss" xml:space="preserve">
     <value>Dismiss</value>

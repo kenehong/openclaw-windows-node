@@ -2659,7 +2659,7 @@
     <value>語音轉文字已開啟，但至少下載一個語音模型後，語音輸入才會運作。</value>
   </data>
   <data name="ChatVoiceDialog_OpenVoiceSettings" xml:space="preserve">
-    <value>開啟語音設定</value>
+    <value>開啟語音和音訊設定</value>
   </data>
   <data name="ChatVoiceDialog_Dismiss" xml:space="preserve">
     <value>關閉</value>

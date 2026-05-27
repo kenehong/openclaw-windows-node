@@ -573,6 +573,7 @@ public sealed partial class ChatWindow : WindowEx
                     Content = message,
                     PrimaryButtonText = LocalizationHelper.GetString("ChatVoiceDialog_OpenVoiceSettings"),
                     CloseButtonText = LocalizationHelper.GetString("ChatVoiceDialog_Dismiss"),
+                    DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = Content?.XamlRoot
                 };
                 dialog.Opened += (s, _) =>

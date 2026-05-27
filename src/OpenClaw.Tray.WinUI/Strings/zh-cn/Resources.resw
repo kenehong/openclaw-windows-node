@@ -2659,7 +2659,7 @@
     <value>语音转文字已开启，但至少下载一个语音模型后，语音输入才会工作。</value>
   </data>
   <data name="ChatVoiceDialog_OpenVoiceSettings" xml:space="preserve">
-    <value>打开语音设置</value>
+    <value>打开语音和音频设置</value>
   </data>
   <data name="ChatVoiceDialog_Dismiss" xml:space="preserve">
     <value>关闭</value>
