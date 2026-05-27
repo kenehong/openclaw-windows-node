@@ -49,7 +49,6 @@ public sealed record ChatExplorationPreset
     public bool ShowModelName { get; init; } = false;
     public bool ShowTokens { get; init; } = true;
     public bool ShowContextPercent { get; init; } = true;
-    public string UsagePlacement { get; init; } = "AssistantFooterInline";
 
     // Avatar
     public bool   ShowAvatars { get; init; } = true;
@@ -188,7 +187,6 @@ public static class ChatExplorationPresetStore
         ShowModelName = ChatExplorationState.ShowModelName,
         ShowTokens = ChatExplorationState.ShowTokens,
         ShowContextPercent = ChatExplorationState.ShowContextPercent,
-        UsagePlacement = ChatExplorationState.UsagePlacement.ToString(),
 
         ShowAvatars = ChatExplorationState.ShowAvatars,
         AvatarMode = ChatExplorationState.AvatarMode.ToString(),
@@ -237,7 +235,6 @@ public static class ChatExplorationPresetStore
         ChatExplorationState.ShowModelName = p.ShowModelName;
         ChatExplorationState.ShowTokens = p.ShowTokens;
         ChatExplorationState.ShowContextPercent = p.ShowContextPercent;
-        if (Enum.TryParse<ChatUsagePlacement>(p.UsagePlacement, out var up)) ChatExplorationState.UsagePlacement = up;
 
         ChatExplorationState.ShowAvatars = p.ShowAvatars;
         if (Enum.TryParse<ChatAvatarMode>(p.AvatarMode, out var am)) ChatExplorationState.AvatarMode = am;
