@@ -146,6 +146,37 @@ public class LocalizationValidationTests
         "ConnectionPage_NodePairing_Subtitle.Text",
         "AboutPage_MoreDiagnosticsLink.Content",
         "ConnectionStatusWindow.Title",
+        // Hard-coded XAML strings resolved by issue #491 — seeded English-only across
+        // all 5 locales using the deferred-translation pattern. Translations are a
+        // follow-up tracked separately. Same precedent as the PermissionsPage and
+        // InstancesPage runtime keys above.
+        "ConnectionPage_GatewayURL.PlaceholderText",
+        "ConnectionPage_SSHHost.PlaceholderText",
+        "ConnectionPage_SSHUser.PlaceholderText",
+        "ConnectionStatusWindow_SSHHost.PlaceholderText",
+        "ConnectionStatusWindow_SSHUser.PlaceholderText",
+        "ConnectionStatusWindow_WsLocalhost18790.PlaceholderText",
+        "ConnectionStatusWindow_WsLocalhost18790.Text",
+        // ConfigPage runtime reconnect dialog strings — seeded English-only
+        // across all locales until translations land. Fetched at runtime via
+        // LocalizationHelper and follows the deferred-translation pattern used
+        // by other recently added runtime strings above.
+        "ConfigPage_ReconnectDialogAccepted",
+        "ConfigPage_ReconnectDialogBody",
+        "ConfigPage_ReconnectDialogTitle",
+        "ConfigPage_ReconnectDialogWaiting",
+        "CronPage_AmericaChicago.Content",
+        "CronPage_AmericaDenver.Content",
+        "CronPage_AmericaLosAngeles.Content",
+        "CronPage_AmericaNewYork.Content",
+        "CronPage_AsiaTokyo.Content",
+        "CronPage_EuropeBerlin.Content",
+        "CronPage_EuropeLondon.Content",
+        "CronPage_UTC.Content",
+        "SandboxPage_16MiB.Content",
+        "SandboxPage_1MiB.Content",
+        "SandboxPage_64MiB.Content",
+        "SandboxPage_SystemRun.Text",
     };
 
     private static readonly string[] RequiredRuntimeOnboardingKeys =

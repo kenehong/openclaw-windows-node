@@ -98,6 +98,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
     // Track recently-sent local user message texts so we can suppress
     // SSE echoes while still displaying messages from other clients.
     private readonly Dictionary<string, Queue<LocalSentText>> _localSentTexts = new();
+    private int _keylessEventDiagnosticRaised;
     // Threads where we locally initiated the current turn (via SendMessageAsync).
     // When lifecycle.start arrives for a thread NOT in this set, we know a remote
     // client started the turn and should fetch the user message from history.
@@ -1021,6 +1022,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         if (string.IsNullOrEmpty(message.SessionKey))
         {
             Logger.Warn($"[ChatProvider] Dropping chat message with empty sessionKey (role={message.Role})");
+            RaiseKeylessEventDiagnosticOnce();
             return;
         }
 
@@ -1152,6 +1154,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         if (string.IsNullOrEmpty(evt.SessionKey))
         {
             Logger.Warn($"[ChatProvider] Dropping agent event with empty sessionKey (stream={evt.Stream})");
+            RaiseKeylessEventDiagnosticOnce();
             return;
         }
         var threadId = evt.SessionKey;
@@ -1210,6 +1213,34 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         lock (_gate) { meta = BuildLiveMetaLocked(threadId, tsMs); }
 
         ApplyEventAndPublish(threadId, mapped, meta);
+    }
+
+    private void RaiseKeylessEventDiagnosticOnce()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _keylessEventDiagnosticRaised, 1) != 0)
+            return;
+
+        var threadId = GetKeylessEventDiagnosticThreadId();
+        var title = LocalizationHelper.GetString("Chat_Notification_KeylessEventDropped");
+        var message = LocalizationHelper.GetString("Chat_Notification_KeylessEventDroppedMessage");
+
+        RaiseNotification(new ChatProviderNotification(
+            ChatProviderNotificationKind.Error,
+            threadId ?? string.Empty,
+            title,
+            message));
+
+        if (!string.IsNullOrWhiteSpace(threadId))
+            ApplyEventAndPublish(threadId, new ChatStatusEvent(message, ChatTone.Warning));
+    }
+
+    private string? GetKeylessEventDiagnosticThreadId()
+    {
+        lock (_gate)
+        {
+            return ResolveDefaultThreadIdLocked()
+                ?? _timelines.Keys.FirstOrDefault(k => !string.IsNullOrWhiteSpace(k));
+        }
     }
 
     private string? _deferredAbortRunId; // set inside lock when pending abort fires; read outside lock to send RPC
