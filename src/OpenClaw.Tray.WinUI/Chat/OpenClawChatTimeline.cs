@@ -1240,13 +1240,14 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Microsoft.UI.Xaml.Controls.Border[]? bubbleSlot = null,
             Element? nestedTool = null,
             Element? overrideBubbleContent = null,
-            bool suppressFooter = false)
+            bool suppressFooter = false,
+            bool forceVisible = false)
         {
             if (string.IsNullOrEmpty(entry.Text))
                 return Empty();
 
             // Hidden by user toggle — collapses entire assistant block.
-            if (!showAsstBubbles)
+            if (!showAsstBubbles && !forceVisible)
                 return Empty();
 
             // Avatar shown only on the FIRST entry of a contiguous agent-side
@@ -2439,7 +2440,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         t.FontStyle = global::Windows.UI.Text.FontStyle.Italic;
                         t.Foreground = chatTextFg;
                     }),
-                suppressFooter: true)
+                suppressFooter: true,
+                forceVisible: true)
                 .LiveRegion(Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
         }
 
@@ -2467,6 +2469,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             }
             if (insertAfter < 0) spliced.Insert(0, thinkingIndicator);
             timelineRows = spliced.ToArray();
+        }
+        else if (Props.ShowThinkingIndicator)
+        {
+            timelineRows = new[] { thinkingIndicator };
         }
         else
         {
