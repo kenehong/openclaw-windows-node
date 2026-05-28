@@ -3573,8 +3573,8 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
 
         return session.Key;
     }
+
     private static int? ToIntIfPositive(long value)
-        => value > 0 && value <= int.MaxValue ? (int)value : null;
         => value > 0 && value <= int.MaxValue ? (int)value : null;
 
     private ChatEntryMetadata BuildLiveMetaLocked(string threadId, long? tsMs = null)
