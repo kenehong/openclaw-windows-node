@@ -46,7 +46,16 @@ build/sign/publish release artifacts.
      --limit 10
    ```
 
-5. Confirm the GitHub release is a prerelease and not latest for alpha tags.
+5. Confirm the workflow used the exact tag SemVer. Tagged builds fail before
+   publishing if GitVersion disagrees with the tag name.
+
+   ```powershell
+   $version = $tag -replace '^v', ''
+   .\scripts\Get-OpenClawVersion.ps1 -Variable SemVer
+   # Expected: $version
+   ```
+
+6. Confirm the GitHub release is a prerelease and not latest for alpha tags.
 
    ```powershell
    gh release view $tag --repo openclaw/openclaw-windows-node `
@@ -217,5 +226,8 @@ Only tag when `HEAD == origin/master`.
 - Do not add csproj `<Version>` release fallbacks; product versions come from
   GitVersion/tag history.
 - Release versions come from the tag (`vX.Y.Z` or `vX.Y.Z-alpha.N`).
+- Untagged `master` builds are prerelease builds. After `vX.Y.Z-alpha.N`, an
+  untagged commit may resolve to the next alpha prerelease, for example
+  `X.Y.Z-alpha.(N+1)`.
 - CI computes GitVersion outputs for artifact naming, while product builds use
   GitVersion-backed assembly metadata.
