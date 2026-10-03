@@ -45,6 +45,10 @@
     Set OPENCLAW_UPDATE_CHANNEL for this launch. Use alpha for prerelease update
     testing after building a lower-version Release baseline.
 
+.PARAMETER OobePage
+    Open one OOBE page directly with sample content for design review. Debug
+    builds only. This also enables -Isolated automatically.
+
 .PARAMETER UseWinApp
     Launch through Microsoft WinAppCLI (`winapp run`) with Package.appxmanifest
     instead of directly starting the unpackaged executable.
@@ -76,6 +80,9 @@
 
 .EXAMPLE
     .\run-app-local.ps1 -UseWinApp -NoBuild
+
+.EXAMPLE
+    .\run-app-local.ps1 -NoBuild -OobePage welcome -AllowNonMain
 #>
 [CmdletBinding()]
 param(
@@ -97,6 +104,24 @@ param(
 
     [ValidateSet("stable", "alpha", "prerelease")]
     [string]$UpdateChannel,
+
+    [ValidateSet(
+        "security",
+        "welcome",
+        "native",
+        "advanced",
+        "capabilities",
+        "gateway-review",
+        "capabilities-review",
+        "capabilities-review-consent",
+        "progress",
+        "progress-local-ai",
+        "milestone",
+        "wizard",
+        "wizard-error",
+        "complete",
+        "complete-error")]
+    [string]$OobePage,
 
     [switch]$UseWinApp,
 
@@ -150,6 +175,14 @@ if ($branch -ne "main" -and -not $AllowNonMain) {
 
 if ($PSBoundParameters.ContainsKey("RuntimeIdentifier") -and -not $NoBuild) {
     throw "-RuntimeIdentifier requires -NoBuild. Build the requested RID explicitly before launching it."
+}
+
+if ($OobePage -and $Configuration -ne "Debug") {
+    throw "-OobePage is available only with Debug builds."
+}
+
+if ($OobePage) {
+    $Isolated = $true
 }
 
 if (-not $NoBuild) {
@@ -218,6 +251,7 @@ if ($UseWinApp -and -not (Test-Path $manifestPath)) {
 
 $previousDataDir = $env:OPENCLAW_TRAY_DATA_DIR
 $previousUpdateChannel = $env:OPENCLAW_UPDATE_CHANNEL
+$previousSetupPreviewPage = $env:OPENCLAW_SETUP_PREVIEW_PAGE
 $exitCode = 0
 
 try {
@@ -228,7 +262,8 @@ try {
         $repoName = Get-SafePathSegment (Split-Path -Leaf $repoRoot)
         $safeBranch = Get-SafePathSegment $branch
         $repoHash = Get-ShortHash $repoRoot
-        $effectiveDataDir = Join-Path $env:TEMP "OpenClawTray\$repoName-$safeBranch-$repoHash"
+        $previewSuffix = if ($OobePage) { "-oobe-$(Get-SafePathSegment $OobePage)" } else { "" }
+        $effectiveDataDir = Join-Path $env:TEMP "OpenClawTray\$repoName-$safeBranch-$repoHash$previewSuffix"
     }
 
     if ($effectiveDataDir) {
@@ -238,6 +273,10 @@ try {
 
     if ($UpdateChannel) {
         $env:OPENCLAW_UPDATE_CHANNEL = $UpdateChannel
+    }
+
+    if ($OobePage) {
+        $env:OPENCLAW_SETUP_PREVIEW_PAGE = $OobePage
     }
 
     if ($UseWinApp) {
@@ -259,6 +298,9 @@ try {
     }
     if ($env:OPENCLAW_UPDATE_CHANNEL) {
         Write-Host "  Update channel: $env:OPENCLAW_UPDATE_CHANNEL"
+    }
+    if ($env:OPENCLAW_SETUP_PREVIEW_PAGE) {
+        Write-Host "  OOBE page:     $env:OPENCLAW_SETUP_PREVIEW_PAGE"
     }
     if ($UseWinApp) {
         Write-Host "  Launcher:      $($winapp.Source)"
@@ -286,6 +328,7 @@ try {
 } finally {
     $env:OPENCLAW_TRAY_DATA_DIR = $previousDataDir
     $env:OPENCLAW_UPDATE_CHANNEL = $previousUpdateChannel
+    $env:OPENCLAW_SETUP_PREVIEW_PAGE = $previousSetupPreviewPage
 }
 
 exit $exitCode

@@ -69,12 +69,15 @@ public sealed class OnboardingCopyRefinementTests
     public void WelcomeAndGatewayCopyIsTruthfulLocalizedAndUsesRepositorySafetyUrl()
     {
         var strings = Strings("en-us");
-        Assert.Equal("OpenClaw is your AI assistant for getting things done on your PC.",
+        Assert.Equal("OpenClaw connects an AI assistant to tools on your PC.",
             strings["Onboarding_Flow_WelcomeDescription.Text"]);
-        Assert.Equal("Before you get started", strings["Onboarding_V2_WelcomeTrust.Title"]);
+        Assert.Equal("A little help.\nA lot of possibility.", strings["Onboarding_V2_WelcomeTitle.Text"]);
+        Assert.Equal("Get started", strings["Onboarding_V2_Continue.Content"]);
+        Assert.Equal("Before you start", strings["Onboarding_V2_WelcomeTrust.Title"]);
         Assert.Contains("change or delete files", strings["Onboarding_V2_WelcomeTrust.Message"]);
         Assert.Contains("expose private information", strings["Onboarding_V2_WelcomeTrust.Message"]);
         Assert.Contains("control and limit", strings["Onboarding_V2_WelcomeTrust.Message"]);
+        Assert.Contains("providers and tools you trust", strings["Onboarding_V2_WelcomeTrust.Message"]);
         Assert.Equal("Install a local Gateway (WSL)", strings["Onboarding_Copy_GatewayLocalTitle.Text"]);
         Assert.Equal("Install a local Gateway (WSL), recommended",
             strings["Onboarding_Copy_GatewayLocalChoice.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name"]);

@@ -7148,7 +7148,7 @@ Het binaire bestand wxc-exec is niet gevonden. {1} Als dit een ontwikkelaarsbuil
   <data name="Onboarding_Flow_AutoStartToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>OpenClaw starten bij aanmelden</value></data>
   <data name="ChatDashboardButton.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="ChatDashboardHint.Text" xml:space="preserve"><value>Kanalen, integraties en gateway-instellingen</value></data>
-  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw is uw AI-assistent om dingen gedaan te krijgen op uw pc.</value></data>
+  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw verbindt een AI-assistent met tools op uw pc.</value></data>
   <data name="Onboarding_AiSetup_Title.Text" xml:space="preserve"><value>Verbind je AI</value></data>
   <data name="Onboarding_AiSetup_CatalogOptIn" xml:space="preserve"><value>Bestaande providergesprekken ontdekken (optioneel)</value></data>
   <data name="Onboarding_AiSetup_Starting" xml:space="preserve"><value>Provider instellen…</value></data>
@@ -7283,16 +7283,20 @@ Het binaire bestand wxc-exec is niet gevonden. {1} Als dit een ontwikkelaarsbuil
   <data name="Onboarding_V2_ReviewRequired.Title" xml:space="preserve"><value>Controleer de vereiste keuzes</value></data>
   <data name="Onboarding_V2_ReviewRequired.Message" xml:space="preserve"><value>Controleer de vereisten voor geselecteerde Local AI en Tailscale en bevestig WSL-vervanging vóór installatie.</value></data>
   <data name="Onboarding_V2_Install.Content" xml:space="preserve"><value>Installeren</value></data>
-  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>Welkom bij OpenClaw</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Header" xml:space="preserve"><value>Chat met uw AI</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Description" xml:space="preserve"><value>Gebruik de ingebouwde Chat met een AI-provider naar keuze.</value></data>
-  <data name="Onboarding_V2_WelcomePc.Header" xml:space="preserve"><value>Laat agents helpen op deze pc</value></data>
-  <data name="Onboarding_V2_WelcomePc.Description" xml:space="preserve"><value>Kies welke pc-mogelijkheden u inschakelt. Windows-machtigingen en uitvoeringsgoedkeuringen blijven apart.</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Header" xml:space="preserve"><value>Houd controle over uw Gateway</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Description" xml:space="preserve"><value>Draai hier een privé-WSL Gateway of verbind met een bestaande.</value></data>
+  <data name="Onboarding_Overview_Choices" xml:space="preserve"><value>Uw keuzes</value></data>
+  <data name="Onboarding_Overview_Setup" xml:space="preserve"><value>Instellen</value></data>
+  <data name="Onboarding_Overview_Ai" xml:space="preserve"><value>AI verbinden</value></data>
+  <data name="Onboarding_Overview_Ready" xml:space="preserve"><value>Gereed</value></data>
+  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>Een beetje hulp.&#x0a;Veel mogelijkheden.</value></data>
+  <data name="Onboarding_V2_WelcomeChat.Text" xml:space="preserve"><value>Begin een gesprek</value></data>
+  <data name="Onboarding_V2_WelcomeChatDescription.Text" xml:space="preserve"><value>Eerst chatten. Berichtenapps en vaardigheden kunnen later.</value></data>
+  <data name="Onboarding_V2_WelcomePc.Text" xml:space="preserve"><value>Kies uw pc-tools</value></data>
+  <data name="Onboarding_V2_WelcomePcDescription.Text" xml:space="preserve"><value>Begin met de toegang die bij u past.</value></data>
+  <data name="Onboarding_V2_WelcomeGateway.Text" xml:space="preserve"><value>Verbind uw AI</value></data>
+  <data name="Onboarding_V2_WelcomeGatewayDescription.Text" xml:space="preserve"><value>Gebruik een provider of beschikbaar model naar keuze.</value></data>
   <data name="Onboarding_V2_WelcomeTrust.Title" xml:space="preserve"><value>Voordat u begint</value></data>
-  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI-agents zijn krachtig en toegang tot uw pc geven brengt risico’s met zich mee. Ze kunnen fouten maken, bestanden wijzigen of verwijderen, of privégegevens blootstellen.&#x0a;&#x0a;U kunt de toegang van OpenClaw tot uw pc beheren en beperken.</value></data>
-  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Doorgaan</value></data>
+  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI kan fouten maken, bestanden wijzigen of verwijderen, of privégegevens blootstellen. Gebruik een computer die u vertrouwt en verbind alleen vertrouwde providers en tools. U kunt de toegang van OpenClaw beheren en beperken.</value></data>
+  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Aan de slag</value></data>
   <data name="Onboarding_V2_Retry.Content" xml:space="preserve"><value>Opnieuw proberen</value></data>
   <data name="Onboarding_V2_AlternativeRoutes.Content" xml:space="preserve"><value>Extern, lokale MCP of later instellen</value></data>
   <data name="Onboarding_V2_LocalAiCard.Header" xml:space="preserve"><value>Local AI</value></data>

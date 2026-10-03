@@ -4,6 +4,27 @@ namespace OpenClaw.SetupEngine.Tests;
 
 public class OnboardingFlowPolicyTests
 {
+    [Theory]
+    [InlineData(SetupGatewayRoute.ManagedWsl, 4, true, true)]
+    [InlineData(SetupGatewayRoute.Native, 4, true, true)]
+    [InlineData(SetupGatewayRoute.Existing, 3, false, true)]
+    [InlineData(SetupGatewayRoute.Remote, 3, false, true)]
+    [InlineData(SetupGatewayRoute.McpOnly, 1, false, false)]
+    [InlineData(SetupGatewayRoute.Deferred, 1, false, false)]
+    public void Overview_GroupsChoicesAndOnlyShowsPhasesThatExist(
+        SetupGatewayRoute route, int count, bool install, bool ai)
+    {
+        var stages = OnboardingFlowPolicy.GetStages(route, new SetupConfig());
+        var overview = stages.Select(OnboardingFlowPolicy.GetOverviewStage).Distinct().ToArray();
+        Assert.Equal(count, overview.Length);
+        Assert.Equal(OnboardingStage.Welcome, overview[0]);
+        Assert.Equal(install, overview.Contains(OnboardingStage.Install));
+        Assert.Equal(ai, overview.Contains(OnboardingStage.AiSetup));
+        Assert.Equal(ai, overview.Contains(OnboardingStage.Ready));
+        Assert.All(stages.TakeWhile(stage => stage != OnboardingStage.Install && stage != OnboardingStage.AiSetup),
+            stage => Assert.Equal(OnboardingStage.Welcome, OnboardingFlowPolicy.GetOverviewStage(stage)));
+    }
+
     [Fact]
     public void ExistingGateway_ReviewsAccessThenAiWithoutWslInstallation()
     {

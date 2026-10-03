@@ -12,9 +12,10 @@ namespace OpenClaw.SetupEngine.UI;
 /// in production. The gating lives here so call sites stay simple and there is exactly one
 /// place that reads the variable.
 /// </summary>
-internal static class SetupPreview
+public static class SetupPreview
 {
     private const string EnvVar = "OPENCLAW_SETUP_PREVIEW_PAGE";
+    private static string? s_requestedPage;
 
     /// <summary>
     /// The requested preview page (lower-cased, trimmed), or <c>null</c> when preview mode
@@ -25,7 +26,7 @@ internal static class SetupPreview
 #if DEBUG
         get
         {
-            var page = Environment.GetEnvironmentVariable(EnvVar);
+            var page = s_requestedPage ?? Environment.GetEnvironmentVariable(EnvVar);
             return string.IsNullOrWhiteSpace(page) ? null : page.Trim().ToLowerInvariant();
         }
 #else
@@ -35,4 +36,20 @@ internal static class SetupPreview
 
     /// <summary>True when a preview page is active. Always <c>false</c> in Release builds.</summary>
     public static bool IsActive => RequestedPage is not null;
+
+    public static IDisposable UsePage(string page)
+    {
+#if DEBUG
+        var previous = s_requestedPage;
+        s_requestedPage = page;
+        return new PreviewScope(() => s_requestedPage = previous);
+#else
+        return new PreviewScope(static () => { });
+#endif
+    }
+
+    private sealed class PreviewScope(Action dispose) : IDisposable
+    {
+        public void Dispose() => dispose();
+    }
 }

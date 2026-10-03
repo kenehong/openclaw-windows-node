@@ -10,6 +10,38 @@ public sealed class OnboardingMockPresentationTests
     private static XElement Named(XDocument page, string name) =>
         Assert.Single(page.Descendants(), element => (string?)element.Attribute(X + "Name") == name);
 
+    [Fact]
+    public void Welcome_UsesUnboxedBenefitsAndKeepsContentScrollableAboveThePrimaryAction()
+    {
+        var page = Page("SecurityNoticePage");
+        var progress = Named(page, "FlowProgress");
+        Assert.Equal("True", (string?)progress.Attribute("ShowStageLabels"));
+        var scroller = Named(page, "WelcomeScroller");
+        Assert.Equal("1", (string?)scroller.Attribute("Grid.Row"));
+        Assert.Equal("16,0", (string?)scroller.Attribute("Padding"));
+        Assert.Equal("Auto", (string?)scroller.Attribute("VerticalScrollBarVisibility"));
+        Assert.Equal("0,0,0,-20", (string?)Named(page, "MascotHero").Attribute("Margin"));
+        Assert.Equal("0,24,0,0", (string?)Named(page, "SafetyNotice").Attribute("Margin"));
+        Assert.Equal("0,24,0,0", (string?)Named(page, "SafetyLink").Attribute("Margin"));
+        Assert.Equal("{ThemeResource ControlCornerRadius}", (string?)Named(page, "SafetyNotice").Attribute("CornerRadius"));
+        foreach (var name in new[] { "MascotHero", "WelcomeTitle", "WelcomeDescription",
+                     "PcFeature", "GatewayFeature", "ChatFeature", "SafetyNotice", "SafetyLink" })
+            Assert.Contains(scroller.Descendants(), element => element == Named(page, name));
+        var button = Named(page, "ContinueButton");
+        Assert.Equal("2", (string?)button.Attribute("Grid.Row"));
+        Assert.Equal("Continue_Click", (string?)button.Attribute("Click"));
+        Assert.Equal("{StaticResource AccentButtonStyle}", (string?)button.Attribute("Style"));
+        Assert.DoesNotContain(button.Ancestors(), element => element == scroller);
+        foreach (var name in new[] { "PcFeature", "GatewayFeature", "ChatFeature" })
+        {
+            var benefit = Named(page, name);
+            Assert.Equal("Grid", benefit.Name.LocalName);
+            Assert.DoesNotContain(benefit.Ancestors(), element => element.Name.LocalName == "Border");
+            Assert.Contains(benefit.Descendants(), element =>
+                element.Name.LocalName == "SymbolIcon" && (string?)element.Attribute("Symbol") == "Accept");
+        }
+    }
+
     [Theory]
     [InlineData("SecurityNoticePage")]
     [InlineData("WelcomePage")]

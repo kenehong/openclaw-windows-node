@@ -7211,7 +7211,7 @@ Make sure the gateway is running.</value>
   <data name="Onboarding_Flow_AutoStartToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Launch OpenClaw at sign-in</value></data>
   <data name="ChatDashboardButton.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="ChatDashboardHint.Text" xml:space="preserve"><value>Channels, integrations and gateway settings</value></data>
-  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw is your AI assistant for getting things done on your PC.</value></data>
+  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw connects an AI assistant to tools on your PC.</value></data>
   <data name="Onboarding_AiSetup_Title.Text" xml:space="preserve"><value>Connect your AI</value></data>
   <data name="Onboarding_AiSetup_CatalogOptIn" xml:space="preserve"><value>Discover existing provider conversations (optional)</value></data>
   <data name="Onboarding_AiSetup_Starting" xml:space="preserve"><value>Starting provider setup…</value></data>
@@ -7346,16 +7346,20 @@ Make sure the gateway is running.</value>
   <data name="Onboarding_V2_ReviewRequired.Title" xml:space="preserve"><value>Review the required choices</value></data>
   <data name="Onboarding_V2_ReviewRequired.Message" xml:space="preserve"><value>Review selected Local AI and Tailscale prerequisites, and confirm any WSL replacement before installing.</value></data>
   <data name="Onboarding_V2_Install.Content" xml:space="preserve"><value>Install</value></data>
-  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>Welcome to OpenClaw</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Header" xml:space="preserve"><value>Chat with your AI</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Description" xml:space="preserve"><value>Use native Chat with an AI provider you choose.</value></data>
-  <data name="Onboarding_V2_WelcomePc.Header" xml:space="preserve"><value>Let agents help on this PC</value></data>
-  <data name="Onboarding_V2_WelcomePc.Description" xml:space="preserve"><value>Choose which PC capabilities to enable. Windows permissions and execution approvals remain separate.</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Header" xml:space="preserve"><value>Keep your Gateway under your control</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Description" xml:space="preserve"><value>Run a private WSL Gateway here or connect to an existing one.</value></data>
-  <data name="Onboarding_V2_WelcomeTrust.Title" xml:space="preserve"><value>Before you get started</value></data>
-  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI agents are powerful and giving them access to your PC carries risks. They can make mistakes, change or delete files, or expose private information.&#x0a;&#x0a;You can control and limit OpenClaw’s access to your PC.</value></data>
-  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Continue</value></data>
+  <data name="Onboarding_Overview_Choices" xml:space="preserve"><value>Your choices</value></data>
+  <data name="Onboarding_Overview_Setup" xml:space="preserve"><value>Set up</value></data>
+  <data name="Onboarding_Overview_Ai" xml:space="preserve"><value>Connect AI</value></data>
+  <data name="Onboarding_Overview_Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>A little help.&#x0a;A lot of possibility.</value></data>
+  <data name="Onboarding_V2_WelcomeChat.Text" xml:space="preserve"><value>Start a conversation</value></data>
+  <data name="Onboarding_V2_WelcomeChatDescription.Text" xml:space="preserve"><value>Chat first. Messaging apps and skills can come later.</value></data>
+  <data name="Onboarding_V2_WelcomePc.Text" xml:space="preserve"><value>Choose your PC tools</value></data>
+  <data name="Onboarding_V2_WelcomePcDescription.Text" xml:space="preserve"><value>Start with the access that suits you.</value></data>
+  <data name="Onboarding_V2_WelcomeGateway.Text" xml:space="preserve"><value>Connect your AI</value></data>
+  <data name="Onboarding_V2_WelcomeGatewayDescription.Text" xml:space="preserve"><value>Use a provider or available model you choose.</value></data>
+  <data name="Onboarding_V2_WelcomeTrust.Title" xml:space="preserve"><value>Before you start</value></data>
+  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI can make mistakes, change or delete files, or expose private information. Use a computer you trust and connect only providers and tools you trust. You can control and limit OpenClaw's access.</value></data>
+  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Get started</value></data>
   <data name="Onboarding_V2_Retry.Content" xml:space="preserve"><value>Try again</value></data>
   <data name="Onboarding_V2_AlternativeRoutes.Content" xml:space="preserve"><value>Remote, local MCP or set up later</value></data>
   <data name="Onboarding_V2_LocalAiCard.Header" xml:space="preserve"><value>Local AI</value></data>

@@ -21,6 +21,15 @@ public enum OnboardingAccessDestination
 
 public static class OnboardingFlowPolicy
 {
+    /// <summary>Groups detailed route stages without inventing installation or AI steps for routes that skip them.</summary>
+    public static OnboardingStage GetOverviewStage(OnboardingStage stage) => stage switch
+    {
+        OnboardingStage.Welcome or OnboardingStage.Gateway or OnboardingStage.Capabilities
+            or OnboardingStage.GatewayReview => OnboardingStage.Welcome,
+        OnboardingStage.Install or OnboardingStage.AiSetup or OnboardingStage.Ready => stage,
+        _ => throw new ArgumentOutOfRangeException(nameof(stage)),
+    };
+
     public static bool RequiresAiSetup(SetupConfig config) =>
         config.LocalAi.Enabled || !config.SkipWizard;
 

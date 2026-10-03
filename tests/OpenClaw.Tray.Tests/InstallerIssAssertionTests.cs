@@ -264,6 +264,51 @@ public sealed class InstallerIssAssertionTests
         Assert.DoesNotContain("Selected runtime: win-x64", result, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RunAppLocal_OobePage_UsesIsolatedDebugPreview()
+    {
+        var root = TestRepositoryPaths.GetRepositoryRoot();
+        var script = Path.Combine(root, "run-app-local.ps1");
+        var powershell = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe");
+        var startInfo = new ProcessStartInfo(powershell)
+        {
+            WorkingDirectory = root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        foreach (var argument in new[]
+        {
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", script,
+            "-NoBuild",
+            "-OobePage", "welcome",
+            "-AllowNonMain",
+            "-DryRun",
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo);
+        Assert.NotNull(process);
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        var result = $"{await standardOutput}{Environment.NewLine}{await standardError}";
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.Contains("-oobe-welcome", result, StringComparison.Ordinal);
+        Assert.Contains("OOBE page:     welcome", result, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Release", false, false, "win-x64", true)]
     [InlineData("Release", false, true, "win-x64", true)]

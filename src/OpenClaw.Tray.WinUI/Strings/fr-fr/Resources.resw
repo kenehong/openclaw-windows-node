@@ -7147,7 +7147,7 @@ Le binaire wxc-exec est introuvable. {1} S'il s'agit d'une build développeur, c
   <data name="Onboarding_Flow_AutoStartToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Lancer OpenClaw à l'ouverture de session</value></data>
   <data name="ChatDashboardButton.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="ChatDashboardHint.Text" xml:space="preserve"><value>Canaux, intégrations et paramètres de la passerelle</value></data>
-  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw est votre assistant IA pour accomplir vos tâches sur votre PC.</value></data>
+  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw connecte un assistant IA aux outils de votre PC.</value></data>
   <data name="Onboarding_AiSetup_Title.Text" xml:space="preserve"><value>Connectez votre IA</value></data>
   <data name="Onboarding_AiSetup_CatalogOptIn" xml:space="preserve"><value>Découvrir les conversations existantes des fournisseurs (facultatif)</value></data>
   <data name="Onboarding_AiSetup_Starting" xml:space="preserve"><value>Démarrage de la configuration du fournisseur…</value></data>
@@ -7282,16 +7282,20 @@ Le binaire wxc-exec est introuvable. {1} S'il s'agit d'une build développeur, c
   <data name="Onboarding_V2_ReviewRequired.Title" xml:space="preserve"><value>Vérifiez les choix requis</value></data>
   <data name="Onboarding_V2_ReviewRequired.Message" xml:space="preserve"><value>Vérifiez les prérequis Local AI et Tailscale sélectionnés et confirmez tout remplacement WSL avant l'installation.</value></data>
   <data name="Onboarding_V2_Install.Content" xml:space="preserve"><value>Installer</value></data>
-  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>Bienvenue dans OpenClaw</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Header" xml:space="preserve"><value>Discutez avec votre IA</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Description" xml:space="preserve"><value>Utilisez Chat natif avec le fournisseur d'IA de votre choix.</value></data>
-  <data name="Onboarding_V2_WelcomePc.Header" xml:space="preserve"><value>Laissez les agents vous aider sur ce PC</value></data>
-  <data name="Onboarding_V2_WelcomePc.Description" xml:space="preserve"><value>Choisissez les capacités du PC à activer. Les autorisations Windows et les approbations d’exécution restent distinctes.</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Header" xml:space="preserve"><value>Gardez le contrôle de votre Gateway</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Description" xml:space="preserve"><value>Exécutez ici un Gateway WSL privé ou connectez-vous à un Gateway existant.</value></data>
+  <data name="Onboarding_Overview_Choices" xml:space="preserve"><value>Vos choix</value></data>
+  <data name="Onboarding_Overview_Setup" xml:space="preserve"><value>Configurer</value></data>
+  <data name="Onboarding_Overview_Ai" xml:space="preserve"><value>Connecter l'IA</value></data>
+  <data name="Onboarding_Overview_Ready" xml:space="preserve"><value>Prêt</value></data>
+  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>Un peu d'aide.&#x0a;Beaucoup de possibilités.</value></data>
+  <data name="Onboarding_V2_WelcomeChat.Text" xml:space="preserve"><value>Commencez une conversation</value></data>
+  <data name="Onboarding_V2_WelcomeChatDescription.Text" xml:space="preserve"><value>Discutez d'abord. Les applications de messagerie et les compétences peuvent attendre.</value></data>
+  <data name="Onboarding_V2_WelcomePc.Text" xml:space="preserve"><value>Choisissez les outils de votre PC</value></data>
+  <data name="Onboarding_V2_WelcomePcDescription.Text" xml:space="preserve"><value>Commencez avec l'accès qui vous convient.</value></data>
+  <data name="Onboarding_V2_WelcomeGateway.Text" xml:space="preserve"><value>Connectez votre IA</value></data>
+  <data name="Onboarding_V2_WelcomeGatewayDescription.Text" xml:space="preserve"><value>Utilisez le fournisseur ou le modèle disponible de votre choix.</value></data>
   <data name="Onboarding_V2_WelcomeTrust.Title" xml:space="preserve"><value>Avant de commencer</value></data>
-  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>Les agents IA sont puissants et leur donner accès à votre PC comporte des risques. Ils peuvent commettre des erreurs, modifier ou supprimer des fichiers, ou exposer des informations privées.&#x0a;&#x0a;Vous pouvez contrôler et limiter l’accès d’OpenClaw à votre PC.</value></data>
-  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Continuer</value></data>
+  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>L'IA peut commettre des erreurs, modifier ou supprimer des fichiers, ou exposer des informations privées. Utilisez un ordinateur fiable et connectez uniquement des fournisseurs et des outils de confiance. Vous pouvez contrôler et limiter l'accès d'OpenClaw.</value></data>
+  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>Commencer</value></data>
   <data name="Onboarding_V2_Retry.Content" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Onboarding_V2_AlternativeRoutes.Content" xml:space="preserve"><value>Distant, MCP local ou configuration ultérieure</value></data>
   <data name="Onboarding_V2_LocalAiCard.Header" xml:space="preserve"><value>Local AI</value></data>

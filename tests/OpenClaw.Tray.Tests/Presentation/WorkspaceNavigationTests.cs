@@ -694,6 +694,21 @@ public sealed class WorkspaceNavigationTests
         Assert.Equal("visible", Assert.Single(WorkspaceProjection.Sessions(sessions, "custom")).Key);
     }
 
+    [Fact]
+    public void DebugOwnerMenuCanOpenIsolatedOnboardingReview()
+    {
+        var workspace = File.ReadAllText(Source("Windows", "WorkspaceWindow.xaml.cs"));
+        var manager = File.ReadAllText(Source("Services", "WindowManager.cs"));
+
+        Assert.Contains("#if DEBUG", workspace);
+        Assert.Contains("Add(\"Setup\", _openOobeReview", workspace);
+        Assert.Contains("SetupPreview.UsePage(\"security\")", manager);
+        Assert.Contains("SetupWindow.Active is { IsClosed: false } activeSetup", manager);
+        Assert.Contains("preview.Closed += (_, _) => previewPage.Dispose()", manager);
+        Assert.DoesNotContain("using var previewPage = SetupPreview.UsePage", manager);
+        Assert.Contains("startupRegistrationAllowed: false", manager);
+    }
+
     [Theory]
     [InlineData("agent:main:cron:job", null)]
     [InlineData("agent:main:subagent:worker", null)]

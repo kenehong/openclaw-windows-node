@@ -7147,7 +7147,7 @@
   <data name="Onboarding_Flow_AutoStartToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>登入時啟動 OpenClaw</value></data>
   <data name="ChatDashboardButton.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="ChatDashboardHint.Text" xml:space="preserve"><value>頻道、整合與閘道設定</value></data>
-  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw 是協助您在電腦上完成工作的 AI 助理。</value></data>
+  <data name="Onboarding_Flow_WelcomeDescription.Text" xml:space="preserve"><value>OpenClaw 將 AI 助理連接到您電腦上的工具。</value></data>
   <data name="Onboarding_AiSetup_Title.Text" xml:space="preserve"><value>連接你的 AI</value></data>
   <data name="Onboarding_AiSetup_CatalogOptIn" xml:space="preserve"><value>探索現有提供者對話（選用）</value></data>
   <data name="Onboarding_AiSetup_Starting" xml:space="preserve"><value>正在啟動提供者設定…</value></data>
@@ -7282,16 +7282,20 @@
   <data name="Onboarding_V2_ReviewRequired.Title" xml:space="preserve"><value>檢閱必要選項</value></data>
   <data name="Onboarding_V2_ReviewRequired.Message" xml:space="preserve"><value>安裝前請檢閱所選 Local AI 和 Tailscale 的先決條件，並確認任何 WSL 取代。</value></data>
   <data name="Onboarding_V2_Install.Content" xml:space="preserve"><value>安裝</value></data>
-  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>歡迎使用 OpenClaw</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Header" xml:space="preserve"><value>與您的 AI 聊天</value></data>
-  <data name="Onboarding_V2_WelcomeChat.Description" xml:space="preserve"><value>在原生 Chat 中使用您選擇的 AI 提供者。</value></data>
-  <data name="Onboarding_V2_WelcomePc.Header" xml:space="preserve"><value>讓代理在此電腦上提供協助</value></data>
-  <data name="Onboarding_V2_WelcomePc.Description" xml:space="preserve"><value>選擇要啟用的電腦能力。Windows 權限和執行核准仍然分別管理。</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Header" xml:space="preserve"><value>讓 Gateway 始終由您掌控</value></data>
-  <data name="Onboarding_V2_WelcomeGateway.Description" xml:space="preserve"><value>在此執行私人 WSL Gateway，或連線至現有 Gateway。</value></data>
+  <data name="Onboarding_Overview_Choices" xml:space="preserve"><value>您的選擇</value></data>
+  <data name="Onboarding_Overview_Setup" xml:space="preserve"><value>設定</value></data>
+  <data name="Onboarding_Overview_Ai" xml:space="preserve"><value>連接 AI</value></data>
+  <data name="Onboarding_Overview_Ready" xml:space="preserve"><value>就緒</value></data>
+  <data name="Onboarding_V2_WelcomeTitle.Text" xml:space="preserve"><value>一點幫助。&#x0a;更多可能。</value></data>
+  <data name="Onboarding_V2_WelcomeChat.Text" xml:space="preserve"><value>開始對話</value></data>
+  <data name="Onboarding_V2_WelcomeChatDescription.Text" xml:space="preserve"><value>先聊天。訊息應用程式和技能可以稍後設定。</value></data>
+  <data name="Onboarding_V2_WelcomePc.Text" xml:space="preserve"><value>選擇您的電腦工具</value></data>
+  <data name="Onboarding_V2_WelcomePcDescription.Text" xml:space="preserve"><value>從適合您的存取權限開始。</value></data>
+  <data name="Onboarding_V2_WelcomeGateway.Text" xml:space="preserve"><value>連接您的 AI</value></data>
+  <data name="Onboarding_V2_WelcomeGatewayDescription.Text" xml:space="preserve"><value>使用您選擇的提供者或可用模型。</value></data>
   <data name="Onboarding_V2_WelcomeTrust.Title" xml:space="preserve"><value>開始之前</value></data>
-  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI 代理程式功能強大，授予其電腦存取權也有風險。它們可能犯錯、變更或刪除檔案，或洩漏私人資訊。&#x0a;&#x0a;您可以控制並限制 OpenClaw 對電腦的存取。</value></data>
-  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>繼續</value></data>
+  <data name="Onboarding_V2_WelcomeTrust.Message" xml:space="preserve"><value>AI 可能犯錯、變更或刪除檔案，或洩漏私人資訊。請使用您信任的電腦，並僅連接可信的提供者和工具。您可以控制並限制 OpenClaw 的存取權限。</value></data>
+  <data name="Onboarding_V2_Continue.Content" xml:space="preserve"><value>開始使用</value></data>
   <data name="Onboarding_V2_Retry.Content" xml:space="preserve"><value>重試</value></data>
   <data name="Onboarding_V2_AlternativeRoutes.Content" xml:space="preserve"><value>遠端、本機 MCP 或稍後設定</value></data>
   <data name="Onboarding_V2_LocalAiCard.Header" xml:space="preserve"><value>Local AI</value></data>

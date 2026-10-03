@@ -10,6 +10,7 @@ using OpenClawTray.Helpers;
 using OpenClawTray.Presentation;
 using OpenClawTray.Windows;
 using SetupCompletedEventArgs = OpenClaw.SetupEngine.UI.SetupCompletedEventArgs;
+using SetupPreview = OpenClaw.SetupEngine.UI.SetupPreview;
 using SetupWindow = OpenClaw.SetupEngine.UI.SetupWindow;
 
 namespace OpenClawTray.Services;
@@ -467,7 +468,7 @@ internal sealed class WindowManager : IWindowManager
             }
 
             _workspaceWindow = new WorkspaceWindow(state, notifications,
-                tag => ShowHub(tag), ShowConnectionStatus);
+                tag => ShowHub(tag), ShowConnectionStatus, ShowOobeReview);
             _callbacks.ApplyTheme(_workspaceWindow);
             _workspaceWindow.Closed += OnWorkspaceClosed;
             _workspaceWindow.Activated += OnMainWindowActivated;
@@ -498,6 +499,37 @@ internal sealed class WindowManager : IWindowManager
         }
         else
             _workspaceWindow.AppWindow.Show(activateWindow: false);
+    }
+
+    private void ShowOobeReview()
+    {
+#if DEBUG
+        if (SetupWindow.Active is { IsClosed: false } activeSetup)
+        {
+            activeSetup.Activate();
+            return;
+        }
+
+        var previewRoot = Path.Combine(Path.GetTempPath(), "OpenClawTray", $"oobe-review-{Environment.ProcessId}");
+        var previewPage = SetupPreview.UsePage("security");
+        try
+        {
+            var preview = new SetupWindow(
+                dataDir: Path.Combine(previewRoot, "data"),
+                localDataDir: Path.Combine(previewRoot, "local"),
+                commandLineArgs: [],
+                startupRegistrationAllowed: false);
+            // Loaded handlers and later pages need preview guards until the window closes.
+            preview.Closed += (_, _) => previewPage.Dispose();
+            _callbacks.ApplyTheme(preview);
+            preview.Activate();
+        }
+        catch
+        {
+            previewPage.Dispose();
+            throw;
+        }
+#endif
     }
 
     private void OnWorkspaceClosed(object sender, WindowEventArgs args)

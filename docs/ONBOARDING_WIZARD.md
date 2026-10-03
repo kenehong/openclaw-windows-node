@@ -3,6 +3,29 @@
 The onboarding wizard can install an app-owned WSL gateway, acquire a native
 Gateway MSIX through Microsoft Store and configure it, or connect to an existing gateway.
 
+The first screen introduces PC tools, AI and Chat with three unboxed benefits,
+a native vector mascot and a two-line heading. Its top progress overview groups
+the actual route stages into Your choices, Set up, Connect AI and Ready.
+Routes without installation or AI omit those phases; other pages keep their
+existing detailed progress indicators. The risk notice still names file changes,
+deletion and private information exposure, with a separate safety link.
+The notice uses the standard control corner radius and matching 24-DIP spacing
+above it and before the safety link. The hero shares 20 DIPs of its transparent
+motion gutter with the heading, preserving the artwork's size.
+**Get started** opens the Gateway chooser without granting access or installing
+anything. All welcome content scrolls at smaller sizes while the primary action
+remains outside the scroll area. Copy and overview labels are localized in all
+six supported locales.
+The native vertical scrollbar appears only when content overflows; 16-DIP
+horizontal content padding separates the text and notice from its indicator
+without replacing the platform scrollbar template or hover behavior.
+
+Debug builds expose **Setup and onboarding** in the Workspace owner menu. It
+opens the first screen with temporary setup data, keeps preview guards active
+until that window closes, and reuses an already-open setup window rather than
+creating competing navigation owners. Startup registration remains disabled
+for the review window.
+
 Native Local AI setup displays the current phase and completed steps while checking
 GPU readiness, verifying cached runtime/model files, starting the model, publishing
 the provider, reconnecting and testing real Gateway inference. File verification

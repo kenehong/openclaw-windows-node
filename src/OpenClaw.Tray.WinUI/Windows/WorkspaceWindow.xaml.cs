@@ -20,6 +20,7 @@ public sealed partial class WorkspaceWindow : WindowEx
     private readonly AppState _state;
     private readonly Action<string> _openCompanion;
     private readonly Action _openTimeline;
+    private readonly Action _openOobeReview;
     private readonly AppNotificationService _notifications;
     private readonly WorkspaceIdentitySource _identity;
     private readonly WorkspaceNavigationHistory _navigation = new();
@@ -48,13 +49,14 @@ public sealed partial class WorkspaceWindow : WindowEx
 
     internal WorkspaceWindow(
         AppState state, AppNotificationService notifications, Action<string> openCompanion,
-        Action openTimeline)
+        Action openTimeline, Action openOobeReview)
     {
         InitializeComponent();
         _state = state;
         _notifications = notifications;
         _openCompanion = openCompanion;
         _openTimeline = openTimeline;
+        _openOobeReview = openOobeReview;
         _identity = new WorkspaceIdentitySource(UpdateOwnerIdentity,
             category => Logger.Warn($"[Workspace] users.self unavailable ({category}); using owner fallback."));
         _gatewayStatusFlyout.Content = _gatewayStatusContent;
@@ -588,6 +590,9 @@ public sealed partial class WorkspaceWindow : WindowEx
         menu.Items.Add(_connectionStatusItem);
         Add("GetApps", () => _ = OpenLinkAsync("https://docs.openclaw.ai/platforms"), FluentIconCatalog.OpenInBrowser);
         Add("ConnectionTimeline", OpenTimeline, FluentIconCatalog.AgentEvents);
+#if DEBUG
+        Add("Setup", _openOobeReview, FluentIconCatalog.OpenInBrowser);
+#endif
         menu.Items.Add(new MenuFlyoutSeparator());
         var help = new MenuFlyoutSubItem { Text = Text("Help") };
         foreach (var (label, url) in new[]
